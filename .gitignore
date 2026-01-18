@@ -1,0 +1,29 @@
+# Ignore docs folder
+docs/
+
+# Ignore .kiro folder
+.kiro/
+
+# Environment files
+.env
+.env.local
+
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

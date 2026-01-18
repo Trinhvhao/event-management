@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum UserRole {
+  student
+  organizer
+  admin
+}
+
+enum EventStatus {
+  upcoming
+  ongoing
+  completed
+  cancelled
+}
+
+enum RegistrationStatus {
+  registered
+  cancelled
+}
+
+enum NotificationType {
+  registration_confirm
+  event_reminder
+  event_update
+  event_cancelled
+  feedback_request
+}
+
+// Models
+model User {
+  id                   Int      @id @default(autoincrement())
+  email                String   @unique
+  password_hash        String
+  full_name            String
+  student_id           String?  @unique
+  role                 UserRole
+  department_id        Int?
+  is_active            Boolean  @default(true)
+  email_verified       Boolean  @default(false)
+  notification_enabled Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  // Relations
+  department            Department?      @relation(fields: [department_id], references: [id])
+  organized_events      Event[]          @relation("EventOrganizer")
+  registrations         Registration[]
+  training_points       TrainingPoint[]
+  feedback              Feedback[]
+  notifications         Notification[]
+  checked_in_attendances Attendance[]    @relation("CheckedBy")
+
+  @@index([email])
+  @@index([student_id])
+  @@index([role])
+  @@map("users")
+}
+
+model Department {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  created_at  DateTime @default(now())
+
+  // Relations
+  users  User[]
+  events Event[]
+
+  @@map("departments")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  created_at  DateTime @default(now())
+
+  // Relations
+  events Event[]
+
+  @@map("categories")
+}
+
+model Event {
+  id              Int         @id @default(autoincrement())
+  title           String
+  description     String?
+  start_time      DateTime
+  end_time        DateTime
+  location        String
+  category_id     Int
+  department_id   Int
+  organizer_id    Int
+  capacity        Int
+  training_points Int         @default(0)
+  status          EventStatus @default(upcoming)
+  image_url       String?
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  // Relations
+  category              Category         @relation(fields: [category_id], references: [id])
+  department            Department       @relation(fields: [department_id], references: [id])
+  organizer             User             @relation("EventOrganizer", fields: [organizer_id], references: [id])
+  registrations         Registration[]
+  awarded_training_points TrainingPoint[]
+  feedback              Feedback[]
+  notifications         Notification[]
+
+  @@index([start_time])
+  @@index([status])
+  @@index([category_id])
+  @@index([department_id])
+  @@index([organizer_id])
+  @@map("events")
+}
+
+model Registration {
+  id            Int                @id @default(autoincrement())
+  user_id       Int
+  event_id      Int
+  registered_at DateTime           @default(now())
+  status        RegistrationStatus @default(registered)
+  qr_code       String             @unique
+
+  // Relations
+  user       User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event      Event       @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  attendance Attendance?
+
+  @@unique([user_id, event_id])
+  @@index([user_id])
+  @@index([event_id])
+  @@index([qr_code])
+  @@map("registrations")
+}
+
+model Attendance {
+  id              Int      @id @default(autoincrement())
+  registration_id Int      @unique
+  checked_in_at   DateTime @default(now())
+  checked_by      Int
+
+  // Relations
+  registration Registration @relation(fields: [registration_id], references: [id], onDelete: Cascade)
+  checker      User         @relation("CheckedBy", fields: [checked_by], references: [id])
+
+  @@map("attendance")
+}
+
+model TrainingPoint {
+  id        Int      @id @default(autoincrement())
+  user_id   Int
+  event_id  Int
+  points    Int
+  semester  String
+  earned_at DateTime @default(now())
+
+  // Relations
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, event_id])
+  @@index([user_id])
+  @@index([semester])
+  @@map("training_points")
+}
+
+model Feedback {
+  id           Int      @id @default(autoincrement())
+  event_id     Int
+  user_id      Int
+  rating       Int
+  comment      String?
+  suggestions  String?
+  is_anonymous Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  // Relations
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, event_id])
+  @@map("feedback")
+}
+
+model Notification {
+  id       Int              @id @default(autoincrement())
+  user_id  Int
+  event_id Int?
+  type     NotificationType
+  title    String
+  message  String
+  is_read  Boolean          @default(false)
+  sent_at  DateTime         @default(now())
+
+  // Relations
+  user  User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event Event? @relation(fields: [event_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([is_read])
+  @@map("notifications")
+}
