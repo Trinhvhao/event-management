@@ -1,4 +1,4 @@
-# DATN-Event-Management
+# event-management
 
 Hệ thống quản lý sự kiện đại học với tính năng check-in QR code, quản lý điểm rèn luyện và cấp chứng nhận tự động.
 
