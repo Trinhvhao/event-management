@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+:root {
+  /* Brand Colors */
+  --primary-color: #050608;
+  --secondary-color: #f66600;
+  --background-blue: #00358F;
+  --light-blue-color: #AECCFF;
+  --background-off-white: #F4F6FC;
+  --red-color: #FF4000;
+  
+  /* Spacing */
+  --padding-sm-container: 20px;
+}
+
+@theme inline {
+  /* Colors */
+  --color-primary: var(--primary-color);
+  --color-secondary: var(--secondary-color);
+  --color-bg-blue: var(--background-blue);
+  --color-light-blue: var(--light-blue-color);
+  --color-off-white: var(--background-off-white);
+  --color-red-accent: var(--red-color);
+  --color-brandBlue: var(--background-blue);
+  --color-brandLightBlue: var(--light-blue-color);
+  --color-offWhite: var(--background-off-white);
+  --color-brandRed: var(--red-color);
+  
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  /* Animations */
+  --animate-fade-in: fade-in 0.6s ease-in-out;
+  --animate-slide-up: slide-up 0.6s ease-out;
+  --animate-slide-down: slide-down 0.6s ease-out;
+  --animate-slide-left: slide-left 0.6s ease-out;
+  --animate-slide-right: slide-right 0.6s ease-out;
+  --animate-scale-in: scale-in 0.5s ease-out;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-gradient: gradient 8s ease infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-left {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-right {
+  from { transform: translateX(-30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Glass effects */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.glass-dark {
+  background: rgba(5, 6, 8, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(174, 204, 255, 0.1);
+}
+
+/* Custom utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.rotate-y-6 {
+  transform: rotateY(6deg);
+}
+
+.bg-300\% {
+  background-size: 300%;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(174, 204, 255, 0.5) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(174, 204, 255, 0.5);
+  border-radius: 3px;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  background: var(--background-off-white);
+  color: var(--primary-color);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-off-white);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--light-blue-color);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--background-blue);
+}
+
+/* Hide scrollbar for horizontal scroll sections */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
