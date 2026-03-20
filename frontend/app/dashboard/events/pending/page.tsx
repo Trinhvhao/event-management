@@ -38,8 +38,7 @@ export default function PendingEventsPage() {
           limit: 50,
         });
 
-        const items = response?.data?.items || response?.items || response?.data || [];
-        setEvents(Array.isArray(items) ? items : []);
+        setEvents(response.data.items || []);
       } catch {
         toast.error('Không thể tải danh sách sự kiện để rà soát');
       } finally {

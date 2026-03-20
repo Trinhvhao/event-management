@@ -132,19 +132,32 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 className={`fixed top-0 left-0 z-50 h-screen bg-white border-r border-gray-200 shadow-sm transform transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                     } lg:translate-x-0 ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
             >
+                <button
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    className="hidden lg:flex absolute -right-3 top-24 z-20 h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:text-primary transition-colors"
+                    title={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
+                    aria-label={sidebarCollapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
+                >
+                    {sidebarCollapsed ? (
+                        <ChevronRight className="w-4 h-4" />
+                    ) : (
+                        <ChevronLeft className="w-4 h-4" />
+                    )}
+                </button>
+
                 <div className="flex flex-col h-full">
                     {/* Logo */}
                     <div className="flex items-center justify-between p-6 border-b border-gray-200">
                         {!sidebarCollapsed && (
                             <Link href="/dashboard" className="flex items-center space-x-2 group">
-                                <div className="w-8 h-8 bg-gradient-to-br from-brandBlue to-indigo-500 rounded-lg flex items-center justify-center shadow-sm shadow-brandBlue/20 transition-transform group-hover:scale-105">
+                                <div className="w-8 h-8 bg-linear-to-br from-brandBlue to-indigo-500 rounded-lg flex items-center justify-center shadow-sm shadow-brandBlue/20 transition-transform group-hover:scale-105">
                                     <span className="text-white font-bold text-sm tracking-wide">DN</span>
                                 </div>
                                 <span className="text-lg font-bold text-primary tracking-tight">DaiNam Events</span>
                             </Link>
                         )}
                         {sidebarCollapsed && (
-                            <div className="w-8 h-8 bg-gradient-to-br from-brandBlue to-indigo-500 rounded-lg flex items-center justify-center mx-auto">
+                            <div className="w-8 h-8 bg-linear-to-br from-brandBlue to-indigo-500 rounded-lg flex items-center justify-center mx-auto">
                                 <span className="text-white font-bold text-sm">DN</span>
                             </div>
                         )}
@@ -153,21 +166,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             className="lg:hidden text-gray-500 hover:text-primary"
                         >
                             <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Collapse button - Desktop only */}
-                    <div className="hidden lg:flex justify-end p-2 border-b border-gray-100">
-                        <button
-                            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                            title={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
-                        >
-                            {sidebarCollapsed ? (
-                                <ChevronRight className="w-4 h-4 text-gray-600" />
-                            ) : (
-                                <ChevronLeft className="w-4 h-4 text-gray-600" />
-                            )}
                         </button>
                     </div>
 
@@ -200,7 +198,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                                     {isActive && (
                                                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-brandBlue rounded-r-md" />
                                                     )}
-                                                    <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-brandBlue' : 'text-slate-400 group-hover:text-slate-600'
+                                                    <Icon className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-brandBlue' : 'text-slate-400 group-hover:text-slate-600'
                                                         }`} />
                                                     {!sidebarCollapsed && <span className="text-sm">{subItem.label}</span>}
                                                 </Link>
@@ -226,7 +224,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                         {isActive && (
                                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-brandBlue rounded-r-md" />
                                         )}
-                                        <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-brandBlue' : 'text-slate-400 group-hover:text-slate-600'
+                                        <Icon className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-brandBlue' : 'text-slate-400 group-hover:text-slate-600'
                                             }`} />
                                         {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
                                     </Link>
@@ -242,7 +240,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                 onClick={handleLogout}
                                 className="flex items-center space-x-3 px-3 py-2.5 w-full rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                             >
-                                <LogOut className="w-5 h-5 flex-shrink-0" />
+                                <LogOut className="w-5 h-5 shrink-0" />
                                 <span className="font-medium text-sm">Đăng xuất</span>
                             </button>
                         </div>

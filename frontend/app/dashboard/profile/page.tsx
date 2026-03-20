@@ -6,6 +6,8 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/store/authStore';
+import { profileService } from '@/services/profileService';
 
 interface UserProfile {
     id: number;
@@ -23,6 +25,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
     const router = useRouter();
+    const { user: authUser, token } = useAuthStore();
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [user, setUser] = useState<UserProfile | null>(null);
@@ -41,31 +44,38 @@ export default function ProfilePage() {
     });
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
         if (!token) {
             router.push('/login');
             return;
         }
         fetchProfile();
-    }, [router]);
+    }, [router, token]);
 
     const fetchProfile = async () => {
         try {
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const userData = JSON.parse(userStr);
-                setUser(userData);
-                setFormData({
-                    full_name: userData.full_name || '',
-                    email: userData.email || '',
-                    phone: userData.phone || '',
-                    current_password: '',
-                    new_password: '',
-                    confirm_password: '',
-                });
+            let userData: UserProfile | null = (authUser as UserProfile | null) || null;
+
+            // Fallback to API so page works even when local persisted state is stale.
+            if (!userData) {
+                userData = (await profileService.getProfile()) as UserProfile;
             }
+
+            if (!userData) {
+                throw new Error('Không tải được thông tin người dùng');
+            }
+
+            setUser(userData);
+            setFormData({
+                full_name: userData.full_name || '',
+                email: userData.email || '',
+                phone: userData.phone || '',
+                current_password: '',
+                new_password: '',
+                confirm_password: '',
+            });
         } catch (error) {
             console.error('Error fetching profile:', error);
+            toast.error('Không thể tải thông tin cá nhân');
         } finally {
             setLoading(false);
         }
@@ -96,7 +106,30 @@ export default function ProfilePage() {
         );
     }
 
-    if (!user) return null;
+    if (!user) {
+        return (
+            <DashboardLayout>
+                <div className="max-w-2xl mx-auto rounded-2xl border border-gray-200 bg-white p-8 text-center">
+                    <h2 className="text-xl font-bold text-primary mb-2">Không tải được thông tin cá nhân</h2>
+                    <p className="text-gray-600 mb-6">Vui lòng tải lại trang hoặc đăng nhập lại.</p>
+                    <div className="flex items-center justify-center gap-3">
+                        <button
+                            onClick={fetchProfile}
+                            className="px-4 py-2 rounded-lg border border-brandBlue text-brandBlue hover:bg-brandBlue/5 transition-colors"
+                        >
+                            Thử lại
+                        </button>
+                        <button
+                            onClick={() => router.push('/login')}
+                            className="px-4 py-2 rounded-lg bg-brandBlue text-white hover:bg-brandBlue/90 transition-colors"
+                        >
+                            Đăng nhập lại
+                        </button>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -110,7 +143,7 @@ export default function ProfilePage() {
                     {!editing ? (
                         <button
                             onClick={() => setEditing(true)}
-                            className="px-5 py-2.5 bg-gradient-to-r from-brandBlue to-secondary text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center gap-2"
+                            className="px-5 py-2.5 bg-linear-to-r from-brandBlue to-secondary text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center gap-2"
                         >
                             <Edit2 className="w-4 h-4" />
                             Chỉnh sửa
@@ -129,7 +162,7 @@ export default function ProfilePage() {
                             </button>
                             <button
                                 onClick={handleSave}
-                                className="px-5 py-2.5 bg-gradient-to-r from-brandBlue to-secondary text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center gap-2"
+                                className="px-5 py-2.5 bg-linear-to-r from-brandBlue to-secondary text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center gap-2"
                             >
                                 <Save className="w-4 h-4" />
                                 Lưu
@@ -145,9 +178,9 @@ export default function ProfilePage() {
                     className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
                 >
                     {/* Header with gradient */}
-                    <div className="h-32 bg-gradient-to-r from-brandBlue to-secondary relative">
+                    <div className="h-32 bg-linear-to-r from-brandBlue to-secondary relative">
                         <div className="absolute -bottom-16 left-8">
-                            <div className="w-32 h-32 bg-gradient-to-br from-white to-brandLightBlue rounded-2xl border-4 border-white shadow-xl flex items-center justify-center">
+                            <div className="w-32 h-32 bg-linear-to-br from-white to-brandLightBlue rounded-2xl border-4 border-white shadow-xl flex items-center justify-center">
                                 <span className="text-5xl font-bold text-brandBlue">
                                     {user.full_name?.charAt(0).toUpperCase()}
                                 </span>

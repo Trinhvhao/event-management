@@ -165,12 +165,14 @@ export interface ApiResponse<T> {
 
 export interface PaginatedResponse<T> {
   success: boolean;
-  data: T[];
-  pagination: {
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
+  data: {
+    items: T[];
+    pagination: {
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    };
   };
 }
 

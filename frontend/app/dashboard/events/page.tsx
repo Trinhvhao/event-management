@@ -48,9 +48,7 @@ export default function EventsPage() {
             if (selectedDepartment) params.department_id = selectedDepartment;
 
             const eventsRes = await eventService.getAll(params);
-            // Backend returns: { data: { items: Event[], pagination: {...} } }
-            const eventsData = eventsRes?.data?.items || eventsRes?.items || eventsRes?.data || [];
-            setEvents(Array.isArray(eventsData) ? eventsData : []);
+            setEvents(eventsRes.data.items || []);
 
             // Fetch categories and departments if not loaded
             if (categories.length === 0) {
@@ -249,7 +247,7 @@ export default function EventsPage() {
                                                 alt={event.title}
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out opacity-80 group-hover:opacity-100"
                                             />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-80"></div>
+                                            <div className="absolute inset-0 bg-linear-to-t from-slate-900/80 via-transparent to-transparent opacity-80"></div>
                                         </>
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center">
@@ -279,13 +277,13 @@ export default function EventsPage() {
 
                                     <div className="space-y-2.5 text-sm text-gray-600 mb-6 flex-1">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0 text-brandBlue">
+                                            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 text-brandBlue">
                                                 <Calendar className="w-4 h-4" />
                                             </div>
                                             <span className="font-medium">{format(new Date(event.start_time), 'dd/MM/yyyy • HH:mm', { locale: vi })}</span>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0 text-orange-500">
+                                            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 text-orange-500">
                                                 <MapPin className="w-4 h-4" />
                                             </div>
                                             <span className="line-clamp-1 font-medium">{event.location}</span>
