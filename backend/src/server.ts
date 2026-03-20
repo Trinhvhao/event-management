@@ -5,6 +5,8 @@ dotenv.config();
 
 import app from './app';
 import prisma from './config/database';
+import cron from 'node-cron';
+import { eventService } from './services/events.service';
 
 const PORT = process.env.PORT || 3001;
 
@@ -23,6 +25,27 @@ async function testDatabaseConnection() {
 async function startServer() {
   try {
     await testDatabaseConnection();
+
+    // Cron job: cập nhật trạng thái sự kiện + gửi feedback request mỗi 5 phút
+    cron.schedule('*/5 * * * *', async () => {
+      try {
+        await eventService.updateStatuses();
+        console.log('✅ Event statuses updated');
+      } catch (error) {
+        console.error('❌ Failed to update event statuses:', error);
+      }
+    });
+
+    // Cron job: gửi nhắc nhở sự kiện 24h trước — chạy mỗi giờ
+    cron.schedule('0 * * * *', async () => {
+      try {
+        await eventService.sendReminders();
+        console.log('✅ Event reminders sent');
+      } catch (error) {
+        console.error('❌ Failed to send reminders:', error);
+      }
+    });
+    console.log('⏰ Cron jobs registered: status update (5min) + reminders (1h)');
 
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);

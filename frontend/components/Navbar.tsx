@@ -58,12 +58,12 @@ const Navbar: React.FC = () => {
           `}
         >
           {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer group">
-            <div className="w-10 h-10 bg-gradient-to-br from-secondary to-brandRed rounded-xl flex items-center justify-center shadow-lg shadow-secondary/20 group-hover:scale-105 transition-transform">
+          <div className="flex items-center gap-3 cursor-pointer group">
+            <div className="w-10 h-10 bg-brandBlue rounded-lg flex items-center justify-center shadow-lg shadow-brandBlue/20 group-hover:scale-105 transition-transform duration-300">
               <CalendarCheck className="text-white w-6 h-6" />
             </div>
-            <span className={`text-xl font-bold tracking-tight ${isScrolled ? 'text-primary' : 'text-white'} transition-colors`}>
-              Uni<span className="text-secondary">Event</span>
+            <span className={`text-2xl font-extrabold tracking-tight transition-colors ${isScrolled ? 'text-primary' : 'text-white'}`}>
+              DaiNam <span className="text-brandLightBlue">Events</span>
             </span>
           </div>
 
@@ -86,8 +86,8 @@ const Navbar: React.FC = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Button variant={isScrolled ? "primary" : "white"} size="sm">
-              Truy cập ngay
+            <Button variant={isScrolled ? "primary" : "white"} size="sm" className={isScrolled ? "bg-brandBlue hover:opacity-90 shadow-md rounded-lg text-white" : "text-brandBlue font-bold shadow-md rounded-lg"}>
+              Truy cập hệ thống
             </Button>
           </div>
 
@@ -124,7 +124,7 @@ const Navbar: React.FC = () => {
                 </a>
               ))}
               <div className="mt-4">
-                <Button variant="primary" fullWidth>Truy cập ngay</Button>
+                <Button variant="primary" fullWidth className="bg-brandBlue rounded-lg font-bold">Đăng nhập / Đăng ký</Button>
               </div>
             </div>
           </motion.div>

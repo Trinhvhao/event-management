@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/auth.service';
 import { successResponse } from '../utils/response.util';
+import prisma from '../config/database';
+import bcrypt from 'bcrypt';
 
 export const authController = {
   /**
@@ -88,6 +90,86 @@ export const authController = {
       const { refreshToken } = req.body;
       const result = await authService.refreshToken(refreshToken);
       res.json(successResponse(result, 'Token refreshed successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+  /**
+   * Lấy thông tin profile của user hiện tại
+   */
+  async getProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user!.id },
+        select: {
+          id: true, email: true, full_name: true, student_id: true,
+          role: true, is_active: true, email_verified: true,
+          department_id: true, created_at: true,
+          department: { select: { id: true, name: true } },
+        },
+      });
+      res.json(successResponse(user));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Cập nhật thông tin profile
+   * User chỉ được đổi: full_name, department_id
+   */
+  async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { full_name, department_id } = req.body;
+      const updated = await prisma.user.update({
+        where: { id: req.user!.id },
+        data: { full_name, department_id: department_id ? Number(department_id) : undefined },
+        select: {
+          id: true, email: true, full_name: true, student_id: true,
+          role: true, is_active: true, department_id: true,
+          department: { select: { id: true, name: true } },
+        },
+      });
+      res.json(successResponse(updated, 'Profile updated'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Đổi mật khẩu (user đã đăng nhập)
+   * Verify mật khẩu cũ trước khi đổi
+   */
+  async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { old_password, new_password } = req.body;
+      if (!old_password || !new_password) {
+        res.status(400).json({ success: false, error: { message: 'Thiếu mật khẩu cũ hoặc mới' } });
+        return;
+      }
+      if (new_password.length < 6) {
+        res.status(400).json({ success: false, error: { message: 'Mật khẩu mới phải từ 6 ký tự' } });
+        return;
+      }
+      // Lấy user từ DB (để lấy password_hash)
+      const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+      if (!user) {
+        res.status(404).json({ success: false, error: { message: 'User not found' } });
+        return;
+      }
+
+      // Verify mật khẩu cũ
+      const isValid = await bcrypt.compare(old_password, user.password_hash);
+      if (!isValid) {
+        res.status(400).json({ success: false, error: { message: 'Mật khẩu cũ không đúng' } });
+        return;
+      }
+
+      // Hash và lưu mật khẩu mới
+      const password_hash = await bcrypt.hash(new_password, 10);
+      await prisma.user.update({ where: { id: req.user!.id }, data: { password_hash } });
+
+      res.json(successResponse(null, 'Đổi mật khẩu thành công'));
     } catch (error) {
       next(error);
     }

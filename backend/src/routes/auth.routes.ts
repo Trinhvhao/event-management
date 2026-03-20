@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller';
-import { 
-  validateRegister, 
+import { authenticate } from '../middleware/auth';
+import {
+  validateRegister,
   validateLogin,
   validateForgotPassword,
-  validateResetPassword 
+  validateResetPassword
 } from '../validators/auth.validator';
 
 const router = Router();
@@ -57,5 +58,26 @@ router.get('/verify-email', authController.verifyEmail);
  * @access  Public
  */
 router.post('/refresh-token', authController.refreshToken);
+
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current user profile
+ * @access  Private
+ */
+router.get('/me', authenticate, authController.getProfile);
+
+/**
+ * @route   PUT /api/auth/me
+ * @desc    Update current user profile
+ * @access  Private
+ */
+router.put('/me', authenticate, authController.updateProfile);
+
+/**
+ * @route   PUT /api/auth/change-password
+ * @desc    Change password (user đã đăng nhập)
+ * @access  Private
+ */
+router.put('/change-password', authenticate, authController.changePassword);
 
 export default router;

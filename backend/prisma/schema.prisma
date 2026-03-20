@@ -17,6 +17,8 @@ enum UserRole {
 }
 
 enum EventStatus {
+  pending
+  approved
   upcoming
   ongoing
   completed
@@ -34,6 +36,8 @@ enum NotificationType {
   event_update
   event_cancelled
   feedback_request
+  checkin_success
+  points_awarded
 }
 
 // Models
@@ -103,11 +107,14 @@ model Event {
   department_id   Int
   organizer_id    Int
   capacity        Int
-  training_points Int         @default(0)
-  status          EventStatus @default(upcoming)
-  image_url       String?
-  created_at      DateTime    @default(now())
-  updated_at      DateTime    @updatedAt
+  training_points       Int         @default(0)
+  status                EventStatus @default(upcoming)
+  image_url             String?
+  is_featured           Boolean     @default(false)
+  registration_deadline DateTime?
+  deleted_at            DateTime?
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @updatedAt
 
   // Relations
   category              Category         @relation(fields: [category_id], references: [id])

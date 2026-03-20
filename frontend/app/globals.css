@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  /* Brand Colors */
-  --primary-color: #050608;
-  --secondary-color: #f66600;
-  --background-blue: #00358F;
-  --light-blue-color: #AECCFF;
-  --background-off-white: #F4F6FC;
-  --red-color: #FF4000;
+  /* Brand Colors - DaiNam Events */
+  --primary-color: #050608;        /* Dark text, headers */
+  --secondary-color: #f66600;      /* Orange accent, CTAs */
+  --background-blue: #00358F;      /* Main brand blue */
+  --light-blue-color: #AECCFF;     /* Light blue accents */
+  --background-off-white: #F4F6FC; /* Background */
+  --red-color: #FF4000;            /* Alerts, warnings */
   
   /* Spacing */
   --padding-sm-container: 20px;
@@ -83,17 +83,19 @@
 
 /* Glass effects */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 .glass-dark {
-  background: rgba(5, 6, 8, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(174, 204, 255, 0.1);
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 }
 
 /* Custom utilities */
@@ -186,4 +188,224 @@ html {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ===== DASHBOARD DESIGN SYSTEM ===== */
+
+/* Dashboard CSS Variables — mapped to brand palette */
+:root {
+  --dash-text-primary: var(--primary-color);
+  --dash-text-muted: #64748b;
+  --dash-accent: var(--background-blue);
+  --dash-bg: var(--background-off-white);
+  --dash-border: #e2e8f0;
+  --dash-border-light: #f1f5f9;
+  --dash-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --dash-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --dash-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --dash-radius: 16px;
+}
+
+/* --- Cards --- */
+.card-glass,
+.card-solid {
+  background: white;
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius);
+  box-shadow: var(--dash-shadow-sm);
+  transition: box-shadow 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
+}
+
+.card-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.card-glass:hover,
+.card-solid:hover {
+  box-shadow: var(--dash-shadow-md);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--background-blue) 25%, transparent);
+}
+
+/* --- Buttons --- */
+.btn-dash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.btn-dash:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: var(--background-blue);
+  color: white;
+  border-color: var(--background-blue);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--background-blue) 30%, transparent);
+}
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--background-blue) 40%, transparent);
+}
+
+.btn-secondary {
+  background: var(--secondary-color);
+  color: white;
+  border-color: var(--secondary-color);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--secondary-color) 25%, transparent);
+}
+.btn-secondary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--background-blue);
+  border-color: var(--background-blue);
+}
+.btn-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--background-blue) 8%, transparent);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--dash-text-muted);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--dash-border-light);
+  color: var(--dash-text-primary);
+}
+
+.btn-danger {
+  background: var(--red-color);
+  color: white;
+  border-color: var(--red-color);
+}
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  gap: 6px;
+}
+.btn-lg {
+  font-size: 16px;
+  padding: 14px 28px;
+  border-radius: 14px;
+  gap: 10px;
+}
+
+/* --- Page Layout --- */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 24px 28px;
+  background: white;
+  border: 1px solid var(--dash-border);
+  border-radius: var(--dash-radius);
+  box-shadow: var(--dash-shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.page-header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--background-blue), var(--light-blue-color), var(--secondary-color));
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--dash-text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+.page-subtitle {
+  font-size: 0.9rem;
+  color: var(--dash-text-muted);
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+/* --- Tables --- */
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.dash-table thead {
+  background: var(--background-off-white);
+  border-bottom: 2px solid var(--dash-border);
+}
+.dash-table th {
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dash-text-muted);
+  white-space: nowrap;
+}
+.dash-table td {
+  padding: 14px 16px;
+  color: var(--dash-text-primary);
+  border-bottom: 1px solid var(--dash-border-light);
+  vertical-align: middle;
+}
+.dash-table tbody tr {
+  transition: background 0.15s ease;
+}
+.dash-table tbody tr:hover {
+  background: color-mix(in srgb, var(--light-blue-color) 8%, transparent);
+}
+
+/* --- Stat Cards --- */
+.stat-card {
+  padding: 20px 24px;
+  position: relative;
+}
+.stat-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dash-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stat-card-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--dash-text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }

@@ -35,7 +35,7 @@ export interface AuthResponse {
 }
 
 // Event types
-export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+export type EventStatus = 'pending' | 'approved' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 
 export interface Event {
   id: number;
@@ -57,6 +57,7 @@ export interface Event {
   image_url?: string;
   is_featured: boolean;
   registration_deadline?: string;
+  _count?: { registrations: number };
   created_at: string;
   updated_at: string;
 }

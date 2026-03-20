@@ -1,8 +1,17 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
+
+// Import seed modules
+import { seedDepartments } from './seeds/01-departments';
+import { seedCategories } from './seeds/02-categories';
+import { seedUsers } from './seeds/03-users';
+import { seedEvents } from './seeds/04-events';
+import { seedRegistrationsAndAttendances } from './seeds/05-registrations-attendances';
+import { seedTrainingPoints } from './seeds/06-training-points';
+import { seedFeedback } from './seeds/07-feedback';
+import { seedNotifications } from './seeds/08-notifications';
 
 // Load environment variables
 dotenv.config();
@@ -10,161 +19,89 @@ dotenv.config();
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error('DATABASE_URL environment variable is not set');
+    throw new Error('DATABASE_URL environment variable is not set');
 }
 
-const pool = new Pool({ 
-  connectionString,
-  ssl: false
+const pool = new Pool({
+    connectionString,
+    ssl: false,
 });
 
 const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({
-  adapter,
+    adapter,
 });
 
 async function main() {
-  console.log('🌱 Starting database seeding...');
+    console.log('🌱 Starting comprehensive database seeding...\n');
 
-  // Create Departments
-  console.log('Creating departments...');
-  const departments = await Promise.all([
-    prisma.department.upsert({
-      where: { code: 'CNTT' },
-      update: {},
-      create: {
-        name: 'Khoa Công Nghệ Thông Tin',
-        code: 'CNTT',
-        description: 'Khoa Công Nghệ Thông Tin',
-      },
-    }),
-    prisma.department.upsert({
-      where: { code: 'KTDN' },
-      update: {},
-      create: {
-        name: 'Khoa Kinh Tế Doanh Nghiệp',
-        code: 'KTDN',
-        description: 'Khoa Kinh Tế Doanh Nghiệp',
-      },
-    }),
-    prisma.department.upsert({
-      where: { code: 'NN' },
-      update: {},
-      create: {
-        name: 'Khoa Ngoại Ngữ',
-        code: 'NN',
-        description: 'Khoa Ngoại Ngữ',
-      },
-    }),
-  ]);
-  console.log(`✅ Created ${departments.length} departments`);
+    // 1. Seed Departments
+    const departments = await seedDepartments(prisma);
 
-  // Create Categories
-  console.log('Creating categories...');
-  const categories = await Promise.all([
-    prisma.category.upsert({
-      where: { name: 'Học thuật' },
-      update: {},
-      create: {
-        name: 'Học thuật',
-        description: 'Hội thảo, seminar học thuật',
-      },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Ngoại khóa' },
-      update: {},
-      create: {
-        name: 'Ngoại khóa',
-        description: 'Hoạt động ngoại khóa, câu lạc bộ',
-      },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Tuyển dụng' },
-      update: {},
-      create: {
-        name: 'Tuyển dụng',
-        description: 'Ngày hội việc làm, tuyển dụng doanh nghiệp',
-      },
-    }),
-    prisma.category.upsert({
-      where: { name: 'Văn hóa' },
-      update: {},
-      create: {
-        name: 'Văn hóa',
-        description: 'Sự kiện văn hóa, nghệ thuật',
-      },
-    }),
-  ]);
-  console.log(`✅ Created ${categories.length} categories`);
+    // 2. Seed Categories
+    const categories = await seedCategories(prisma);
 
-  // Create Admin User
-  console.log('Creating admin user...');
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-  await prisma.user.upsert({
-    where: { email: 'admin@university.edu.vn' },
-    update: {},
-    create: {
-      email: 'admin@university.edu.vn',
-      password_hash: hashedPassword,
-      full_name: 'Administrator',
-      role: 'admin',
-      is_active: true,
-      email_verified: true,
-    },
-  });
-  console.log('✅ Created admin user');
+    // 3. Seed Users
+    const { organizers, students } = await seedUsers(prisma, departments);
 
-  // Create Organizer User
-  console.log('Creating organizer user...');
-  const organizerPassword = await bcrypt.hash('organizer123', 10);
-  await prisma.user.upsert({
-    where: { email: 'organizer@university.edu.vn' },
-    update: {},
-    create: {
-      email: 'organizer@university.edu.vn',
-      password_hash: organizerPassword,
-      full_name: 'Event Organizer',
-      role: 'organizer',
-      department_id: departments[0].id,
-      is_active: true,
-      email_verified: true,
-    },
-  });
-  console.log('✅ Created organizer user');
+    // 4. Seed Events
+    const events = await seedEvents(prisma, categories, departments, organizers);
 
-  // Create Student User
-  console.log('Creating student user...');
-  const studentPassword = await bcrypt.hash('student123', 10);
-  await prisma.user.upsert({
-    where: { email: 'student@university.edu.vn' },
-    update: {},
-    create: {
-      email: 'student@university.edu.vn',
-      password_hash: studentPassword,
-      full_name: 'Nguyễn Văn A',
-      student_id: '1671020001',
-      role: 'student',
-      department_id: departments[0].id,
-      is_active: true,
-      email_verified: true,
-    },
-  });
-  console.log('✅ Created student user');
+    // 5. Seed Registrations and Attendances
+    const { registrations, attendances } = await seedRegistrationsAndAttendances(
+        prisma,
+        events,
+        { organizers, students }
+    );
 
-  console.log('\n🎉 Database seeding completed successfully!');
-  console.log('\n📝 Default accounts:');
-  console.log('Admin: admin@university.edu.vn / admin123');
-  console.log('Organizer: organizer@university.edu.vn / organizer123');
-  console.log('Student: student@university.edu.vn / student123');
+    // 6. Seed Training Points
+    const trainingPoints = await seedTrainingPoints(prisma, events, students, attendances);
+
+    // 7. Seed Feedback
+    await seedFeedback(prisma, events, students);
+
+    // 8. Seed Notifications
+    await seedNotifications(prisma, registrations, attendances, trainingPoints, events, students);
+
+    // Summary
+    console.log('\n🎉 Database seeding completed successfully!\n');
+    console.log('📊 Summary:');
+    console.log(`   - Departments: ${departments.length}`);
+    console.log(`   - Categories: ${categories.length}`);
+    console.log(`   - Users: ${1 + organizers.length + students.length} (1 admin, ${organizers.length} organizers, ${students.length} students)`);
+    console.log(`   - Events: 7 (2 completed, 1 ongoing, 4 upcoming)`);
+    console.log(`   - Registrations: ${registrations.length}`);
+    console.log(`   - Attendances: ${attendances.length}`);
+    console.log(`   - Training Points: ${trainingPoints.length}`);
+
+    console.log('\n📝 Default accounts (Đại học Đại Nam):');
+    console.log('   Admin:');
+    console.log('     - Email: admin@dnu.edu.vn');
+    console.log('     - Password: admin123');
+    console.log('\n   Organizers:');
+    console.log('     - Email: organizer.cntt@dnu.edu.vn / organizer123');
+    console.log('     - Email: organizer.ktdn@dnu.edu.vn / organizer123');
+    console.log('     - Email: organizer.nn@dnu.edu.vn / organizer123');
+    console.log('\n   Students:');
+    console.log('     - Email: student1@dnu.edu.vn / student123 (MSSV: 2071020001)');
+    console.log('     - Email: student2@dnu.edu.vn / student123 (MSSV: 2071020002)');
+    console.log('     - Email: student3@dnu.edu.vn / student123 (MSSV: 2071020003)');
+    console.log('     - Email: student4@dnu.edu.vn / student123 (MSSV: 2071020004)');
+    console.log('     - Email: student5@dnu.edu.vn / student123 (MSSV: 2071020005)');
+
+    console.log('\n💡 Tips:');
+    console.log('   - Use Prisma Studio to view data: npm run prisma:studio');
+    console.log('   - Run tests: npm test');
+    console.log('   - Start server: npm run dev');
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Error during seeding:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-    await pool.end();
-  });
+    .catch((e) => {
+        console.error('❌ Error during seeding:', e);
+        process.exit(1);
+    })
+    .finally(async () => {
+        await prisma.$disconnect();
+        await pool.end();
+    });

@@ -8,7 +8,7 @@ if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-const pool = new Pool({ 
+const pool = new Pool({
   connectionString,
   // Explicitly parse the connection string
   ssl: false

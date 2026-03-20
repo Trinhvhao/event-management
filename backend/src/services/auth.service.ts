@@ -62,12 +62,20 @@ export const authService = {
       },
     });
 
-    // TODO: Send verification email
-    // await emailService.sendVerificationEmail(user.email, verificationToken);
+    // Generate verification token
+    const verificationToken = jwt.sign(
+      { id: user.id, email: user.email },
+      jwtConfig.secret,
+      { expiresIn: '24h' } as jwt.SignOptions
+    );
+
+    // TODO: Send verification email via SMTP
+    // For now, log to console for development
+    console.log(`📧 Verification link for ${user.email}: /verify-email?token=${verificationToken}`);
 
     return {
       user,
-      message: 'Please check your email to verify your account',
+      message: 'Registration successful. Please check your email to verify your account.',
     };
   },
 
@@ -139,14 +147,15 @@ export const authService = {
     }
 
     // Generate reset token
-    jwt.sign(
+    const resetToken = jwt.sign(
       { id: user.id, email: user.email },
       jwtConfig.secret,
       { expiresIn: '1h' } as jwt.SignOptions
     );
 
-    // TODO: Send reset email
-    // await emailService.sendPasswordResetEmail(user.email, resetToken);
+    // TODO: Send reset email via SMTP
+    // For now, log to console for development
+    console.log(`🔑 Password reset link for ${user.email}: /reset-password?token=${resetToken}`);
 
     return;
   },
