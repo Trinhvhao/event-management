@@ -28,8 +28,8 @@ export default function UsersChart({ data }: UsersChartProps) {
         color: COLORS[item.role as keyof typeof COLORS] || '#6b7280',
     }));
 
-    const renderLabel = (entry: any) => {
-        return `${entry.name}: ${entry.value}`;
+    const renderLabel = (entry: { name?: string; value?: number }) => {
+        return `${entry.name || ''}: ${entry.value || 0}`;
     };
 
     return (

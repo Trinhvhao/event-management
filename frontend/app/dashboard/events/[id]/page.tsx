@@ -13,14 +13,27 @@ import {
     ArrowLeft,
     CheckCircle,
     XCircle,
-    AlertCircle
+    AlertCircle,
+    Edit2,
+    Ban
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { eventService } from '@/services/eventService';
 import { registrationService } from '@/services/registrationService';
-import { Event } from '@/types';
+import { Event, Registration } from '@/types';
 import { format, isPast, isFuture, differenceInHours } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
+import EventFeedbackSection from '@/components/feedback/EventFeedbackSection';
+import EventRegistrationsTab from '@/components/events/EventRegistrationsTab';
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
 
 export default function EventDetailPage() {
     const router = useRouter();
@@ -60,7 +73,7 @@ export default function EventDetailPage() {
             try {
                 const myEventsRes = await registrationService.getMyRegistrations();
                 const registration = myEventsRes.find(
-                    (reg: any) => reg.event_id === eventId && reg.status === 'registered'
+                    (reg: Registration) => reg.event_id === eventId && reg.status === 'registered'
                 );
                 if (registration) {
                     setIsRegistered(true);
@@ -69,9 +82,9 @@ export default function EventDetailPage() {
             } catch (error) {
                 console.error('Error checking registration:', error);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error fetching event:', error);
-            toast.error('Không thể tải thông tin sự kiện');
+            toast.error(getErrorMessage(error, 'Không thể tải thông tin sự kiện'));
             router.push('/dashboard/events');
         } finally {
             setLoading(false);
@@ -87,8 +100,8 @@ export default function EventDetailPage() {
             toast.success('Đăng ký sự kiện thành công!');
             setIsRegistered(true);
             fetchEventDetail(); // Refresh to update registration count
-        } catch (error: any) {
-            const message = error.response?.data?.error?.message || 'Đăng ký thất bại';
+        } catch (error: unknown) {
+            const message = getErrorMessage(error, 'Đăng ký thất bại');
             toast.error(message);
         } finally {
             setRegistering(false);
@@ -109,13 +122,29 @@ export default function EventDetailPage() {
             setIsRegistered(false);
             setRegistrationId(null);
             fetchEventDetail();
-        } catch (error: any) {
-            const message = error.response?.data?.error?.message || 'Hủy đăng ký thất bại';
+        } catch (error: unknown) {
+            const message = getErrorMessage(error, 'Hủy đăng ký thất bại');
             toast.error(message);
         } finally {
             setRegistering(false);
         }
     };
+
+    const handleCancelEvent = async () => {
+        if (!event) return;
+        if (!confirm('Bạn có chắc chắn muốn hủy sự kiện này? Tất cả đăng ký sẽ bị hủy.')) return;
+
+        try {
+            await eventService.cancelEvent(event.id);
+            toast.success('Đã hủy sự kiện');
+            fetchEventDetail();
+        } catch (error: unknown) {
+            const msg = getErrorMessage(error, 'Hủy sự kiện thất bại');
+            toast.error(msg);
+        }
+    };
+
+    const isOrganizerOrAdmin = user?.role === 'admin' || (user?.role === 'organizer' && user?.id === event?.organizer_id);
 
     const canRegister = () => {
         if (!event) return false;
@@ -134,7 +163,7 @@ export default function EventDetailPage() {
     };
 
     const getStatusBadge = (status: string) => {
-        const badges: Record<string, { bg: string; text: string; label: string; icon: any }> = {
+        const badges: Record<string, { bg: string; text: string; label: string; icon: LucideIcon }> = {
             upcoming: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Sắp diễn ra', icon: Clock },
             ongoing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Đang diễn ra', icon: CheckCircle },
             completed: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Đã kết thúc', icon: XCircle },
@@ -258,8 +287,31 @@ export default function EventDetailPage() {
                                     </div>
                                 )}
                             </div>
-                        </div>
 
+                            {/* Organizer/Admin actions */}
+                            {isOrganizerOrAdmin && (
+                                <div className="flex flex-col gap-2">
+                                    {(event.status === 'pending' || event.status === 'approved' || event.status === 'upcoming') && (
+                                        <button
+                                            onClick={() => router.push(`/dashboard/events/${event.id}/edit`)}
+                                            className="px-4 py-2 bg-white border border-brandBlue text-brandBlue rounded-lg hover:bg-brandBlue/5 transition-colors flex items-center gap-2 text-sm font-medium"
+                                        >
+                                            <Edit2 className="w-4 h-4" />
+                                            Chỉnh sửa
+                                        </button>
+                                    )}
+                                    {event.status !== 'cancelled' && event.status !== 'completed' && (
+                                        <button
+                                            onClick={handleCancelEvent}
+                                            className="px-4 py-2 bg-white border border-red-400 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2 text-sm font-medium"
+                                        >
+                                            <Ban className="w-4 h-4" />
+                                            Hủy sự kiện
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         {/* Event details grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                             <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
@@ -329,6 +381,14 @@ export default function EventDetailPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Registrations Tab (organizer/admin only) */}
+                        {isOrganizerOrAdmin && (
+                            <EventRegistrationsTab eventId={event.id} />
+                        )}
+
+                        {/* Feedback Section */}
+                        <EventFeedbackSection eventId={event.id} eventStatus={event.status} />
                     </div>
                 </div>
             </div>

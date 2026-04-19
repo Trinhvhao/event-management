@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import type { EventStatus } from '@/types';
 
 interface Event {
     id: number;
     title: string;
     location: string;
-    status: 'upcoming' | 'ongoing' | 'completed';
+    status: EventStatus;
 }
 
 interface RecentEventsProps {
@@ -14,13 +15,16 @@ interface RecentEventsProps {
 }
 
 export default function RecentEvents({ events, delay = 0.7 }: RecentEventsProps) {
-    const getStatusBadge = (status: string) => {
+    const getStatusBadge = (status: EventStatus) => {
         const badges = {
             upcoming: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Sắp tới' },
             ongoing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Đang diễn ra' },
             completed: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Hoàn thành' },
+            pending: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Chờ duyệt' },
+            approved: { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Đã duyệt' },
+            cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Đã hủy' },
         };
-        return badges[status as keyof typeof badges] || badges.upcoming;
+        return badges[status];
     };
 
     return (

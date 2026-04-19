@@ -10,55 +10,108 @@ interface QRCodeData {
     expires_at: string;
 }
 
-export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole: string) => {
-    // Decode QR code
-    let qrData: QRCodeData;
-    try {
-        // QR code is base64 encoded JSON
-        const decoded = Buffer.from(qrCode.split(',')[1] || qrCode, 'base64').toString();
-        qrData = JSON.parse(decoded);
-    } catch (error) {
-        throw new ValidationError('QR code không hợp lệ');
-    }
+interface RegistrationWithRelations {
+    id: number;
+    user_id: number;
+    event_id: number;
+    registered_at: Date;
+    status: string;
+    qr_code: string;
+    event: {
+        id: number;
+        title: string;
+        start_time: Date;
+        end_time: Date;
+        training_points: number;
+    };
+    user: {
+        id: number;
+        full_name: string;
+        email: string;
+        student_id: string | null;
+    };
+}
 
-    // Validate QR data structure
-    if (!qrData.registration_id || !qrData.event_id || !qrData.user_id) {
-        throw new ValidationError('QR code không đúng định dạng');
-    }
-
-    // Check if QR expired
-    const now = new Date();
-    const expiresAt = new Date(qrData.expires_at);
-    if (now > expiresAt) {
-        throw new ValidationError('QR code đã hết hạn');
-    }
-
-    // Get registration with event details
-    const registration = await prisma.registration.findUnique({
-        where: { id: qrData.registration_id },
-        include: {
-            event: true,
-            user: {
-                select: {
-                    id: true,
-                    full_name: true,
-                    email: true,
-                    student_id: true,
-                },
-            },
+const buildRegistrationInclude = () => ({
+    event: true,
+    user: {
+        select: {
+            id: true,
+            full_name: true,
+            email: true,
+            student_id: true,
         },
-    });
+    },
+});
+
+const decodeQrPayload = (qrCode: string): QRCodeData | null => {
+    try {
+        // Supports raw base64 JSON or data URL-like payloads.
+        const encodedPayload = qrCode.split(',')[1] || qrCode;
+        const decoded = Buffer.from(encodedPayload, 'base64').toString();
+        const parsed = JSON.parse(decoded) as QRCodeData;
+
+        if (!parsed.registration_id || !parsed.event_id || !parsed.user_id) {
+            return null;
+        }
+
+        return parsed;
+    } catch {
+        return null;
+    }
+};
+
+export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole: string) => {
+    let qrData = decodeQrPayload(qrCode);
+    let registration: RegistrationWithRelations | null = null;
+
+    if (qrData) {
+        registration = (await prisma.registration.findUnique({
+            where: { id: qrData.registration_id },
+            include: buildRegistrationInclude(),
+        })) as RegistrationWithRelations | null;
+
+        if (!registration) {
+            throw new NotFoundError('Đăng ký không tồn tại');
+        }
+
+        // Validate registration matches QR payload
+        if (
+            registration.event_id !== qrData.event_id ||
+            registration.user_id !== qrData.user_id
+        ) {
+            throw new ValidationError('QR code không khớp với đăng ký');
+        }
+
+        const now = new Date();
+        const expiresAt = new Date(qrData.expires_at);
+        if (now > expiresAt) {
+            throw new ValidationError('QR code đã hết hạn');
+        }
+    } else {
+        // Backward-compatible path: some flows persist the QR string directly.
+        registration = (await prisma.registration.findFirst({
+            where: { qr_code: qrCode },
+            include: buildRegistrationInclude(),
+        })) as RegistrationWithRelations | null;
+
+        if (!registration) {
+            throw new ValidationError('QR code không hợp lệ');
+        }
+
+        qrData = {
+            registration_id: registration.id,
+            event_id: registration.event_id,
+            user_id: registration.user_id,
+            issued_at: registration.registered_at.toISOString(),
+            expires_at: registration.event.end_time.toISOString(),
+        };
+    }
+
+    const now = new Date();
 
     if (!registration) {
-        throw new NotFoundError('Đăng ký không tồn tại');
-    }
-
-    // Validate registration matches QR data
-    if (
-        registration.event_id !== qrData.event_id ||
-        registration.user_id !== qrData.user_id
-    ) {
-        throw new ValidationError('QR code không khớp với đăng ký');
+        throw new ValidationError('QR code không hợp lệ');
     }
 
     // Security: Students can only check-in with their own QR code

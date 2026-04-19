@@ -4,6 +4,15 @@ import { LoginCredentials, RegisterData } from '@/types';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
+const toErrorMessage = (error: unknown): string => {
+  const err = error as {
+    response?: { data?: { error?: { message?: string } } };
+    message?: string;
+  };
+
+  return err.response?.data?.error?.message || err.message || 'Yeu cau that bai';
+};
+
 export function useAuth() {
   const { user, token, isAuthenticated, setAuth, logout: logoutStore } = useAuthStore();
   const router = useRouter();
@@ -11,11 +20,11 @@ export function useAuth() {
   const login = async (credentials: LoginCredentials) => {
     try {
       const data = await authService.login(credentials);
-      setAuth(data.user, data.token);
+      setAuth(data.user, data.token, data.refreshToken);
       toast.success('Đăng nhập thành công!');
       router.push('/dashboard');
-    } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Đăng nhập thất bại';
+    } catch (error: unknown) {
+      const message = toErrorMessage(error) || 'Đăng nhập thất bại';
       toast.error(message);
       throw error;
     }
@@ -23,11 +32,11 @@ export function useAuth() {
 
   const register = async (data: RegisterData) => {
     try {
-      const response = await authService.register(data);
+      await authService.register(data);
       toast.success('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
       router.push('/login');
-    } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Đăng ký thất bại';
+    } catch (error: unknown) {
+      const message = toErrorMessage(error) || 'Đăng ký thất bại';
       toast.error(message);
       throw error;
     }
@@ -39,7 +48,7 @@ export function useAuth() {
       logoutStore();
       toast.success('Đăng xuất thành công!');
       router.push('/login');
-    } catch (error) {
+    } catch {
       // Still logout locally even if API call fails
       logoutStore();
       router.push('/login');

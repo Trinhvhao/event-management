@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Public paths that don't require authentication
@@ -12,15 +12,15 @@ export function middleware(request: NextRequest) {
 
     // If it's a dashboard path, check for auth
     if (pathname.startsWith('/dashboard')) {
-        // In Next.js 14+, we can't access localStorage in middleware
-        // So we'll handle auth check in the client component
+        // In Next.js, server proxy cannot access localStorage.
+        // Auth verification is handled in client components with persisted state.
         return NextResponse.next();
     }
 
     return NextResponse.next();
 }
 
-export const config = {
+export const proxyConfig = {
     matcher: [
         /*
          * Match all request paths except for the ones starting with:

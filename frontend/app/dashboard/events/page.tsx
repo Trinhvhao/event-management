@@ -12,6 +12,22 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
 
+interface EventQueryParams {
+    status?: string;
+    limit?: number;
+    search?: string;
+    category_id?: number;
+    department_id?: number;
+}
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
+
 export default function EventsPage() {
     const router = useRouter();
     const { isAuthenticated } = useAuthStore();
@@ -38,7 +54,7 @@ export default function EventsPage() {
             setLoading(true);
 
             // Fetch events with filters
-            const params: any = {
+            const params: EventQueryParams = {
                 status: selectedStatus,
                 limit: 50,
             };
@@ -60,9 +76,9 @@ export default function EventsPage() {
                 const deptRes = await eventService.getDepartments();
                 setDepartments(deptRes || []);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error fetching events:', error);
-            toast.error('Không thể tải danh sách sự kiện');
+            toast.error(getErrorMessage(error, 'Không thể tải danh sách sự kiện'));
         } finally {
             setLoading(false);
         }

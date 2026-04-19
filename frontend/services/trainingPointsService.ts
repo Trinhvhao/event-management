@@ -30,6 +30,10 @@ interface MyPointsResponse {
     message: string;
 }
 
+interface TrainingPointsStatistics {
+    [key: string]: unknown;
+}
+
 export const trainingPointsService = {
     async getMyPoints(): Promise<MyPointsResponse> {
         const response = await axios.get<ApiResponse<MyPointsResponse>>('/training-points/my-points');
@@ -43,6 +47,18 @@ export const trainingPointsService = {
 
     async getCurrentSemester(): Promise<{ semester: string }> {
         const response = await axios.get<ApiResponse<{ semester: string }>>('/training-points/current-semester');
+        return response.data.data;
+    },
+
+    /** Admin: get a user's training points */
+    async getUserPoints(userId: number): Promise<MyPointsResponse> {
+        const response = await axios.get<ApiResponse<MyPointsResponse>>(`/training-points/user/${userId}`);
+        return response.data.data;
+    },
+
+    /** Admin: get training points statistics */
+    async getStatistics(): Promise<TrainingPointsStatistics> {
+        const response = await axios.get<ApiResponse<TrainingPointsStatistics>>('/training-points/statistics');
         return response.data.data;
     },
 };

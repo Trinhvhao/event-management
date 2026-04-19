@@ -55,7 +55,7 @@ const Testimonials: React.FC = () => {
             >
               <Quote className="absolute top-8 right-8 text-secondary/30 w-12 h-12" />
               <p className="text-lg text-brandLightBlue/90 leading-relaxed mb-8 relative z-10">
-                "{review.content}"
+                &ldquo;{review.content}&rdquo;
               </p>
               <div className="flex items-center gap-4">
                 <img src={review.avatar} alt={review.author} className="w-12 h-12 rounded-full border-2 border-secondary" />

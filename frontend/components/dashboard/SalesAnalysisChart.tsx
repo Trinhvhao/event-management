@@ -13,8 +13,15 @@ import {
     ResponsiveContainer
 } from 'recharts';
 
+interface SalesAnalysisDataPoint {
+    month: string;
+    events: number;
+    checkins: number;
+    registrations: number;
+}
+
 interface SalesAnalysisChartProps {
-    data?: any[];
+    data?: SalesAnalysisDataPoint[];
 }
 
 const defaultData = [

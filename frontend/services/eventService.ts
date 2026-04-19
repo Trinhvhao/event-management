@@ -55,13 +55,25 @@ export const eventService = {
   },
 
   async getCategories(): Promise<Category[]> {
-    const response = await axios.get<ApiResponse<Category[]>>('/events/categories');
-    return response.data.data || response.data as any;
+    const response = await axios.get<ApiResponse<Category[]> | Category[]>('/events/categories');
+    const payload = response.data;
+
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    return payload.data || [];
   },
 
   async getDepartments(): Promise<Department[]> {
-    const response = await axios.get<ApiResponse<Department[]>>('/events/departments');
-    return response.data.data || response.data as any;
+    const response = await axios.get<ApiResponse<Department[]> | Department[]>('/events/departments');
+    const payload = response.data;
+
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    return payload.data || [];
   },
 
   // Lấy sự kiện của organizer hiện tại (lọc theo organizer_id)

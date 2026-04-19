@@ -42,31 +42,38 @@ enum NotificationType {
 
 // Models
 model User {
-  id                   Int      @id @default(autoincrement())
-  email                String   @unique
+  id                   Int       @id @default(autoincrement())
+  email                String    @unique
   password_hash        String
   full_name            String
-  student_id           String?  @unique
+  student_id           String?   @unique
   role                 UserRole
   department_id        Int?
-  is_active            Boolean  @default(true)
-  email_verified       Boolean  @default(false)
-  notification_enabled Boolean  @default(true)
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
+  is_active            Boolean   @default(true)
+  email_verified       Boolean   @default(false)
+  notification_enabled Boolean   @default(true)
+  last_login           DateTime?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
 
   // Relations
-  department            Department?      @relation(fields: [department_id], references: [id])
-  organized_events      Event[]          @relation("EventOrganizer")
-  registrations         Registration[]
-  training_points       TrainingPoint[]
-  feedback              Feedback[]
-  notifications         Notification[]
+  department             Department?     @relation(fields: [department_id], references: [id])
+  organized_events       Event[]         @relation("EventOrganizer")
+  registrations          Registration[]
+  training_points        TrainingPoint[]
+  feedback               Feedback[]
+  notifications          Notification[]
   checked_in_attendances Attendance[]    @relation("CheckedBy")
+  audit_logs_as_admin    AuditLog[]      @relation("AuditAdmin")
+  audit_logs_as_user     AuditLog[]      @relation("AuditUser")
 
   @@index([email])
   @@index([student_id])
   @@index([role])
+  @@index([last_login])
+  @@index([role, is_active])
+  @@index([department_id, role])
+  @@index([created_at])
   @@map("users")
 }
 
@@ -97,16 +104,16 @@ model Category {
 }
 
 model Event {
-  id              Int         @id @default(autoincrement())
-  title           String
-  description     String?
-  start_time      DateTime
-  end_time        DateTime
-  location        String
-  category_id     Int
-  department_id   Int
-  organizer_id    Int
-  capacity        Int
+  id                    Int         @id @default(autoincrement())
+  title                 String
+  description           String?
+  start_time            DateTime
+  end_time              DateTime
+  location              String
+  category_id           Int
+  department_id         Int
+  organizer_id          Int
+  capacity              Int
   training_points       Int         @default(0)
   status                EventStatus @default(upcoming)
   image_url             String?
@@ -117,19 +124,20 @@ model Event {
   updated_at            DateTime    @updatedAt
 
   // Relations
-  category              Category         @relation(fields: [category_id], references: [id])
-  department            Department       @relation(fields: [department_id], references: [id])
-  organizer             User             @relation("EventOrganizer", fields: [organizer_id], references: [id])
-  registrations         Registration[]
+  category                Category        @relation(fields: [category_id], references: [id])
+  department              Department      @relation(fields: [department_id], references: [id])
+  organizer               User            @relation("EventOrganizer", fields: [organizer_id], references: [id])
+  registrations           Registration[]
   awarded_training_points TrainingPoint[]
-  feedback              Feedback[]
-  notifications         Notification[]
+  feedback                Feedback[]
+  notifications           Notification[]
 
   @@index([start_time])
   @@index([status])
   @@index([category_id])
   @@index([department_id])
   @@index([organizer_id])
+  @@index([organizer_id, status])
   @@map("events")
 }
 
@@ -150,6 +158,7 @@ model Registration {
   @@index([user_id])
   @@index([event_id])
   @@index([qr_code])
+  @@index([event_id, status])
   @@map("registrations")
 }
 
@@ -199,6 +208,7 @@ model Feedback {
   user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, event_id])
+  @@index([event_id])
   @@map("feedback")
 }
 
@@ -219,4 +229,30 @@ model Notification {
   @@index([user_id])
   @@index([is_read])
   @@map("notifications")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  action_type String
+  admin_id    Int
+  user_id     Int?
+  entity_type String?
+  entity_id   Int?
+  old_value   Json?
+  new_value   Json?
+  metadata    Json?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+
+  // Relations
+  admin User  @relation("AuditAdmin", fields: [admin_id], references: [id], onDelete: Cascade)
+  user  User? @relation("AuditUser", fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([admin_id])
+  @@index([user_id])
+  @@index([action_type])
+  @@index([created_at])
+  @@index([entity_type, entity_id])
+  @@map("audit_logs")
 }

@@ -11,21 +11,17 @@ interface UserProfile {
     avatar?: string;
 }
 
+const MOCK_USER: UserProfile = {
+    name: 'Admin User',
+    email: 'admin@university.edu.vn',
+    role: 'Quản trị viên'
+};
+
 export default function UserProfileMenu() {
     const [isOpen, setIsOpen] = useState(false);
-    const [user, setUser] = useState<UserProfile | null>(null);
+    const [user] = useState<UserProfile>(MOCK_USER);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
-
-    useEffect(() => {
-        // TODO: Fetch from API or context
-        const mockUser: UserProfile = {
-            name: 'Admin User',
-            email: 'admin@university.edu.vn',
-            role: 'Quản trị viên'
-        };
-        setUser(mockUser);
-    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -42,8 +38,6 @@ export default function UserProfileMenu() {
         localStorage.removeItem('token');
         router.push('/login');
     };
-
-    if (!user) return null;
 
     return (
         <div ref={dropdownRef} className="relative">

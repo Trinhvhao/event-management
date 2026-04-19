@@ -8,6 +8,15 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { profileService } from '@/services/profileService';
+import type { User as AuthUser } from '@/types';
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
 
 interface UserProfile {
     id: number;
@@ -87,12 +96,42 @@ export default function ProfilePage() {
             return;
         }
 
+        if (formData.new_password && !formData.current_password) {
+            toast.error('Vui lòng nhập mật khẩu hiện tại');
+            return;
+        }
+
         try {
-            // API call would go here
+            // Update profile info
+            const updatedUser: AuthUser = await profileService.updateProfile({
+                full_name: formData.full_name,
+            });
+
+            // Update auth store with new user data
+            useAuthStore.getState().updateUser(updatedUser);
+
+            // Change password if provided
+            if (formData.current_password && formData.new_password) {
+                await profileService.changePassword({
+                    old_password: formData.current_password,
+                    new_password: formData.new_password,
+                });
+                toast.success('Đổi mật khẩu thành công!');
+            }
+
             toast.success('Cập nhật thông tin thành công!');
             setEditing(false);
-        } catch (error) {
-            toast.error('Có lỗi xảy ra khi cập nhật');
+            setFormData(prev => ({
+                ...prev,
+                current_password: '',
+                new_password: '',
+                confirm_password: '',
+            }));
+            // Refresh profile data
+            await fetchProfile();
+        } catch (error: unknown) {
+            const msg = getErrorMessage(error, 'Có lỗi xảy ra khi cập nhật');
+            toast.error(msg);
         }
     };
 

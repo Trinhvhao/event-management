@@ -3,8 +3,17 @@ import { Calendar, MapPin, Clock, ArrowRight, Search, Grid, CalendarDays, Chevro
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 
-const EventCard: React.FC<{ title: string; date: string; time: string; location: string; category: string; image: string; index: number }> = ({ 
-  title, date, time, location, category, image, index 
+interface ShowcaseEvent {
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  category: string;
+  image: string;
+}
+
+const EventCard: React.FC<ShowcaseEvent> = ({ 
+  title, date, time, location, category, image
 }) => (
   <motion.div 
     layout
@@ -50,10 +59,7 @@ const EventCard: React.FC<{ title: string; date: string; time: string; location:
   </motion.div>
 );
 
-const CalendarView: React.FC<{ events: any[] }> = ({ events }) => {
-    // Mock Calendar Grid Logic (Visual representation)
-    const days = Array.from({ length: 35 }, (_, i) => i + 1);
-    
+const CalendarView: React.FC<{ events: ShowcaseEvent[] }> = ({ events }) => {
     return (
         <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -174,7 +180,7 @@ const EventShowcase: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
 
-  const events = [
+  const events: ShowcaseEvent[] = [
     {
       title: "Ngày hội Việc làm Công nghệ TechExpo 2024 - Kết nối tương lai",
       category: "Hướng nghiệp",
@@ -284,8 +290,8 @@ const EventShowcase: React.FC = () => {
                         className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
                     >
                         {filteredEvents.length > 0 ? (
-                            filteredEvents.map((event, index) => (
-                                <EventCard key={event.title} index={index} {...event} />
+                            filteredEvents.map((event) => (
+                              <EventCard key={event.title} {...event} />
                             ))
                         ) : (
                             <div className="col-span-full text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">

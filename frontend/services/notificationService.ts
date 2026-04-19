@@ -23,4 +23,8 @@ export const notificationService = {
     async markAllAsRead(): Promise<void> {
         await axios.put('/notifications/read-all');
     },
+
+    async delete(notificationId: number): Promise<void> {
+        await axios.delete(`/notifications/${notificationId}`);
+    },
 };

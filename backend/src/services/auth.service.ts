@@ -5,6 +5,8 @@ import { jwtConfig } from '../config/jwt';
 import { UnauthorizedError, ConflictError } from '../middleware/errorHandler';
 import { UserRole } from '@prisma/client';
 
+const refreshTokenExpiresIn = '7d';
+
 export const authService = {
   /**
    * Register new user
@@ -107,7 +109,13 @@ export const authService = {
       throw new UnauthorizedError('Invalid email or password');
     }
 
-    // Generate JWT token
+    // Update last login timestamp
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { last_login: new Date() },
+    });
+
+    // Generate access token
     const token = jwt.sign(
       {
         id: user.id,
@@ -118,9 +126,22 @@ export const authService = {
       { expiresIn: jwtConfig.expiresIn } as jwt.SignOptions
     );
 
+    // Generate refresh token
+    const refreshToken = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        type: 'refresh',
+      },
+      jwtConfig.secret,
+      { expiresIn: refreshTokenExpiresIn } as jwt.SignOptions
+    );
+
     // Return user data and token
     return {
       token,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -225,20 +246,46 @@ export const authService = {
         id: number;
         email: string;
         role: UserRole;
+        type?: string;
       };
 
-      // Generate new token
+      if (decoded.type && decoded.type !== 'refresh') {
+        throw new UnauthorizedError('Invalid refresh token');
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, email: true, role: true, is_active: true },
+      });
+
+      if (!user || !user.is_active) {
+        throw new UnauthorizedError('Invalid refresh token');
+      }
+
+      // Generate new access token
       const newToken = jwt.sign(
         {
-          id: decoded.id,
-          email: decoded.email,
-          role: decoded.role,
+          id: user.id,
+          email: user.email,
+          role: user.role,
         },
         jwtConfig.secret,
         { expiresIn: jwtConfig.expiresIn } as jwt.SignOptions
       );
 
-      return { token: newToken };
+      // Rotate refresh token
+      const newRefreshToken = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          type: 'refresh',
+        },
+        jwtConfig.secret,
+        { expiresIn: refreshTokenExpiresIn } as jwt.SignOptions
+      );
+
+      return { token: newToken, refreshToken: newRefreshToken };
     } catch (error) {
       throw new UnauthorizedError('Invalid refresh token');
     }

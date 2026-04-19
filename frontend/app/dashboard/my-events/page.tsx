@@ -13,6 +13,14 @@ import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
+
 export default function MyEventsPage() {
     const router = useRouter();
     const { isAuthenticated } = useAuthStore();
@@ -34,9 +42,9 @@ export default function MyEventsPage() {
             setLoading(true);
             const response = await registrationService.getMyRegistrations();
             setRegistrations(response || []);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error fetching my events:', error);
-            toast.error('Không thể tải danh sách sự kiện');
+            toast.error(getErrorMessage(error, 'Không thể tải danh sách sự kiện'));
         } finally {
             setLoading(false);
         }
@@ -51,8 +59,8 @@ export default function MyEventsPage() {
             await registrationService.cancel(registrationId);
             toast.success('Hủy đăng ký thành công');
             fetchMyEvents();
-        } catch (error: any) {
-            const message = error.response?.data?.error?.message || 'Hủy đăng ký thất bại';
+        } catch (error: unknown) {
+            const message = getErrorMessage(error, 'Hủy đăng ký thất bại');
             toast.error(message);
         }
     };

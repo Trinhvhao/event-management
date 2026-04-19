@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MoreVertical, Eye, Edit, CheckCircle, Link as LinkIcon, Clock, Users } from 'lucide-react';
 import Link from 'next/link';
 
@@ -14,52 +14,48 @@ interface Event {
     maxParticipants: number;
 }
 
-export default function RecentEventsTable() {
-    const [events, setEvents] = useState<Event[]>([]);
-    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+const MOCK_EVENTS: Event[] = [
+    {
+        id: '1',
+        title: 'Workshop AI & Machine Learning',
+        organizer: 'Khoa CNTT',
+        startDate: '2026-03-25T14:00:00',
+        status: 'approved',
+        registrations: 150,
+        maxParticipants: 200
+    },
+    {
+        id: '2',
+        title: 'Giải bóng đá sinh viên 2026',
+        organizer: 'Đoàn trường',
+        startDate: '2026-03-28T08:00:00',
+        status: 'pending',
+        registrations: 80,
+        maxParticipants: 100
+    },
+    {
+        id: '3',
+        title: 'Hội thảo Khởi nghiệp',
+        organizer: 'CLB Khởi nghiệp',
+        startDate: '2026-03-30T09:00:00',
+        status: 'approved',
+        registrations: 120,
+        maxParticipants: 150
+    },
+    {
+        id: '4',
+        title: 'Ngày hội Tình nguyện',
+        organizer: 'Đoàn trường',
+        startDate: '2026-04-05T07:00:00',
+        status: 'ongoing',
+        registrations: 200,
+        maxParticipants: 200
+    }
+];
 
-    useEffect(() => {
-        // TODO: Fetch from API
-        const mockEvents: Event[] = [
-            {
-                id: '1',
-                title: 'Workshop AI & Machine Learning',
-                organizer: 'Khoa CNTT',
-                startDate: '2026-03-25T14:00:00',
-                status: 'approved',
-                registrations: 150,
-                maxParticipants: 200
-            },
-            {
-                id: '2',
-                title: 'Giải bóng đá sinh viên 2026',
-                organizer: 'Đoàn trường',
-                startDate: '2026-03-28T08:00:00',
-                status: 'pending',
-                registrations: 80,
-                maxParticipants: 100
-            },
-            {
-                id: '3',
-                title: 'Hội thảo Khởi nghiệp',
-                organizer: 'CLB Khởi nghiệp',
-                startDate: '2026-03-30T09:00:00',
-                status: 'approved',
-                registrations: 120,
-                maxParticipants: 150
-            },
-            {
-                id: '4',
-                title: 'Ngày hội Tình nguyện',
-                organizer: 'Đoàn trường',
-                startDate: '2026-04-05T07:00:00',
-                status: 'ongoing',
-                registrations: 200,
-                maxParticipants: 200
-            }
-        ];
-        setEvents(mockEvents);
-    }, []);
+export default function RecentEventsTable() {
+    const [events] = useState<Event[]>(MOCK_EVENTS);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
     const getStatusBadge = (status: string) => {
         const badges = {

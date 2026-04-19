@@ -1,69 +1,62 @@
 import axios from '@/lib/axios';
-import { User, ApiResponse, Category, Department } from '@/types';
 
-interface PaginatedData<T> {
-    data: T[];
-    pagination: {
-        total: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-    };
+interface GetUsersParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    department_id?: string;
+    is_active?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
 }
 
-export interface CategoryWithCount extends Category {
-    _count?: {
-        events: number;
-    };
+interface BulkActionResult {
+    successCount: number;
+    failureCount: number;
+    failures?: Array<{ userId: string; error: string }>;
 }
-
-export interface DepartmentWithCount extends Department {
-    _count?: {
-        users: number;
-        events: number;
-    };
-}
-
-// Backend trả về successResponse({ data, pagination })
-// Axios response.data = { data: { data: User[], pagination: {...} } }
-// Nên phải dùng response.data.data để lấy ra { data, pagination }
 
 export const adminService = {
-    async getUsers(params?: { page?: number; limit?: number; search?: string; role?: string }) {
-        const response = await axios.get<ApiResponse<PaginatedData<User>>>('/admin/users', { params });
-        return response.data.data; // { data: User[], pagination: {...} }
+    // Get users with filters and pagination
+    async getUsers(params: GetUsersParams) {
+        const response = await axios.get('/admin/users', { params });
+        return response.data;
     },
 
-    async updateUser(userId: number, data: { role?: string; is_active?: boolean }): Promise<User> {
-        const response = await axios.put<ApiResponse<User>>(`/admin/users/${userId}`, data);
-        return response.data.data;
+    // Lock a user
+    async lockUser(userId: string) {
+        const response = await axios.put(`/admin/users/${userId}/lock`);
+        return response.data;
     },
 
-    async getCategories(): Promise<CategoryWithCount[]> {
-        const response = await axios.get<ApiResponse<CategoryWithCount[]>>('/admin/categories');
-        return response.data.data || [];
+    // Unlock a user
+    async unlockUser(userId: string) {
+        const response = await axios.put(`/admin/users/${userId}/unlock`);
+        return response.data;
     },
 
-    async createCategory(data: { name: string; description?: string }): Promise<CategoryWithCount> {
-        const response = await axios.post<ApiResponse<CategoryWithCount>>('/admin/categories', data);
-        return response.data.data;
+    // Change user role
+    async changeUserRole(userId: string, role: string) {
+        const response = await axios.put(`/admin/users/${userId}/role`, { role });
+        return response.data;
     },
 
-    async deleteCategory(id: number): Promise<void> {
-        await axios.delete(`/admin/categories/${id}`);
+    // Bulk lock users
+    async bulkLock(userIds: string[]): Promise<BulkActionResult> {
+        const response = await axios.post('/admin/users/bulk-lock', { userIds });
+        return response.data;
     },
 
-    async getDepartments(): Promise<DepartmentWithCount[]> {
-        const response = await axios.get<ApiResponse<DepartmentWithCount[]>>('/admin/departments');
-        return response.data.data || [];
+    // Bulk unlock users
+    async bulkUnlock(userIds: string[]): Promise<BulkActionResult> {
+        const response = await axios.post('/admin/users/bulk-unlock', { userIds });
+        return response.data;
     },
 
-    async createDepartment(data: { name: string; code: string; description?: string }): Promise<DepartmentWithCount> {
-        const response = await axios.post<ApiResponse<DepartmentWithCount>>('/admin/departments', data);
-        return response.data.data;
-    },
-
-    async deleteDepartment(id: number): Promise<void> {
-        await axios.delete(`/admin/departments/${id}`);
+    // Get user audit logs
+    async getUserAuditLogs(userId: string, params?: { page?: number; limit?: number; actionType?: string }) {
+        const response = await axios.get(`/admin/users/${userId}/audit-logs`, { params });
+        return response.data;
     },
 };

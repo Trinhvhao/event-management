@@ -1,168 +1,250 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { adminService } from '@/services/adminService';
-import { User } from '@/types';
-import { UserCog, Search, UserCheck, UserX } from 'lucide-react';
-import { toast } from 'sonner';
+import { useOrganizerStore } from '@/store/organizerStore';
+import { DataTable } from '@/components/admin/shared/DataTable';
+import { StatusChip } from '@/components/admin/shared/StatusChip';
+import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
+import { KPIMetricsDisplay } from '@/components/admin/organizers/KPIMetricsDisplay';
+import { GrantOrganizerDialog } from '@/components/admin/organizers/GrantOrganizerDialog';
+import { Search, UserPlus, UserMinus } from 'lucide-react';
+import { ColumnDef } from '@tanstack/react-table';
 
-export default function AdminOrganizersPage() {
-  const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
-  const [search, setSearch] = useState('');
-  const [processingId, setProcessingId] = useState<number | null>(null);
+interface Organizer {
+  id: string;
+  full_name: string;
+  email: string;
+  department?: {
+    id: string;
+    name: string;
+  };
+  is_active: boolean;
+  metrics?: {
+    eventsCreated: number;
+    totalAttendees: number;
+    averageRating: number;
+    upcomingEvents: number;
+    completedEvents: number;
+  };
+}
 
-  const loadOrganizers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await adminService.getUsers({
-        page: 1,
-        limit: 100,
-        role: 'organizer',
-        search: search || undefined,
-      });
-      setUsers(res.data || []);
-    } catch {
-      toast.error('Không thể tải danh sách ban tổ chức');
-    } finally {
-      setLoading(false);
-    }
-  }, [search]);
+export default function OrganizerManagementPage() {
+  const {
+    organizers,
+    filters,
+    pagination,
+    loading,
+    fetchOrganizers,
+    updateFilters,
+    grantOrganizerRights,
+    revokeOrganizerRights,
+    setPage,
+    setPageSize,
+  } = useOrganizerStore();
+
+  const [searchInput, setSearchInput] = useState('');
+  const [showGrantDialog, setShowGrantDialog] = useState(false);
+  const [revokeDialog, setRevokeDialog] = useState<{
+    isOpen: boolean;
+    organizerId?: string;
+    organizerName?: string;
+  }>({
+    isOpen: false,
+  });
 
   useEffect(() => {
-    loadOrganizers();
-  }, [loadOrganizers]);
+    fetchOrganizers();
+  }, []);
 
-  const activeCount = useMemo(() => users.filter((u) => u.is_active).length, [users]);
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateFilters({ search: searchInput });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
-  const handleToggleActive = async (user: User) => {
+  const handleGrantRights = async (userId: string) => {
     try {
-      setProcessingId(user.id);
-      await adminService.updateUser(user.id, { is_active: !user.is_active });
-      toast.success(user.is_active ? 'Đã khóa tài khoản ban tổ chức' : 'Đã mở khóa tài khoản ban tổ chức');
-      await loadOrganizers();
-    } catch {
-      toast.error('Cập nhật trạng thái thất bại');
-    } finally {
-      setProcessingId(null);
+      await grantOrganizerRights(userId);
+    } catch (error) {
+      console.error('Grant failed:', error);
     }
   };
 
-  const handleDowngrade = async (user: User) => {
+  const handleRevokeClick = (organizer: Organizer) => {
+    setRevokeDialog({
+      isOpen: true,
+      organizerId: organizer.id,
+      organizerName: organizer.full_name,
+    });
+  };
+
+  const handleRevokeConfirm = async () => {
+    if (!revokeDialog.organizerId) return;
     try {
-      setProcessingId(user.id);
-      await adminService.updateUser(user.id, { role: 'student' });
-      toast.success('Đã chuyển về vai trò sinh viên');
-      await loadOrganizers();
-    } catch {
-      toast.error('Không thể cập nhật vai trò');
-    } finally {
-      setProcessingId(null);
+      await revokeOrganizerRights(revokeDialog.organizerId);
+      setRevokeDialog({ isOpen: false });
+    } catch (error) {
+      console.error('Revoke failed:', error);
     }
   };
+
+  const columns: ColumnDef<Organizer>[] = [
+    {
+      accessorKey: 'full_name',
+      header: 'Name',
+      enableSorting: true,
+    },
+    {
+      accessorKey: 'email',
+      header: 'Email',
+    },
+    {
+      accessorKey: 'department',
+      header: 'Department',
+      cell: ({ row }) => row.original.department?.name || 'N/A',
+    },
+    {
+      id: 'metrics',
+      header: 'KPI Metrics',
+      cell: ({ row }) =>
+        row.original.metrics ? (
+          <KPIMetricsDisplay metrics={row.original.metrics} />
+        ) : (
+          <span className="text-gray-400 text-sm">Loading...</span>
+        ),
+    },
+    {
+      accessorKey: 'is_active',
+      header: 'Status',
+      cell: ({ row }) => (
+        <StatusChip status={row.original.is_active ? 'Active' : 'Inactive'} />
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRevokeClick(row.original);
+          }}
+          className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1"
+        >
+          <UserMinus className="h-4 w-4" />
+          Revoke
+        </button>
+      ),
+    },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-brandLightBlue/25 text-brandBlue flex items-center justify-center">
-              <UserCog className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-primary">Quản lý ban tổ chức</h1>
-              <p className="text-gray-600">Quản trị tài khoản tổ chức sự kiện</p>
-            </div>
-          </div>
+    <div className="p-2">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý Ban tổ chức</h1>
+          <p className="text-gray-600 mt-1">
+            Tổng: {pagination.total} organizer
+          </p>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-sm text-gray-500">Tổng ban tổ chức</p>
-            <p className="text-2xl font-bold text-primary">{users.length}</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-sm text-gray-500">Đang hoạt động</p>
-            <p className="text-2xl font-bold text-emerald-600">{activeCount}</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-sm text-gray-500">Đã khóa</p>
-            <p className="text-2xl font-bold text-red-600">{users.length - activeCount}</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <div className="relative max-w-md">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm theo tên hoặc email..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 focus:border-brandBlue focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          {loading ? (
-            <div className="p-6 text-center text-gray-500">Đang tải dữ liệu...</div>
-          ) : users.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">Không có ban tổ chức nào</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr className="text-left text-gray-600">
-                    <th className="px-4 py-3">Họ tên</th>
-                    <th className="px-4 py-3">Email</th>
-                    <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id} className="border-t border-gray-100">
-                      <td className="px-4 py-3 font-medium text-primary">{user.full_name}</td>
-                      <td className="px-4 py-3 text-gray-600">{user.email}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                            user.is_active
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {user.is_active ? 'Hoạt động' : 'Đã khóa'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleToggleActive(user)}
-                            disabled={processingId === user.id}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
-                          >
-                            {user.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                            {user.is_active ? 'Khóa' : 'Mở khóa'}
-                          </button>
-                          <button
-                            onClick={() => handleDowngrade(user)}
-                            disabled={processingId === user.id}
-                            className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-60"
-                          >
-                            Chuyển về sinh viên
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => setShowGrantDialog(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          <UserPlus className="h-5 w-5" />
+          Cấp quyền Organizer
+        </button>
       </div>
+
+      {/* Filters */}
+      <div className="mb-6 flex gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md"
+          />
+        </div>
+
+        <select
+          value={filters.status}
+          onChange={(e) => updateFilters({ status: e.target.value })}
+          className="px-4 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+
+        <select
+          value={filters.sortBy}
+          onChange={(e) => updateFilters({ sortBy: e.target.value })}
+          className="px-4 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="eventsCreated">Sort by Events</option>
+          <option value="totalAttendees">Sort by Attendees</option>
+          <option value="averageRating">Sort by Rating</option>
+        </select>
+
+        <select
+          value={filters.sortOrder}
+          onChange={(e) => updateFilters({ sortOrder: e.target.value as 'asc' | 'desc' })}
+          className="px-4 py-2 border border-gray-300 rounded-md"
+        >
+          <option value="desc">Descending</option>
+          <option value="asc">Ascending</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <DataTable
+        columns={columns}
+        data={organizers}
+        pagination={{
+          pageIndex: pagination.page - 1,
+          pageSize: pagination.limit,
+        }}
+        onPaginationChange={(updater) => {
+          const currentState = { pageIndex: pagination.page - 1, pageSize: pagination.limit };
+          const newPagination = typeof updater === 'function' ? updater(currentState) : updater;
+          if (newPagination.pageIndex !== pagination.page - 1) {
+            setPage(newPagination.pageIndex + 1);
+          }
+          if (newPagination.pageSize !== pagination.limit) {
+            setPageSize(newPagination.pageSize);
+          }
+        }}
+        loading={loading}
+        pageCount={pagination.totalPages}
+        manualPagination
+      />
+
+      {/* Grant Dialog */}
+      <GrantOrganizerDialog
+        isOpen={showGrantDialog}
+        onClose={() => setShowGrantDialog(false)}
+        onGrant={handleGrantRights}
+      />
+
+      {/* Revoke Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={revokeDialog.isOpen}
+        onClose={() => setRevokeDialog({ isOpen: false })}
+        onConfirm={handleRevokeConfirm}
+        title="Revoke Organizer Rights"
+        description={`Are you sure you want to revoke organizer rights from ${revokeDialog.organizerName}? This action cannot be undone.`}
+        confirmText="Revoke Rights"
+        variant="destructive"
+      />
+    </div>
     </DashboardLayout>
   );
 }

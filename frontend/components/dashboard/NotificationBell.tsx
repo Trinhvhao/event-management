@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Check, X } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import Link from 'next/link';
 
 interface Notification {
@@ -13,43 +13,38 @@ interface Notification {
     read: boolean;
 }
 
+const MOCK_NOTIFICATIONS: Notification[] = [
+    {
+        id: '1',
+        type: 'event_pending',
+        title: 'Sự kiện chờ duyệt',
+        message: 'Workshop AI đang chờ phê duyệt',
+        time: '5 phút trước',
+        read: false
+    },
+    {
+        id: '2',
+        type: 'system_alert',
+        title: 'Cảnh báo hệ thống',
+        message: 'Hệ thống sẽ bảo trì vào 2h sáng',
+        time: '1 giờ trước',
+        read: false
+    },
+    {
+        id: '3',
+        type: 'registration',
+        title: 'Đăng ký mới',
+        message: '15 sinh viên vừa đăng ký sự kiện',
+        time: '2 giờ trước',
+        read: true
+    }
+];
+
 export default function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
+    const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
     const dropdownRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        // TODO: Fetch from API
-        const mockNotifications: Notification[] = [
-            {
-                id: '1',
-                type: 'event_pending',
-                title: 'Sự kiện chờ duyệt',
-                message: 'Workshop AI đang chờ phê duyệt',
-                time: '5 phút trước',
-                read: false
-            },
-            {
-                id: '2',
-                type: 'system_alert',
-                title: 'Cảnh báo hệ thống',
-                message: 'Hệ thống sẽ bảo trì vào 2h sáng',
-                time: '1 giờ trước',
-                read: false
-            },
-            {
-                id: '3',
-                type: 'registration',
-                title: 'Đăng ký mới',
-                message: '15 sinh viên vừa đăng ký sự kiện',
-                time: '2 giờ trước',
-                read: true
-            }
-        ];
-        setNotifications(mockNotifications);
-        setUnreadCount(mockNotifications.filter(n => !n.read).length);
-    }, []);
+    const unreadCount = notifications.filter((notification) => !notification.read).length;
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -66,12 +61,10 @@ export default function NotificationBell() {
         setNotifications(prev =>
             prev.map(n => n.id === id ? { ...n, read: true } : n)
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
     };
 
     const markAllAsRead = () => {
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-        setUnreadCount(0);
     };
 
     const getNotificationIcon = (type: string) => {

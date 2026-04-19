@@ -17,6 +17,14 @@ import { ArrowLeft, ArrowRight, Calendar, MapPin, Users, Award, Image, Send, Che
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
+
 const createEventSchema = z.object({
     title: z.string().min(5, 'Tiêu đề tối thiểu 5 ký tự').max(255),
     description: z.string().max(5000).optional(),
@@ -84,8 +92,8 @@ export default function CreateEventPage() {
             await eventService.createEvent(payload);
             toast.success('Tạo sự kiện thành công!');
             router.push('/dashboard/events');
-        } catch (error: any) {
-            toast.error(error?.response?.data?.error?.message || 'Có lỗi xảy ra');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Có lỗi xảy ra'));
         } finally {
             setIsSubmitting(false);
         }

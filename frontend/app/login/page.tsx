@@ -21,6 +21,15 @@ const DEMO_ACCOUNTS = {
     }
 };
 
+const toErrorMessage = (error: unknown): string => {
+    const err = error as {
+        response?: { data?: { error?: { message?: string } } };
+        message?: string;
+    };
+
+    return err.response?.data?.error?.message || err.message || 'Đăng nhập thất bại';
+};
+
 export default function LoginPage() {
     const router = useRouter();
     const { setAuth } = useAuthStore();
@@ -36,13 +45,13 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
-            const { user, token } = await authService.login(formData);
-            setAuth(user, token);
+            const { user, token, refreshToken } = await authService.login(formData);
+            setAuth(user, token, refreshToken);
             toast.success('Đăng nhập thành công!');
             router.push('/dashboard');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Login error:', error);
-            toast.error(error.response?.data?.error?.message || 'Đăng nhập thất bại');
+            toast.error(toErrorMessage(error));
         } finally {
             setIsLoading(false);
         }

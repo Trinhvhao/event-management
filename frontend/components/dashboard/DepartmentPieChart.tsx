@@ -1,9 +1,15 @@
 'use client';
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+
+interface DepartmentPieData {
+    name: string;
+    value: number;
+    color: string;
+}
 
 interface DepartmentPieChartProps {
-    data?: any[];
+    data?: DepartmentPieData[];
 }
 
 const defaultData = [
@@ -49,7 +55,6 @@ export default function DepartmentPieChart({ data = defaultData }: DepartmentPie
                                 borderRadius: '8px',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                             }}
-                            formatter={(value: number) => [`${value} events`, 'Total']}
                         />
                     </PieChart>
                 </ResponsiveContainer>

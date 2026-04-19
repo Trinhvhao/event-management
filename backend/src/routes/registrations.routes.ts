@@ -7,6 +7,7 @@ const router = Router();
 
 // Student routes
 router.post('/', authenticate, authorize('student'), registrationsController.registerForEvent);
+router.get('/my', authenticate, authorize('student'), registrationsController.getMyRegistrations);
 router.get('/my-registrations', authenticate, authorize('student'), registrationsController.getMyRegistrations);
 router.delete('/:id', authenticate, authorize('student'), registrationsController.cancelRegistration);
 

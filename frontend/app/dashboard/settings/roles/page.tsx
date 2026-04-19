@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 export default function SettingsRolesPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -38,8 +38,8 @@ export default function SettingsRolesPage() {
 
   const updateRole = async (user: User, role: UserRole) => {
     try {
-      setProcessingId(user.id);
-      await adminService.updateUser(user.id, { role });
+      setProcessingId(String(user.id));
+      await adminService.changeUserRole(String(user.id), role);
       setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, role } : item)));
       toast.success('Cập nhật vai trò thành công');
     } catch {
@@ -100,7 +100,7 @@ export default function SettingsRolesPage() {
                       <td className="px-4 py-3">
                         <select
                           value={user.role}
-                          disabled={processingId === user.id}
+                          disabled={processingId === String(user.id)}
                           onChange={(e) => updateRole(user, e.target.value as UserRole)}
                           className="px-3 py-1.5 rounded-lg border border-gray-300 focus:border-brandBlue focus:outline-none disabled:opacity-60"
                         >

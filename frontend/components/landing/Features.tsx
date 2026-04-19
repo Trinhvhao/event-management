@@ -152,6 +152,8 @@ const BentoCard: React.FC<{
   icon?: React.ReactNode;
   delay?: number;
 }> = ({ title, desc, className = "", visual, icon, delay = 0 }) => {
+  const iconElement = React.isValidElement<{ size?: number }>(icon) ? icon : null;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -172,7 +174,7 @@ const BentoCard: React.FC<{
       
       <div className="relative z-10">
         <h3 className="text-xl font-bold text-primary mb-2 flex items-center gap-2">
-           {icon && <span className="text-secondary">{React.cloneElement(icon as React.ReactElement<any>, { size: 20 })}</span>}
+          {iconElement && <span className="text-secondary">{React.cloneElement(iconElement, { size: 20 })}</span>}
            {title}
         </h3>
         <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>

@@ -17,6 +17,14 @@ import { formatDate } from '@/utils/formatDate';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
+
 export default function MyRegistrationsPage() {
     const [registrations, setRegistrations] = useState<Registration[]>([]);
     const [loading, setLoading] = useState(true);
@@ -43,8 +51,8 @@ export default function MyRegistrationsPage() {
             await registrationService.cancel(regId);
             toast.success('Đã hủy đăng ký');
             loadRegistrations();
-        } catch (err: any) {
-            toast.error(err.response?.data?.error?.message || 'Hủy đăng ký thất bại');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Hủy đăng ký thất bại'));
         }
     };
 

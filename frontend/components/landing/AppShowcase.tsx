@@ -141,24 +141,24 @@ const AppShowcase: React.FC = () => {
     const [activeIndex, setActiveIndex] = useState(0);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    function stopTimer() {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+        }
+    }
+
+    function startTimer() {
+        stopTimer();
+        timerRef.current = setInterval(() => {
+            setActiveIndex((prev) => (prev + 1) % FEATURES.length);
+        }, 10000);
+    }
+
     // Auto rotate every 10 seconds
     useEffect(() => {
         startTimer();
         return () => stopTimer();
     }, []);
-
-    const startTimer = () => {
-        stopTimer();
-        timerRef.current = setInterval(() => {
-            setActiveIndex((prev) => (prev + 1) % FEATURES.length);
-        }, 10000);
-    };
-
-    const stopTimer = () => {
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-        }
-    };
 
     const handleFeatureClick = (index: number) => {
         setActiveIndex(index);

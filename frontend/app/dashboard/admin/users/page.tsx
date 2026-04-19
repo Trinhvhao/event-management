@@ -1,183 +1,329 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import Card from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
-import Avatar from '@/components/ui/Avatar';
-import Pagination from '@/components/ui/Pagination';
-import Skeleton from '@/components/ui/Skeleton';
-import { motion } from 'framer-motion';
-import { Users, UserCheck, UserX, Shield } from 'lucide-react';
-import { adminService } from '@/services/adminService';
-import { User } from '@/types';
-import { toast } from 'sonner';
+import { useAdminUserStore } from '@/store/adminUserStore';
+import { DataTable } from '@/components/admin/shared/DataTable';
+import { StatusChip } from '@/components/admin/shared/StatusChip';
+import { BulkActionToolbar } from '@/components/admin/shared/BulkActionToolbar';
+import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
+import { UserDetailPanel } from '@/components/admin/users/UserDetailPanel';
+import { Search, Filter, Lock, Unlock, Download } from 'lucide-react';
+import { ColumnDef } from '@tanstack/react-table';
 
-const roleLabels: Record<string, string> = { admin: 'Admin', organizer: 'Ban tổ chức', student: 'Sinh viên' };
-const roleBadgeVariant = (role: string) => role === 'admin' ? 'danger' as const : role === 'organizer' ? 'info' as const : 'neutral' as const;
+interface User {
+    id: string;
+    full_name: string;
+    email: string;
+    role: 'admin' | 'organizer' | 'student';
+    department?: {
+        id: string;
+        name: string;
+    };
+    is_active: boolean;
+    created_at: string;
+    last_login: string | null;
+}
 
-export default function AdminUsersPage() {
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState('');
-    const [page, setPage] = useState(1);
-    const [pagination, setPagination] = useState({ total: 0, page: 1, pageSize: 20, totalPages: 0 });
+export default function UserManagementPage() {
+    const {
+        users,
+        selectedUsers,
+        filters,
+        pagination,
+        loading,
+        fetchUsers,
+        updateFilters,
+        lockUser,
+        unlockUser,
+        changeUserRole,
+        bulkLock,
+        bulkUnlock,
+        toggleUserSelection,
+        selectAllUsers,
+        clearSelection,
+        setPage,
+        setPageSize,
+    } = useAdminUserStore();
 
-    // Load users khi thay đổi filter hoặc page
+    const [searchInput, setSearchInput] = useState('');
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [showDetailPanel, setShowDetailPanel] = useState(false);
+    const [confirmDialog, setConfirmDialog] = useState<{
+        isOpen: boolean;
+        type: 'lock' | 'unlock' | 'bulkLock' | 'bulkUnlock' | null;
+        userId?: string;
+    }>({
+        isOpen: false,
+        type: null,
+    });
+
     useEffect(() => {
-        loadUsers();
-    }, [page, search, roleFilter]);
+        fetchUsers();
+    }, []);
 
-    const loadUsers = async () => {
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            updateFilters({ search: searchInput });
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    const handleLockClick = (userId: string) => {
+        setConfirmDialog({ isOpen: true, type: 'lock', userId });
+    };
+
+    const handleUnlockClick = (userId: string) => {
+        setConfirmDialog({ isOpen: true, type: 'unlock', userId });
+    };
+
+    const handleConfirmAction = async () => {
         try {
-            setLoading(true);
-            // adminService.getUsers trả về { data: User[], pagination: {...} }
-            const res = await adminService.getUsers({
-                page,
-                limit: 20,
-                search: search || undefined,
-                role: roleFilter || undefined,
-            });
-            setUsers(res?.data || []);
-            setPagination(res?.pagination || { total: 0, page: 1, pageSize: 20, totalPages: 0 });
-        } catch {
-            toast.error('Không thể tải danh sách users');
-        } finally {
-            setLoading(false);
+            if (confirmDialog.type === 'lock' && confirmDialog.userId) {
+                await lockUser(confirmDialog.userId);
+            } else if (confirmDialog.type === 'unlock' && confirmDialog.userId) {
+                await unlockUser(confirmDialog.userId);
+            } else if (confirmDialog.type === 'bulkLock') {
+                await bulkLock(Array.from(selectedUsers));
+                clearSelection();
+            } else if (confirmDialog.type === 'bulkUnlock') {
+                await bulkUnlock(Array.from(selectedUsers));
+                clearSelection();
+            }
+        } catch (error) {
+            console.error('Action failed:', error);
         }
     };
 
-    // Toggle kích hoạt/vô hiệu hóa user
-    const handleToggleActive = async (user: User) => {
+    const handleRowClick = (user: User) => {
+        setSelectedUser(user);
+        setShowDetailPanel(true);
+    };
+
+    const handleRoleChange = async (userId: string, newRole: string) => {
         try {
-            await adminService.updateUser(user.id, { is_active: !user.is_active });
-            toast.success(user.is_active ? 'Đã vô hiệu hóa' : 'Đã kích hoạt');
-            loadUsers();
-        } catch {
-            toast.error('Cập nhật thất bại');
+            await changeUserRole(userId, newRole);
+            setShowDetailPanel(false);
+        } catch (error) {
+            console.error('Role change failed:', error);
         }
     };
 
-    const totalActive = users.filter(u => u.is_active).length;
-    const totalInactive = users.filter(u => !u.is_active).length;
+    const columns: ColumnDef<User>[] = [
+        {
+            id: 'select',
+            header: ({ table }) => (
+                <input
+                    type="checkbox"
+                    checked={selectedUsers.size === users.length && users.length > 0}
+                    onChange={(e) => {
+                        if (e.target.checked) {
+                            selectAllUsers();
+                        } else {
+                            clearSelection();
+                        }
+                    }}
+                    className="rounded border-gray-300"
+                />
+            ),
+            cell: ({ row }) => (
+                <input
+                    type="checkbox"
+                    checked={selectedUsers.has(row.original.id)}
+                    onChange={() => toggleUserSelection(row.original.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="rounded border-gray-300"
+                />
+            ),
+        },
+        {
+            accessorKey: 'full_name',
+            header: 'Full Name',
+            enableSorting: true,
+        },
+        {
+            accessorKey: 'email',
+            header: 'Email',
+            enableSorting: true,
+        },
+        {
+            accessorKey: 'role',
+            header: 'Role',
+            cell: ({ row }) => (
+                <span className="capitalize">{row.original.role}</span>
+            ),
+        },
+        {
+            accessorKey: 'department',
+            header: 'Department',
+            cell: ({ row }) => row.original.department?.name || 'N/A',
+        },
+        {
+            accessorKey: 'is_active',
+            header: 'Status',
+            cell: ({ row }) => (
+                <StatusChip status={row.original.is_active ? 'Active' : 'Locked'} />
+            ),
+        },
+        {
+            accessorKey: 'created_at',
+            header: 'Registration Date',
+            enableSorting: true,
+            cell: ({ row }) => new Date(row.original.created_at).toLocaleDateString(),
+        },
+        {
+            accessorKey: 'last_login',
+            header: 'Last Login',
+            enableSorting: true,
+            cell: ({ row }) =>
+                row.original.last_login
+                    ? new Date(row.original.last_login).toLocaleDateString()
+                    : 'Never',
+        },
+        {
+            id: 'actions',
+            header: 'Actions',
+            cell: ({ row }) => (
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    {row.original.is_active ? (
+                        <button
+                            onClick={() => handleLockClick(row.original.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                            Lock
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => handleUnlockClick(row.original.id)}
+                            className="text-green-600 hover:text-green-800 text-sm"
+                        >
+                            Unlock
+                        </button>
+                    )}
+                </div>
+            ),
+        },
+    ];
 
     return (
         <DashboardLayout>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div className="page-header">
-                <div>
-                    <h1 className="page-title">Quản lý người dùng</h1>
-                    <p className="page-subtitle">Quản lý tài khoản trong hệ thống</p>
-                </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-                <Card variant="glass" padding="sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-500 flex items-center justify-center"><Users size={18} /></div>
-                        <div><p className="text-xs text-[var(--dash-text-muted)]">Tổng users</p><p className="text-lg font-bold">{pagination.total}</p></div>
-                    </div>
-                </Card>
-                <Card variant="glass" padding="sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-green-100 text-green-500 flex items-center justify-center"><UserCheck size={18} /></div>
-                        <div><p className="text-xs text-[var(--dash-text-muted)]">Đang hoạt động</p><p className="text-lg font-bold">{totalActive}</p></div>
-                    </div>
-                </Card>
-                <Card variant="glass" padding="sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-red-100 text-red-500 flex items-center justify-center"><UserX size={18} /></div>
-                        <div><p className="text-xs text-[var(--dash-text-muted)]">Đã vô hiệu</p><p className="text-lg font-bold">{totalInactive}</p></div>
-                    </div>
-                </Card>
+        <div className="p-2">
+            {/* Header */}
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-900">Quản lý người dùng</h1>
+                <p className="text-gray-600 mt-1">
+                    Tổng số: {pagination.total} người dùng
+                </p>
             </div>
 
             {/* Filters */}
-            <Card variant="glass" padding="md" className="mb-6">
-                <div className="flex gap-3">
-                    <div className="flex-1">
-                        <Input placeholder="Tìm kiếm theo tên, email, MSSV..." isSearch value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-                    </div>
-                    <Select
-                        options={[
-                            { value: '', label: 'Tất cả vai trò' },
-                            { value: 'admin', label: 'Admin' },
-                            { value: 'organizer', label: 'Ban tổ chức' },
-                            { value: 'student', label: 'Sinh viên' },
-                        ]}
-                        value={roleFilter}
-                        onChange={(v) => { setRoleFilter(v); setPage(1); }}
+            <div className="mb-6 flex gap-4">
+                <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Search by name or email..."
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md"
                     />
                 </div>
-            </Card>
 
-            {/* Users table */}
-            <Card variant="glass" padding="none">
-                <div className="overflow-x-auto">
-                    <table className="dash-table w-full">
-                        <thead>
-                            <tr>
-                                <th>Người dùng</th>
-                                <th>Email</th>
-                                <th>MSSV</th>
-                                <th>Vai trò</th>
-                                <th>Khoa</th>
-                                <th>Trạng thái</th>
-                                <th>Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <tr key={i}>
-                                        <td colSpan={7}><Skeleton height={40} /></td>
-                                    </tr>
-                                ))
-                            ) : users.length === 0 ? (
-                                <tr><td colSpan={7} className="text-center py-8 text-[var(--dash-text-muted)]">Không tìm thấy người dùng</td></tr>
-                            ) : (
-                                users.map((user: any) => (
-                                    <tr key={user.id}>
-                                        <td>
-                                            <div className="flex items-center gap-3">
-                                                <Avatar name={user.full_name} size="sm" />
-                                                <span className="font-medium">{user.full_name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="text-[var(--dash-text-muted)]">{user.email}</td>
-                                        <td className="text-[var(--dash-text-muted)]">{user.student_id || '—'}</td>
-                                        <td><Badge variant={roleBadgeVariant(user.role)}>{roleLabels[user.role] || user.role}</Badge></td>
-                                        <td className="text-[var(--dash-text-muted)]">{user.department?.name || '—'}</td>
-                                        <td>
-                                            <Badge variant={user.is_active ? 'success' : 'danger'} dot>
-                                                {user.is_active ? 'Hoạt động' : 'Đã khóa'}
-                                            </Badge>
-                                        </td>
-                                        <td>
-                                            <Button variant="ghost" size="sm" onClick={() => handleToggleActive(user)}>
-                                                {user.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+                <select
+                    value={filters.role}
+                    onChange={(e) => updateFilters({ role: e.target.value })}
+                    className="px-4 py-2 border border-gray-300 rounded-md"
+                >
+                    <option value="">All Roles</option>
+                    <option value="student">Student</option>
+                    <option value="organizer">Organizer</option>
+                    <option value="admin">Admin</option>
+                </select>
 
-            {/* Pagination */}
-            {pagination.totalPages > 1 && (
-                <div className="flex justify-center mt-6">
-                    <Pagination currentPage={page} totalPages={pagination.totalPages} onPageChange={setPage} />
-                </div>
-            )}
-        </motion.div>
+                <select
+                    value={filters.is_active}
+                    onChange={(e) => updateFilters({ is_active: e.target.value })}
+                    className="px-4 py-2 border border-gray-300 rounded-md"
+                >
+                    <option value="">All Status</option>
+                    <option value="true">Active</option>
+                    <option value="false">Locked</option>
+                </select>
+            </div>
+
+            {/* Table */}
+            <DataTable
+                columns={columns}
+                data={users}
+                pagination={{
+                    pageIndex: pagination.page - 1,
+                    pageSize: pagination.limit,
+                }}
+                onPaginationChange={(updater) => {
+                    const newPagination = typeof updater === 'function' ? updater({ pageIndex: pagination.page - 1, pageSize: pagination.limit }) : updater;
+                    if (newPagination.pageIndex !== pagination.page - 1) {
+                        setPage(newPagination.pageIndex + 1);
+                    }
+                    if (newPagination.pageSize !== pagination.limit) {
+                        setPageSize(newPagination.pageSize);
+                    }
+                }}
+                onRowClick={handleRowClick}
+                loading={loading}
+                pageCount={pagination.totalPages}
+                manualPagination
+            />
+
+            {/* Bulk Actions Toolbar */}
+            <BulkActionToolbar
+                selectedCount={selectedUsers.size}
+                actions={[
+                    {
+                        label: 'Lock Selected',
+                        onClick: () => setConfirmDialog({ isOpen: true, type: 'bulkLock' }),
+                        variant: 'destructive',
+                        icon: <Lock className="h-4 w-4" />,
+                    },
+                    {
+                        label: 'Unlock Selected',
+                        onClick: () => setConfirmDialog({ isOpen: true, type: 'bulkUnlock' }),
+                        icon: <Unlock className="h-4 w-4" />,
+                    },
+                ]}
+                onClearSelection={clearSelection}
+            />
+
+            {/* Confirm Dialog */}
+            <ConfirmDialog
+                isOpen={confirmDialog.isOpen}
+                onClose={() => setConfirmDialog({ isOpen: false, type: null })}
+                onConfirm={handleConfirmAction}
+                title={
+                    confirmDialog.type === 'lock'
+                        ? 'Lock User'
+                        : confirmDialog.type === 'unlock'
+                            ? 'Unlock User'
+                            : confirmDialog.type === 'bulkLock'
+                                ? `Lock ${selectedUsers.size} Users`
+                                : `Unlock ${selectedUsers.size} Users`
+                }
+                description={
+                    confirmDialog.type?.includes('bulk')
+                        ? `Are you sure you want to ${confirmDialog.type === 'bulkLock' ? 'lock' : 'unlock'} ${selectedUsers.size} users?`
+                        : 'Are you sure you want to perform this action?'
+                }
+                variant={confirmDialog.type?.includes('lock') ? 'destructive' : 'default'}
+            />
+
+            {/* User Detail Panel */}
+            <UserDetailPanel
+                user={selectedUser}
+                isOpen={showDetailPanel}
+                onClose={() => setShowDetailPanel(false)}
+                onRoleChange={handleRoleChange}
+            />
+        </div>
         </DashboardLayout>
     );
 }

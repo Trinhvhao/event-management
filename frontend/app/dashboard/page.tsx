@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuthStore } from '@/store/authStore';
 import {
-    Calendar, Award, Bell, Users, Activity,
+    Calendar, Award, Bell, Users,
     CheckCircle, Clock, UserCheck, FileCheck, Download, AlertCircle
 } from 'lucide-react';
 import axios from '@/lib/axios';
@@ -22,6 +22,32 @@ import ActivityLog from '@/components/dashboard/ActivityLog';
 import TopPerformers from '@/components/dashboard/TopPerformers';
 import UpcomingEvents from '@/components/dashboard/UpcomingEvents';
 import ConversionFunnel from '@/components/dashboard/ConversionFunnel';
+import { trainingPointsService } from '@/services/trainingPointsService';
+import { notificationService } from '@/services/notificationService';
+import type { Event, Registration } from '@/types';
+
+interface StatusCount {
+    status: string;
+    count: number;
+}
+
+interface RoleCount {
+    role: string;
+    count: number;
+}
+
+interface StudentRegistration extends Registration {
+    attendance?: boolean;
+}
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
+
 
 interface DashboardStats {
     totalEvents: number;
@@ -35,10 +61,12 @@ interface DashboardStats {
     totalAttendances: number;
     totalDepartments: number;
     pendingEvents: number;
-    recentEvents: any[];
-    recentRegistrations: any[];
-    eventsByStatus: Array<{ status: string; count: number }>;
-    usersByRole: Array<{ role: string; count: number }>;
+    recentEvents: Event[];
+    recentRegistrations: StudentRegistration[];
+    eventsByStatus: StatusCount[];
+    usersByRole: RoleCount[];
+    trainingPoints?: number;
+    unreadNotifications?: number;
 }
 
 export default function DashboardPage() {
@@ -60,28 +88,33 @@ export default function DashboardPage() {
             setLoading(true);
 
             if (user?.role === 'admin') {
-                const [eventsRes, usersRes, statsRes, pendingRes] = await Promise.all([
+                const [eventsRes, statsRes, pendingRes] = await Promise.all([
                     axios.get('/events?limit=5'),
-                    axios.get('/admin/users?limit=100'),
                     axios.get('/statistics/dashboard'),
                     axios.get('/events/pending?limit=1'),
                 ]);
 
-                const events = eventsRes.data?.data?.items || [];
-                const users = usersRes.data?.data?.items || [];
-                const dashboardStats = statsRes.data?.data || {};
+                const events: Event[] = eventsRes.data?.data?.items || [];
+                const dashboardStats = (statsRes.data?.data || {}) as {
+                    totalEvents?: number;
+                    totalUsers?: number;
+                    totalRegistrations?: number;
+                    totalAttendances?: number;
+                    eventsByStatus?: StatusCount[];
+                    usersByRole?: RoleCount[];
+                };
                 const pendingEvents = pendingRes.data?.data?.pagination?.total || 0;
 
                 // Parse eventsByStatus array to get counts
                 const eventsByStatus = dashboardStats.eventsByStatus || [];
-                const upcomingCount = eventsByStatus.find((e: any) => e.status === 'upcoming')?.count || 0;
-                const ongoingCount = eventsByStatus.find((e: any) => e.status === 'ongoing')?.count || 0;
-                const completedCount = eventsByStatus.find((e: any) => e.status === 'completed')?.count || 0;
+                const upcomingCount = eventsByStatus.find((e) => e.status === 'upcoming')?.count || 0;
+                const ongoingCount = eventsByStatus.find((e) => e.status === 'ongoing')?.count || 0;
+                const completedCount = eventsByStatus.find((e) => e.status === 'completed')?.count || 0;
 
                 // Parse usersByRole array to get counts
                 const usersByRole = dashboardStats.usersByRole || [];
-                const studentCount = usersByRole.find((u: any) => u.role === 'student')?.count || 0;
-                const organizerCount = usersByRole.find((u: any) => u.role === 'organizer')?.count || 0;
+                const studentCount = usersByRole.find((u) => u.role === 'student')?.count || 0;
+                const organizerCount = usersByRole.find((u) => u.role === 'organizer')?.count || 0;
 
                 setStats({
                     totalEvents: dashboardStats.totalEvents || 0,
@@ -106,8 +139,13 @@ export default function DashboardPage() {
                     axios.get('/statistics/my'),
                 ]);
 
-                const myEvents = myEventsRes.data?.data || [];
-                const organizerStats = statsRes.data?.data || {};
+                const myEvents: Event[] = myEventsRes.data?.data || [];
+                const organizerStats = (statsRes.data?.data || {}) as {
+                    totalEvents?: number;
+                    totalRegistrations?: number;
+                    totalAttendances?: number;
+                    eventsByStatus?: { upcoming?: number; ongoing?: number; completed?: number };
+                };
 
                 setStats({
                     totalEvents: organizerStats.totalEvents || myEvents.length,
@@ -131,35 +169,41 @@ export default function DashboardPage() {
                     usersByRole: [],
                 });
             } else {
-                const [eventsRes, myRegistrationsRes] = await Promise.all([
+                const [eventsRes, myRegistrationsRes, myPointsRes, notifRes] = await Promise.all([
                     axios.get('/events?status=upcoming&limit=5'),
                     axios.get('/registrations/my'),
+                    trainingPointsService.getMyPoints().catch(() => ({ grand_total: 0, semesters: [] })),
+                    notificationService.getAll({ limit: 1 }).catch(() => ({ notifications: [], total: 0, limit: 1, offset: 0, has_more: false, message: '' })),
                 ]);
 
-                const events = eventsRes.data?.data?.items || [];
-                const myRegistrations = myRegistrationsRes.data?.data || [];
+                const events: Event[] = eventsRes.data?.data?.items || [];
+                const myRegistrations: StudentRegistration[] = myRegistrationsRes.data?.data || [];
+                const trainingTotal = myPointsRes.grand_total || 0;
+                const unreadNotifs = (notifRes.notifications || []).filter((n) => !n.is_read).length;
 
                 setStats({
                     totalEvents: events.length,
                     upcomingEvents: events.length,
                     ongoingEvents: 0,
-                    completedEvents: myRegistrations.filter((r: any) => r.event?.status === 'completed').length,
+                    completedEvents: myRegistrations.filter((r) => r.event?.status === 'completed').length,
                     totalUsers: 0,
                     totalStudents: 0,
                     totalOrganizers: 0,
                     totalRegistrations: myRegistrations.length,
-                    totalAttendances: myRegistrations.filter((r: any) => r.attendance).length,
+                    totalAttendances: myRegistrations.filter((r) => Boolean(r.attendance)).length,
                     totalDepartments: 0,
                     pendingEvents: 0,
                     recentEvents: events,
                     recentRegistrations: myRegistrations.slice(0, 5),
                     eventsByStatus: [],
                     usersByRole: [],
+                    trainingPoints: trainingTotal,
+                    unreadNotifications: unreadNotifs,
                 });
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error fetching dashboard data:', error);
-            toast.error('Không thể tải dữ liệu dashboard');
+            toast.error(getErrorMessage(error, 'Không thể tải dữ liệu dashboard'));
         } finally {
             setLoading(false);
         }
@@ -313,8 +357,8 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <StatCard icon={Calendar} label="Sự kiện sắp tới" value={stats?.upcomingEvents || 0} color="bg-brandBlue" href="/dashboard/events" index={0} />
                     <StatCard icon={CheckCircle} label="Đã đăng ký" value={stats?.totalRegistrations || 0} color="bg-secondary" href="/dashboard/my-registrations" index={1} />
-                    <StatCard icon={Award} label="Điểm rèn luyện" value={0} color="bg-[#22c55e]" href="/dashboard/training-points" index={2} />
-                    <StatCard icon={Bell} label="Thông báo" value={0} color="bg-brandRed" href="/dashboard/notifications" index={3} />
+                    <StatCard icon={Award} label="Điểm rèn luyện" value={stats?.trainingPoints || 0} color="bg-[#22c55e]" href="/dashboard/training-points" index={2} />
+                    <StatCard icon={Bell} label="Thông báo" value={stats?.unreadNotifications || 0} color="bg-brandRed" href="/dashboard/notifications" index={3} />
                 </div>
 
                 <RecentEvents events={stats?.recentEvents || []} />

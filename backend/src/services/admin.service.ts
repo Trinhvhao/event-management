@@ -1,43 +1,68 @@
 import prisma from '../config/database';
-import { UserRole } from '@prisma/client';
+import { createAuditLog } from './audit.service';
+
+interface GetUsersParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    department_id?: string;
+    is_active?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+}
 
 export const adminService = {
     /**
-     * Lấy danh sách users có phân trang, tìm kiếm, lọc theo vai trò
-     * Dành cho admin quản lý tài khoản người dùng
+     * Get users with filters, sorting, and pagination
      */
-    async getUsers(query: { page?: number; limit?: number; search?: string; role?: string }) {
-        const page = Number(query.page) || 1;
-        const limit = Number(query.limit) || 20;
+    async getUsers(params: GetUsersParams) {
+        const page = params.page || 1;
+        const limit = params.limit || 20;
         const skip = (page - 1) * limit;
+        const sortBy = params.sortBy || 'created_at';
+        const sortOrder = params.sortOrder || 'desc';
 
-        // Điều kiện lọc: tìm theo tên/email + lọc theo role
+        // Build where clause
         const where: any = {};
 
-        if (query.search) {
+        if (params.search) {
             where.OR = [
-                { full_name: { contains: query.search, mode: 'insensitive' } },
-                { email: { contains: query.search, mode: 'insensitive' } },
-                { student_id: { contains: query.search, mode: 'insensitive' } },
+                { full_name: { contains: params.search, mode: 'insensitive' } },
+                { email: { contains: params.search, mode: 'insensitive' } },
             ];
         }
 
-        if (query.role) {
-            where.role = query.role;
+        if (params.role) {
+            where.role = params.role;
         }
 
+        if (params.department_id) {
+            where.department_id = Number(params.department_id);
+        }
+
+        if (params.is_active !== undefined && params.is_active !== '') {
+            where.is_active = params.is_active === 'true';
+        }
+
+        // Execute query
         const [users, total] = await Promise.all([
             prisma.user.findMany({
                 where,
-                select: {
-                    id: true, email: true, full_name: true, student_id: true,
-                    role: true, is_active: true, email_verified: true,
-                    department_id: true, created_at: true,
-                    department: { select: { name: true } },
-                },
                 skip,
                 take: limit,
-                orderBy: { created_at: 'desc' },
+                orderBy: {
+                    [sortBy]: sortOrder,
+                },
+                include: {
+                    department: {
+                        select: {
+                            id: true,
+                            name: true,
+                            code: true,
+                        },
+                    },
+                },
             }),
             prisma.user.count({ where }),
         ]);
@@ -45,87 +70,202 @@ export const adminService = {
         return {
             data: users,
             pagination: {
-                total,
                 page,
-                pageSize: limit,
+                limit,
+                total,
                 totalPages: Math.ceil(total / limit),
             },
         };
     },
 
     /**
-     * Cập nhật thông tin user (kích hoạt/vô hiệu hóa, đổi vai trò)
-     * Chỉ admin mới có quyền thực hiện
+     * Lock a user account
      */
-    async updateUser(userId: number, data: { role?: UserRole; is_active?: boolean }) {
-        return prisma.user.update({
+    async lockUser(userId: number, adminId: number, ipAddress?: string, userAgent?: string) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (!user.is_active) {
+            throw new Error('User is already locked');
+        }
+
+        const updatedUser = await prisma.user.update({
             where: { id: userId },
-            data,
-            select: {
-                id: true, email: true, full_name: true, role: true, is_active: true,
+            data: { is_active: false },
+            include: {
+                department: true,
             },
         });
+
+        // Create audit log
+        await createAuditLog({
+            actionType: 'user_locked',
+            adminId,
+            userId,
+            entityType: 'user',
+            entityId: userId,
+            oldValue: { is_active: true },
+            newValue: { is_active: false },
+            ipAddress,
+            userAgent,
+        });
+
+        return updatedUser;
     },
 
     /**
-     * Thống kê nhanh cho admin dashboard
+     * Unlock a user account
      */
-    async getDashboard() {
-        const [totalUsers, activeUsers, totalEvents] = await Promise.all([
-            prisma.user.count(),
-            prisma.user.count({ where: { is_active: true } }),
-            prisma.event.count({ where: { deleted_at: null } }),
-        ]);
-
-        return { totalUsers, activeUsers, totalEvents };
-    },
-
-    // ── CRUD Categories ──
-
-    /** Lấy danh sách danh mục kèm số lượng events */
-    async getCategories() {
-        return prisma.category.findMany({
-            include: { _count: { select: { events: true } } },
-            orderBy: { name: 'asc' },
-        });
-    },
-
-    /** Tạo danh mục mới */
-    async createCategory(data: { name: string; description?: string }) {
-        return prisma.category.create({ data });
-    },
-
-    /** Xóa danh mục (chỉ khi không có events nào) */
-    async deleteCategory(id: number) {
-        const count = await prisma.event.count({ where: { category_id: id } });
-        if (count > 0) throw new Error(`Không thể xóa — danh mục đang có ${count} sự kiện`);
-        return prisma.category.delete({ where: { id } });
-    },
-
-    // ── CRUD Departments ──
-
-    /** Lấy danh sách khoa/phòng ban kèm số lượng users + events */
-    async getDepartments() {
-        return prisma.department.findMany({
-            include: { _count: { select: { users: true, events: true } } },
-            orderBy: { name: 'asc' },
-        });
-    },
-
-    /** Tạo khoa/phòng ban mới */
-    async createDepartment(data: { name: string; code: string; description?: string }) {
-        return prisma.department.create({ data });
-    },
-
-    /** Xóa khoa/phòng ban (chỉ khi không có users hay events) */
-    async deleteDepartment(id: number) {
-        const [userCount, eventCount] = await Promise.all([
-            prisma.user.count({ where: { department_id: id } }),
-            prisma.event.count({ where: { department_id: id } }),
-        ]);
-        if (userCount > 0 || eventCount > 0) {
-            throw new Error(`Không thể xóa — khoa đang có ${userCount} users và ${eventCount} events`);
+    async unlockUser(userId: number, adminId: number, ipAddress?: string, userAgent?: string) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error('User not found');
         }
-        return prisma.department.delete({ where: { id } });
+
+        if (user.is_active) {
+            throw new Error('User is already active');
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { is_active: true },
+            include: {
+                department: true,
+            },
+        });
+
+        // Create audit log
+        await createAuditLog({
+            actionType: 'user_unlocked',
+            adminId,
+            userId,
+            entityType: 'user',
+            entityId: userId,
+            oldValue: { is_active: false },
+            newValue: { is_active: true },
+            ipAddress,
+            userAgent,
+        });
+
+        return updatedUser;
+    },
+
+    /**
+     * Change user role
+     */
+    async changeUserRole(
+        userId: number,
+        newRole: string,
+        adminId: number,
+        ipAddress?: string,
+        userAgent?: string
+    ) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        // Business rule: cannot change own role
+        if (userId === adminId) {
+            throw new Error('Cannot change your own role');
+        }
+
+        // Business rule: cannot remove last admin
+        if (user.role === 'admin' && newRole !== 'admin') {
+            const adminCount = await prisma.user.count({
+                where: { role: 'admin', is_active: true },
+            });
+            if (adminCount <= 1) {
+                throw new Error('Cannot remove the last admin');
+            }
+        }
+
+        const oldRole = user.role;
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { role: newRole as any },
+            include: {
+                department: true,
+            },
+        });
+
+        // Create audit log
+        await createAuditLog({
+            actionType: 'role_changed',
+            adminId,
+            userId,
+            entityType: 'user',
+            entityId: userId,
+            oldValue: { role: oldRole },
+            newValue: { role: newRole },
+            ipAddress,
+            userAgent,
+        });
+
+        return updatedUser;
+    },
+
+    /**
+     * Bulk lock users
+     */
+    async bulkLock(userIds: number[], adminId: number, ipAddress?: string, userAgent?: string) {
+        const results = {
+            successCount: 0,
+            failureCount: 0,
+            failures: [] as Array<{ userId: number; error: string }>,
+        };
+
+        for (const userId of userIds) {
+            try {
+                // Skip current admin
+                if (userId === adminId) {
+                    results.failureCount++;
+                    results.failures.push({
+                        userId,
+                        error: 'Cannot lock your own account',
+                    });
+                    continue;
+                }
+
+                await this.lockUser(userId, adminId, ipAddress, userAgent);
+                results.successCount++;
+            } catch (error) {
+                results.failureCount++;
+                results.failures.push({
+                    userId,
+                    error: (error as Error).message,
+                });
+            }
+        }
+
+        return results;
+    },
+
+    /**
+     * Bulk unlock users
+     */
+    async bulkUnlock(userIds: number[], adminId: number, ipAddress?: string, userAgent?: string) {
+        const results = {
+            successCount: 0,
+            failureCount: 0,
+            failures: [] as Array<{ userId: number; error: string }>,
+        };
+
+        for (const userId of userIds) {
+            try {
+                await this.unlockUser(userId, adminId, ipAddress, userAgent);
+                results.successCount++;
+            } catch (error) {
+                results.failureCount++;
+                results.failures.push({
+                    userId,
+                    error: (error as Error).message,
+                });
+            }
+        }
+
+        return results;
     },
 };

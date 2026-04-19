@@ -172,7 +172,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {/* Navigation */}
                     <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
                         {navItems.map((item, index) => {
-                            if ('items' in item) {
+                            if ('items' in item && item.items) {
                                 // Group header
                                 return (
                                     <div key={index} className="space-y-1">

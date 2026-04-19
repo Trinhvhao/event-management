@@ -3,6 +3,34 @@ import { eventService } from '@/services/eventService';
 import { Event, Category, Department } from '@/types';
 import { toast } from 'sonner';
 
+interface EventsResponseShape {
+  data?: {
+    items?: Event[];
+    pagination?: {
+      total?: number;
+      page?: number;
+      pageSize?: number;
+      totalPages?: number;
+    };
+  };
+  items?: Event[];
+  pagination?: {
+    total?: number;
+    page?: number;
+    pageSize?: number;
+    totalPages?: number;
+  };
+}
+
+const toErrorMessage = (error: unknown, fallback: string): string => {
+  const err = error as {
+    response?: { data?: { error?: { message?: string } } };
+    message?: string;
+  };
+
+  return err.response?.data?.error?.message || err.message || fallback;
+};
+
 export function useEvents(params?: {
   page?: number;
   limit?: number;
@@ -31,14 +59,14 @@ export function useEvents(params?: {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      const response: any = await eventService.getAll({
+      const response = (await eventService.getAll({
         page,
         limit,
         category,
         department,
         status,
         search,
-      });
+      })) as EventsResponseShape;
 
       // Support multiple backend response shapes and always normalize to Event[]
       const items =
@@ -65,8 +93,8 @@ export function useEvents(params?: {
         totalPages: paging.totalPages || 1,
       });
       setError(null);
-    } catch (err: any) {
-      const message = err.response?.data?.error?.message || 'Không thể tải danh sách sự kiện';
+    } catch (error: unknown) {
+      const message = toErrorMessage(error, 'Không thể tải danh sách sự kiện');
       setError(message);
       toast.error(message);
     } finally {
@@ -102,8 +130,8 @@ export function useEvent(id: number) {
       const data = await eventService.getById(id);
       setEvent(data);
       setError(null);
-    } catch (err: any) {
-      const message = err.response?.data?.error?.message || 'Không thể tải thông tin sự kiện';
+    } catch (error: unknown) {
+      const message = toErrorMessage(error, 'Không thể tải thông tin sự kiện');
       setError(message);
       toast.error(message);
     } finally {
@@ -131,7 +159,7 @@ export function useCategories() {
     try {
       const data = await eventService.getCategories();
       setCategories(data);
-    } catch (error) {
+    } catch {
       toast.error('Không thể tải danh sách danh mục');
     } finally {
       setLoading(false);
@@ -153,7 +181,7 @@ export function useDepartments() {
     try {
       const data = await eventService.getDepartments();
       setDepartments(data);
-    } catch (error) {
+    } catch {
       toast.error('Không thể tải danh sách khoa');
     } finally {
       setLoading(false);

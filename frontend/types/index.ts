@@ -31,6 +31,7 @@ export interface RegisterData {
 
 export interface AuthResponse {
   token: string;
+  refreshToken?: string;
   user: User;
 }
 
@@ -181,6 +182,6 @@ export interface ApiError {
   error: {
     message: string;
     code?: string;
-    details?: any;
+    details?: unknown;
   };
 }

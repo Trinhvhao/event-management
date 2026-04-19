@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Bell, CheckCheck, Calendar, Award, AlertCircle, Info } from 'lucide-react';
+import { Bell, CheckCheck, Calendar, Award, AlertCircle, Info, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { notificationService } from '@/services/notificationService';
 import { toast } from 'sonner';
@@ -72,6 +72,18 @@ export default function NotificationsPage() {
         } catch (error) {
             console.error('Error marking all as read:', error);
             toast.error('Không thể đánh dấu đã đọc');
+        }
+    };
+
+    const handleDelete = async (e: React.MouseEvent, id: number) => {
+        e.stopPropagation();
+        if (!confirm('Bạn có chắc muốn xóa thông báo này?')) return;
+        try {
+            await notificationService.delete(id);
+            setNotifications(prev => prev.filter(n => n.id !== id));
+            toast.success('Đã xóa thông báo');
+        } catch (error) {
+            toast.error('Không thể xóa thông báo');
         }
     };
 
@@ -205,9 +217,18 @@ export default function NotificationsPage() {
                                                 <h3 className={`font-bold ${notification.is_read ? 'text-gray-700' : 'text-primary'}`}>
                                                     {notification.title}
                                                 </h3>
-                                                {!notification.is_read && (
-                                                    <div className="w-2.5 h-2.5 bg-brandBlue rounded-full flex-shrink-0 mt-1.5"></div>
-                                                )}
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {!notification.is_read && (
+                                                        <div className="w-2.5 h-2.5 bg-brandBlue rounded-full mt-1.5"></div>
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => handleDelete(e, notification.id)}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                        title="Xóa thông báo"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                             <p className={`text-sm mb-2 ${notification.is_read ? 'text-gray-500' : 'text-gray-700'}`}>
                                                 {notification.message}

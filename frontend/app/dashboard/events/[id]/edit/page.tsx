@@ -18,6 +18,14 @@ import { ArrowLeft, MapPin, Users, Award, Image, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+    return fallback;
+};
+
 // Validation schema (tương tự cho tạo, nhưng tất cả optional vì chỉ gửi trường đã thay đổi)
 const editEventSchema = z.object({
     title: z.string().min(5, 'Tiêu đề tối thiểu 5 ký tự').max(255),
@@ -98,8 +106,8 @@ export default function EditEventPage() {
             await eventService.update(eventId, payload);
             toast.success('Cập nhật sự kiện thành công!');
             router.push(`/dashboard/events/${eventId}`);
-        } catch (err: any) {
-            toast.error(err?.response?.data?.error?.message || 'Cập nhật thất bại');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Cập nhật thất bại'));
         } finally {
             setIsSubmitting(false);
         }

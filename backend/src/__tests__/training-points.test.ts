@@ -79,8 +79,6 @@ describe('Training Points Module Tests', () => {
                 department_id: 1,
             },
         });
-        eventId = event1.id;
-
         const event2 = await prisma.event.create({
             data: {
                 title: 'Test Event 2 for Training Points',
