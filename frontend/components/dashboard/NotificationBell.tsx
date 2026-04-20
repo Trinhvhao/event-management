@@ -126,8 +126,8 @@ export default function NotificationBell() {
                 ...prev,
                 page,
                 limit: PAGE_SIZE,
-                total: listResponse.pagination?.total || 0,
-                totalPages: Math.ceil((listResponse.pagination?.total || 0) / PAGE_SIZE),
+                total: listResponse.total || 0,
+                totalPages: Math.ceil((listResponse.total || 0) / PAGE_SIZE),
             }));
         } catch (error) {
             console.error('Failed to fetch notifications:', error);

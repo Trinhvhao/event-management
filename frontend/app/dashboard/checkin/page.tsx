@@ -21,6 +21,7 @@ const ACCENT = {
     navy:   { hex: '#00358F', tint: 'rgba(0,53,143,0.08)',   text: '#00358F' },
     green:  { hex: '#00A651', tint: 'rgba(0,166,81,0.08)',   text: '#007a3d' },
     red:    { hex: '#FF4000', tint: 'rgba(255,64,0,0.08)',   text: '#cc3300' },
+    grey:   { hex: '#94a3b8', tint: 'rgba(148,163,184,0.08)', text: '#64748b' },
 };
 
 type ScanMode = 'manual' | 'camera';
@@ -281,7 +282,7 @@ export default function CheckinPage() {
             toast.success(`Check-out thành công: ${studentName}`);
             await loadAttendanceData();
         } catch (err: unknown) {
-            toast.error(normalizeQrError(getErrorMessage(err, 'Check-out thất bại')));
+            toast.error(normalizeQrError(getErrorMessage(err, 'Check-out thất bại'), 'Check-out thất bại'));
         }
     };
 
@@ -293,7 +294,7 @@ export default function CheckinPage() {
             toast.success(`Đã hủy bản ghi của ${studentName}`);
             await loadAttendanceData();
         } catch (err: unknown) {
-            toast.error(normalizeQrError(getErrorMessage(err, 'Hủy bản ghi thất bại')));
+            toast.error(normalizeQrError(getErrorMessage(err, 'Hủy bản ghi thất bại'), 'Hủy bản ghi thất bại'));
         }
     };
 
@@ -405,16 +406,16 @@ export default function CheckinPage() {
                             { label: 'Đã đăng ký', value: stats.total_registrations, icon: <Users className="w-5 h-5" />, accent: ACCENT.navy },
                             { label: 'Đã check-in', value: stats.total_attendances, icon: <CheckCircle className="w-5 h-5" />, accent: ACCENT.green },
                             { label: 'Đang check-in', value: stats.active_checkins, icon: <ScanLine className="w-5 h-5" />, accent: ACCENT.gold },
-                            { label: 'Đã check-out', value: stats.total_checkouts, icon: <LogOut className="w-5 h-5" />, accent: { hex: '#94a3b8', tint: 'rgba(148,163,184,0.08)' } },
+                            { label: 'Đã check-out', value: stats.total_checkouts, icon: <LogOut className="w-5 h-5" />, accent: ACCENT.grey },
                         ].map(({ label, value, icon, accent }) => (
                             <div key={label} className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white p-4 shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] transition-all duration-300">
-                                <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{ background: `linear-gradient(135deg, ${(accent as {hex:string}).tint} 0%, transparent 60%)` }} />
+                                <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{ background: `linear-gradient(135deg, ${accent.tint} 0%, transparent 60%)` }} />
                                 <div className="relative flex items-start justify-between gap-3">
                                     <div>
                                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
                                         <p className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-none">{value}</p>
                                     </div>
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: (accent as {hex:string,tint:string}).tint, color: (accent as {hex:string}).hex }}>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: accent.tint, color: accent.hex }}>
                                         {icon}
                                     </div>
                                 </div>

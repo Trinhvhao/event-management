@@ -76,15 +76,15 @@ function PrimaryButton({ onClick, loading, children, icon, className = '' }: {
     );
 }
 
-function SecondaryButton({ onClick, loading, children, icon, variant = 'outline' }: {
-    onClick?: () => void; loading?: boolean; children: React.ReactNode; icon?: React.ReactNode; variant?: 'outline' | 'ghost';
+function SecondaryButton({ onClick, loading, children, icon, variant = 'outline', className = '' }: {
+    onClick?: () => void; loading?: boolean; children: React.ReactNode; icon?: React.ReactNode; variant?: 'outline' | 'ghost'; className?: string;
 }) {
     const base = 'inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed';
     const styles = variant === 'outline'
         ? 'border-2 border-[var(--border-default)] bg-white text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] shadow-[var(--shadow-xs)]'
         : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:bg-[var(--border-default)] hover:text-[var(--text-primary)]';
     return (
-        <button onClick={onClick} disabled={loading} className={`${base} ${styles}`}>
+        <button onClick={onClick} disabled={loading} className={`${base} ${styles} ${className}`}>
             {loading ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : icon ? <span className="shrink-0">{icon}</span> : null}
             {children}
         </button>

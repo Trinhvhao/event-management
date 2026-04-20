@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { MoreVertical, Eye, Edit, CheckCircle, Link as LinkIcon, Clock, FileText } from 'lucide-react';
+import { MoreVertical, Eye, Edit, CheckCircle, Link as LinkIcon, Clock, FileText, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { eventService } from '@/services/eventService';
