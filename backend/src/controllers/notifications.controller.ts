@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as notificationsService from '../services/notifications.service';
 import { successResponse } from '../utils/response.util';
+import { getAuthenticatedUser, parsePositiveInt, parseQueryInt } from '../utils/request.util';
 
 export const getMyNotifications = async (
     req: Request,
@@ -8,13 +9,13 @@ export const getMyNotifications = async (
     next: NextFunction
 ) => {
     try {
-        const userId = req.user!.id;
+        const userId = getAuthenticatedUser(req).id;
         const { limit, offset, unread_only } = req.query;
 
         const result = await notificationsService.getMyNotifications(
             userId,
-            limit ? parseInt(limit as string) : 20,
-            offset ? parseInt(offset as string) : 0,
+            parseQueryInt(limit, 20, 'limit', { min: 1 }),
+            parseQueryInt(offset, 0, 'offset', { min: 0 }),
             unread_only === 'true'
         );
 
@@ -30,7 +31,7 @@ export const getUnreadCount = async (
     next: NextFunction
 ) => {
     try {
-        const userId = req.user!.id;
+        const userId = getAuthenticatedUser(req).id;
 
         const count = await notificationsService.getUnreadCount(userId);
 
@@ -42,8 +43,8 @@ export const getUnreadCount = async (
 
 export const markAsRead = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.user!.id;
-        const notificationId = parseInt(req.params.id as string);
+        const userId = getAuthenticatedUser(req).id;
+        const notificationId = parsePositiveInt(req.params.id, 'id');
 
         const notification = await notificationsService.markAsRead(userId, notificationId);
 
@@ -59,7 +60,7 @@ export const markAllAsRead = async (
     next: NextFunction
 ) => {
     try {
-        const userId = req.user!.id;
+        const userId = getAuthenticatedUser(req).id;
 
         const count = await notificationsService.markAllAsRead(userId);
 
@@ -75,8 +76,8 @@ export const deleteNotification = async (
     next: NextFunction
 ) => {
     try {
-        const userId = req.user!.id;
-        const notificationId = parseInt(req.params.id as string);
+        const userId = getAuthenticatedUser(req).id;
+        const notificationId = parsePositiveInt(req.params.id, 'id');
 
         await notificationsService.deleteNotification(userId, notificationId);
 

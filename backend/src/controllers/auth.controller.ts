@@ -3,6 +3,7 @@ import { authService } from '../services/auth.service';
 import { successResponse } from '../utils/response.util';
 import prisma from '../config/database';
 import bcrypt from 'bcrypt';
+import { getAuthenticatedUser, parseOptionalPositiveInt } from '../utils/request.util';
 
 export const authController = {
   /**
@@ -99,8 +100,9 @@ export const authController = {
    */
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
+      const currentUser = getAuthenticatedUser(req);
       const user = await prisma.user.findUnique({
-        where: { id: req.user!.id },
+        where: { id: currentUser.id },
         select: {
           id: true, email: true, full_name: true, student_id: true,
           role: true, is_active: true, email_verified: true,
@@ -120,10 +122,11 @@ export const authController = {
    */
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
+      const currentUser = getAuthenticatedUser(req);
       const { full_name, department_id } = req.body;
       const updated = await prisma.user.update({
-        where: { id: req.user!.id },
-        data: { full_name, department_id: department_id ? Number(department_id) : undefined },
+        where: { id: currentUser.id },
+        data: { full_name, department_id: parseOptionalPositiveInt(department_id, 'department_id') },
         select: {
           id: true, email: true, full_name: true, student_id: true,
           role: true, is_active: true, department_id: true,
@@ -142,6 +145,7 @@ export const authController = {
    */
   async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const currentUser = getAuthenticatedUser(req);
       const { old_password, new_password } = req.body;
       if (!old_password || !new_password) {
         res.status(400).json({ success: false, error: { message: 'Thiếu mật khẩu cũ hoặc mới' } });
@@ -152,7 +156,7 @@ export const authController = {
         return;
       }
       // Lấy user từ DB (để lấy password_hash)
-      const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+      const user = await prisma.user.findUnique({ where: { id: currentUser.id } });
       if (!user) {
         res.status(404).json({ success: false, error: { message: 'User not found' } });
         return;
@@ -167,7 +171,7 @@ export const authController = {
 
       // Hash và lưu mật khẩu mới
       const password_hash = await bcrypt.hash(new_password, 10);
-      await prisma.user.update({ where: { id: req.user!.id }, data: { password_hash } });
+      await prisma.user.update({ where: { id: currentUser.id }, data: { password_hash } });
 
       res.json(successResponse(null, 'Đổi mật khẩu thành công'));
     } catch (error) {

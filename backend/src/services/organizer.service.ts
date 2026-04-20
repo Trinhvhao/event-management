@@ -1,11 +1,12 @@
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { createAuditLog } from './audit.service';
 
 interface GetOrganizersParams {
     page?: number;
     limit?: number;
     search?: string;
-    department_id?: string;
+    department_id?: number;
     status?: string;
     eventsCreatedMin?: number;
     eventsCreatedMax?: number;
@@ -27,7 +28,7 @@ export const organizerService = {
         const sortOrder = params.sortOrder || 'desc';
 
         // Build where clause for users
-        const where: any = {
+        const where: Prisma.UserWhereInput = {
             role: 'organizer',
         };
 
@@ -38,8 +39,8 @@ export const organizerService = {
             ];
         }
 
-        if (params.department_id) {
-            where.department_id = Number(params.department_id);
+        if (params.department_id !== undefined) {
+            where.department_id = params.department_id;
         }
 
         if (params.status !== undefined && params.status !== '') {

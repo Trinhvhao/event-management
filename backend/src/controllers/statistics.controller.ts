@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { statisticsService } from '../services/statistics.service';
 import { successResponse } from '../utils/response.util';
+import { getAuthenticatedUser, parsePositiveInt } from '../utils/request.util';
 
 export const statisticsController = {
     async getDashboard(_req: Request, res: Response, next: NextFunction) {
@@ -11,14 +12,14 @@ export const statisticsController = {
     },
     async getEventStats(req: Request, res: Response, next: NextFunction) {
         try {
-            const eventId = Number(req.params.id);
+            const eventId = parsePositiveInt(req.params.id, 'id');
             const result = await statisticsService.getEventStats(eventId);
             res.json(successResponse(result));
         } catch (error) { next(error); }
     },
     async getOrganizerStats(req: Request, res: Response, next: NextFunction) {
         try {
-            const result = await statisticsService.getOrganizerStats(req.user!.id);
+            const result = await statisticsService.getOrganizerStats(getAuthenticatedUser(req).id);
             res.json(successResponse(result));
         } catch (error) { next(error); }
     },

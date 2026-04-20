@@ -1,6 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import * as feedbackService from '../services/feedback.service';
 import { successResponse } from '../utils/response.util';
+import {
+  getAuthenticatedUser,
+  parsePositiveInt,
+  parseQueryInt,
+} from '../utils/request.util';
 
 export const submitFeedback = async (
   req: Request,
@@ -8,7 +13,7 @@ export const submitFeedback = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user!.id;
+    const userId = getAuthenticatedUser(req).id;
     const feedbackData = req.body;
 
     const feedback = await feedbackService.submitFeedback(userId, feedbackData);
@@ -25,13 +30,13 @@ export const getEventFeedbacks = async (
   next: NextFunction
 ) => {
   try {
-    const eventId = parseInt(req.params.eventId as string);
+    const eventId = parsePositiveInt(req.params.eventId, 'eventId');
     const { limit, offset } = req.query;
 
     const result = await feedbackService.getEventFeedbacks(
       eventId,
-      limit ? parseInt(limit as string) : 20,
-      offset ? parseInt(offset as string) : 0
+      parseQueryInt(limit, 20, 'limit', { min: 1 }),
+      parseQueryInt(offset, 0, 'offset', { min: 0 })
     );
 
     res.json(successResponse(result, 'Lấy danh sách đánh giá thành công'));
@@ -46,8 +51,8 @@ export const getMyFeedback = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user!.id;
-    const eventId = parseInt(req.params.eventId as string);
+    const userId = getAuthenticatedUser(req).id;
+    const eventId = parsePositiveInt(req.params.eventId, 'eventId');
 
     const feedback = await feedbackService.getMyFeedback(userId, eventId);
 
@@ -71,7 +76,7 @@ export const getFeedbackSummary = async (
   next: NextFunction
 ) => {
   try {
-    const eventId = parseInt(req.params.eventId as string);
+    const eventId = parsePositiveInt(req.params.eventId, 'eventId');
 
     const summary = await feedbackService.getFeedbackSummary(eventId);
 
@@ -90,7 +95,7 @@ export const getTopRatedEvents = async (
     const { limit } = req.query;
 
     const events = await feedbackService.getTopRatedEvents(
-      limit ? parseInt(limit as string) : 10
+      parseQueryInt(limit, 10, 'limit', { min: 1 })
     );
 
     res.json(successResponse(events, 'Lấy sự kiện được đánh giá cao thành công'));

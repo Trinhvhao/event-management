@@ -1,12 +1,31 @@
 import { Request, Response } from 'express';
+import { UserRole } from '@prisma/client';
 import { adminService } from '../services/admin.service';
 import { getUserAuditLogs } from '../services/audit.service';
 import { categoryService } from '../services/category.service';
+import {
+    getAuthenticatedUser,
+    getQueryString,
+    parseOptionalPositiveInt,
+    parsePositiveInt,
+    parseQueryInt,
+} from '../utils/request.util';
 
-// Helper to safely get string from query param
-const getQueryString = (param: unknown): string | undefined => {
-    if (typeof param === 'string') return param;
-    if (Array.isArray(param) && typeof param[0] === 'string') return param[0];
+const toUserSortBy = (
+    value: unknown
+): 'created_at' | 'last_login' | 'full_name' | 'email' | undefined => {
+    const parsed = getQueryString(value);
+    if (!parsed) return undefined;
+
+    if (
+        parsed === 'created_at' ||
+        parsed === 'last_login' ||
+        parsed === 'full_name' ||
+        parsed === 'email'
+    ) {
+        return parsed;
+    }
+
     return undefined;
 };
 
@@ -29,13 +48,16 @@ export const adminController = {
             } = req.query;
 
             const result = await adminService.getUsers({
-                page: page ? parseInt(getQueryString(page) || '1') : undefined,
-                limit: limit ? parseInt(getQueryString(limit) || '20') : undefined,
+                page: parseQueryInt(page, 1, 'page', { min: 1 }),
+                limit: parseQueryInt(limit, 20, 'limit', { min: 1 }),
                 search: getQueryString(search),
-                role: getQueryString(role),
-                department_id: getQueryString(department_id),
-                is_active: getQueryString(is_active),
-                sortBy: getQueryString(sortBy),
+                role: getQueryString(role) as UserRole | undefined,
+                department_id: parseOptionalPositiveInt(department_id, 'department_id'),
+                is_active:
+                    getQueryString(is_active) === undefined
+                        ? undefined
+                        : getQueryString(is_active) === 'true',
+                sortBy: toUserSortBy(sortBy),
                 sortOrder: getQueryString(sortOrder) as 'asc' | 'desc' | undefined,
             });
 
@@ -59,8 +81,8 @@ export const adminController = {
      */
     async lockUser(req: Request, res: Response): Promise<void> {
         try {
-            const userId = Number(req.params.id);
-            const adminId = req.user!.id;
+            const userId = parsePositiveInt(req.params.id, 'id');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -86,8 +108,8 @@ export const adminController = {
      */
     async unlockUser(req: Request, res: Response): Promise<void> {
         try {
-            const userId = Number(req.params.id);
-            const adminId = req.user!.id;
+            const userId = parsePositiveInt(req.params.id, 'id');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -113,9 +135,9 @@ export const adminController = {
      */
     async changeUserRole(req: Request, res: Response): Promise<void> {
         try {
-            const userId = Number(req.params.id);
+            const userId = parsePositiveInt(req.params.id, 'id');
             const { role } = req.body;
-            const adminId = req.user!.id;
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -137,7 +159,7 @@ export const adminController = {
 
             const user = await adminService.changeUserRole(
                 userId,
-                role,
+                role as UserRole,
                 adminId,
                 ipAddress,
                 userAgent
@@ -164,7 +186,7 @@ export const adminController = {
     async bulkLock(req: Request, res: Response): Promise<void> {
         try {
             const { userIds } = req.body;
-            const adminId = req.user!.id;
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -176,7 +198,9 @@ export const adminController = {
                 return;
             }
 
-            const parsedUserIds = userIds.map((id: unknown) => Number(id));
+            const parsedUserIds = userIds.map((id: unknown, index: number) =>
+                parsePositiveInt(id, `userIds[${index}]`)
+            );
 
             const result = await adminService.bulkLock(
                 parsedUserIds,
@@ -207,7 +231,7 @@ export const adminController = {
     async bulkUnlock(req: Request, res: Response): Promise<void> {
         try {
             const { userIds } = req.body;
-            const adminId = req.user!.id;
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -219,7 +243,9 @@ export const adminController = {
                 return;
             }
 
-            const parsedUserIds = userIds.map((id: unknown) => Number(id));
+            const parsedUserIds = userIds.map((id: unknown, index: number) =>
+                parsePositiveInt(id, `userIds[${index}]`)
+            );
 
             const result = await adminService.bulkUnlock(
                 parsedUserIds,
@@ -249,12 +275,12 @@ export const adminController = {
      */
     async getUserAuditLogs(req: Request, res: Response): Promise<void> {
         try {
-            const userId = Number(req.params.id);
+            const userId = parsePositiveInt(req.params.id, 'id');
             const { page, limit, actionType } = req.query;
 
             const result = await getUserAuditLogs(userId, {
-                page: page ? parseInt(getQueryString(page) || '1') : undefined,
-                limit: limit ? parseInt(getQueryString(limit) || '20') : undefined,
+                page: parseQueryInt(page, 1, 'page', { min: 1 }),
+                limit: parseQueryInt(limit, 20, 'limit', { min: 1 }),
                 actionType: getQueryString(actionType),
             });
 
@@ -295,16 +321,16 @@ export const adminController = {
             const { organizerService } = await import('../services/organizer.service');
 
             const result = await organizerService.getOrganizers({
-                page: page ? parseInt(page as string) : undefined,
-                limit: limit ? parseInt(limit as string) : undefined,
-                search: search as string,
-                department_id: department_id as string,
-                status: status as string,
-                eventsCreatedMin: eventsCreatedMin ? parseInt(eventsCreatedMin as string) : undefined,
-                eventsCreatedMax: eventsCreatedMax ? parseInt(eventsCreatedMax as string) : undefined,
-                totalAttendeesMin: totalAttendeesMin ? parseInt(totalAttendeesMin as string) : undefined,
-                totalAttendeesMax: totalAttendeesMax ? parseInt(totalAttendeesMax as string) : undefined,
-                sortBy: sortBy as string,
+                page: parseQueryInt(page, 1, 'page', { min: 1 }),
+                limit: parseQueryInt(limit, 20, 'limit', { min: 1 }),
+                search: getQueryString(search),
+                department_id: parseOptionalPositiveInt(department_id, 'department_id'),
+                status: getQueryString(status),
+                eventsCreatedMin: parseOptionalPositiveInt(eventsCreatedMin, 'eventsCreatedMin'),
+                eventsCreatedMax: parseOptionalPositiveInt(eventsCreatedMax, 'eventsCreatedMax'),
+                totalAttendeesMin: parseOptionalPositiveInt(totalAttendeesMin, 'totalAttendeesMin'),
+                totalAttendeesMax: parseOptionalPositiveInt(totalAttendeesMax, 'totalAttendeesMax'),
+                sortBy: getQueryString(sortBy),
                 sortOrder: sortOrder as 'asc' | 'desc',
             });
 
@@ -328,18 +354,10 @@ export const adminController = {
      */
     async grantOrganizerRights(req: Request, res: Response): Promise<void> {
         try {
-            const userId = Number(req.body.userId);
-            const adminId = req.user!.id;
+            const userId = parsePositiveInt(req.body.userId, 'userId');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
-
-            if (!userId) {
-                res.status(400).json({
-                    success: false,
-                    message: 'userId is required',
-                });
-                return;
-            }
 
             const { organizerService } = await import('../services/organizer.service');
 
@@ -370,8 +388,8 @@ export const adminController = {
      */
     async revokeOrganizerRights(req: Request, res: Response): Promise<void> {
         try {
-            const userId = Number(req.params.id);
-            const adminId = req.user!.id;
+            const userId = parsePositiveInt(req.params.id, 'id');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -404,15 +422,15 @@ export const adminController = {
      */
     async getOrganizerMetrics(req: Request, res: Response): Promise<void> {
         try {
-            const organizerId = Number(req.params.id);
+            const organizerId = parsePositiveInt(req.params.id, 'id');
             const { dateFrom, dateTo } = req.query;
 
             const { organizerService } = await import('../services/organizer.service');
 
             const metrics = await organizerService.getOrganizerMetrics(
                 organizerId,
-                dateFrom as string,
-                dateTo as string
+                getQueryString(dateFrom),
+                getQueryString(dateTo)
             );
 
             res.json({
@@ -455,7 +473,7 @@ export const adminController = {
      */
     async createCategory(req: Request, res: Response): Promise<void> {
         try {
-            const adminId = req.user!.id;
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -486,8 +504,8 @@ export const adminController = {
      */
     async updateCategory(req: Request, res: Response): Promise<void> {
         try {
-            const id = Number(req.params.id);
-            const adminId = req.user!.id;
+            const id = parsePositiveInt(req.params.id, 'id');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -519,10 +537,10 @@ export const adminController = {
      */
     async deleteCategory(req: Request, res: Response): Promise<void> {
         try {
-            const id = Number(req.params.id);
+            const id = parsePositiveInt(req.params.id, 'id');
             const reassignParam = getQueryString(req.query.reassignTo);
-            const reassignTo = reassignParam ? Number(reassignParam) : undefined;
-            const adminId = req.user!.id;
+            const reassignTo = parseOptionalPositiveInt(reassignParam, 'reassignTo');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -572,7 +590,7 @@ export const adminController = {
      */
     async createDepartment(req: Request, res: Response): Promise<void> {
         try {
-            const adminId = req.user!.id;
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -603,8 +621,8 @@ export const adminController = {
      */
     async updateDepartment(req: Request, res: Response): Promise<void> {
         try {
-            const id = Number(req.params.id);
-            const adminId = req.user!.id;
+            const id = parsePositiveInt(req.params.id, 'id');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 
@@ -636,8 +654,8 @@ export const adminController = {
      */
     async deleteDepartment(req: Request, res: Response): Promise<void> {
         try {
-            const id = Number(req.params.id);
-            const adminId = req.user!.id;
+            const id = parsePositiveInt(req.params.id, 'id');
+            const adminId = getAuthenticatedUser(req).id;
             const ipAddress = req.ip || undefined;
             const userAgent = req.get('user-agent') || undefined;
 

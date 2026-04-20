@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { eventService } from '../services/events.service';
 import { successResponse, paginatedResponse } from '../utils/response.util';
 import { ValidationError } from '../middleware/errorHandler';
+import {
+  getAuthenticatedUser,
+  parseOptionalPositiveInt,
+  parsePositiveInt,
+  parseQueryInt,
+} from '../utils/request.util';
 
 export const eventController = {
   /**
@@ -19,10 +25,10 @@ export const eventController = {
       } = req.query;
 
       const result = await eventService.getAll({
-        page: Number(page),
-        limit: Number(limit),
-        category: category as string,
-        department: department as string,
+        page: parseQueryInt(page, 1, 'page', { min: 1 }),
+        limit: parseQueryInt(limit, 20, 'limit', { min: 1 }),
+        category: parseOptionalPositiveInt(category, 'category'),
+        department: parseOptionalPositiveInt(department, 'department'),
         status: status as string,
         search: search as string
       });
@@ -49,8 +55,8 @@ export const eventController = {
       } = req.query;
 
       const result = await eventService.getPending({
-        page: Number(page),
-        limit: Number(limit),
+        page: parseQueryInt(page, 1, 'page', { min: 1 }),
+        limit: parseQueryInt(limit, 20, 'limit', { min: 1 }),
       });
 
       res.json(paginatedResponse(
@@ -70,7 +76,7 @@ export const eventController = {
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const eventId = Number(id);
+      const eventId = parsePositiveInt(id, 'id');
       if (!Number.isInteger(eventId) || eventId <= 0) {
         throw new ValidationError('Invalid event ID');
       }
@@ -87,7 +93,7 @@ export const eventController = {
    */
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const event = await eventService.create(req.body, req.user!);
+      const event = await eventService.create(req.body, getAuthenticatedUser(req));
       res.status(201).json(successResponse(event, 'Event created successfully'));
     } catch (error) {
       next(error);
@@ -100,7 +106,7 @@ export const eventController = {
   async update(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const event = await eventService.update(Number(id), req.body, req.user!);
+      const event = await eventService.update(parsePositiveInt(id, 'id'), req.body, getAuthenticatedUser(req));
       res.json(successResponse(event, 'Event updated successfully'));
     } catch (error) {
       next(error);
@@ -113,7 +119,7 @@ export const eventController = {
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await eventService.delete(Number(id), req.user!);
+      await eventService.delete(parsePositiveInt(id, 'id'), getAuthenticatedUser(req));
       res.json(successResponse(null, 'Event deleted successfully'));
     } catch (error) {
       next(error);
@@ -149,7 +155,7 @@ export const eventController = {
    */
   async getMyEvents(req: Request, res: Response, next: NextFunction) {
     try {
-      const events = await eventService.getMyEvents(req.user!.id);
+      const events = await eventService.getMyEvents(getAuthenticatedUser(req).id);
       res.json(successResponse(events));
     } catch (error) {
       next(error);
@@ -162,7 +168,7 @@ export const eventController = {
   async cancelEvent(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await eventService.cancelEvent(Number(id), req.user!);
+      const result = await eventService.cancelEvent(parsePositiveInt(id, 'id'), getAuthenticatedUser(req));
       res.json(successResponse(result, 'Đã hủy sự kiện'));
     } catch (error) {
       next(error);
@@ -175,12 +181,12 @@ export const eventController = {
   async approve(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const eventId = Number(id);
+      const eventId = parsePositiveInt(id, 'id');
       if (!Number.isInteger(eventId) || eventId <= 0) {
         throw new ValidationError('Invalid event ID');
       }
 
-      const event = await eventService.approve(eventId, req.user!);
+      const event = await eventService.approve(eventId, getAuthenticatedUser(req));
       res.json(successResponse(event, 'Event approved successfully'));
     } catch (error) {
       next(error);
@@ -193,13 +199,13 @@ export const eventController = {
   async reject(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const eventId = Number(id);
+      const eventId = parsePositiveInt(id, 'id');
       if (!Number.isInteger(eventId) || eventId <= 0) {
         throw new ValidationError('Invalid event ID');
       }
 
       const reason = req.body?.reason as string | undefined;
-      const event = await eventService.reject(eventId, req.user!, reason);
+      const event = await eventService.reject(eventId, getAuthenticatedUser(req), reason);
       res.json(successResponse(event, 'Event rejected successfully'));
     } catch (error) {
       next(error);

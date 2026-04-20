@@ -4,11 +4,31 @@ import { jwtConfig } from '../config/jwt';
 import { UnauthorizedError } from './errorHandler';
 import { UserRole } from '@prisma/client';
 
+type JwtUserPayload = jwt.JwtPayload & {
+  id: number;
+  email?: string;
+  role: UserRole;
+  type?: string;
+};
+
+const isUserRole = (role: unknown): role is UserRole => {
+  return role === 'admin' || role === 'organizer' || role === 'student';
+};
+
+const isJwtUserPayload = (payload: string | jwt.JwtPayload): payload is JwtUserPayload => {
+  if (typeof payload === 'string') return false;
+
+  return (
+    typeof payload.id === 'number' &&
+    isUserRole(payload.role)
+  );
+};
+
 export const authenticate = (
   req: Request,
   _res: Response,
   next: NextFunction
-) => {
+): void => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -18,13 +38,21 @@ export const authenticate = (
 
     const token = authHeader.substring(7);
 
-    const decoded = jwt.verify(token, jwtConfig.secret) as {
-      id: number;
-      email: string;
-      role: UserRole;
-    };
+    const decoded = jwt.verify(token, jwtConfig.secret);
 
-    req.user = decoded;
+    if (!isJwtUserPayload(decoded)) {
+      throw new UnauthorizedError('Invalid token payload');
+    }
+
+    if (decoded.type === 'refresh') {
+      throw new UnauthorizedError('Invalid token type');
+    }
+
+    req.user = {
+      id: decoded.id,
+      email: typeof decoded.email === 'string' ? decoded.email : '',
+      role: decoded.role,
+    };
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

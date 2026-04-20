@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { NotFoundError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
-import { EventStatus } from '@prisma/client';
+import { EventStatus, UserRole, Prisma } from '@prisma/client';
 import { createNotification } from './notifications.service';
 
 export const eventService = {
@@ -10,24 +10,24 @@ export const eventService = {
   async getAll(filters: {
     page: number;
     limit: number;
-    category?: string;
-    department?: string;
+    category?: number;
+    department?: number;
     status?: string;
     search?: string;
   }) {
     const { page, limit, category, department, status, search } = filters;
 
     // Build where clause
-    const where: any = {};
+    const where: Prisma.EventWhereInput = {};
 
-    if (category) where.category_id = Number(category);
-    if (department) where.department_id = Number(department);
+    if (category !== undefined) where.category_id = category;
+    if (department !== undefined) where.department_id = department;
     if (status === 'upcoming') {
       where.status = 'upcoming' as EventStatus;
     } else if (status) {
       where.status = status as EventStatus;
     } else {
-      where.status = { not: 'pending' as any };
+      where.status = { not: 'pending' };
     }
 
     where.deleted_at = null;
@@ -133,13 +133,13 @@ export const eventService = {
   /**
    * Create new event
    */
-  async create(data: any, user: { id: number; role: string }) {
+  async create(data: any, user: { id: number; role: UserRole }) {
     // Determine status based on start_time
     const now = new Date();
     const startTime = new Date(data.start_time);
     const endTime = new Date(data.end_time);
 
-    let status: any = 'upcoming';
+    let status: EventStatus = 'upcoming';
     if (user.role !== 'admin') {
       status = 'pending';
     } else if (startTime <= now && endTime > now) {
@@ -172,7 +172,7 @@ export const eventService = {
   /**
    * Approve a pending event
    */
-  async approve(id: number, user: { id: number; role: string }) {
+  async approve(id: number, user: { id: number; role: UserRole }) {
     if (user.role !== 'admin') {
       throw new ForbiddenError('Only admin can approve events');
     }
@@ -181,7 +181,7 @@ export const eventService = {
     if (!event || event.deleted_at) {
       throw new NotFoundError('Event');
     }
-    if (event.status !== ('pending' as any)) {
+    if (event.status !== 'pending') {
       throw new ConflictError('Event is not pending approval');
     }
 
@@ -189,7 +189,7 @@ export const eventService = {
     const startTime = new Date(event.start_time);
     const endTime = new Date(event.end_time);
 
-    let approvedStatus: any = 'upcoming';
+    let approvedStatus: EventStatus = 'upcoming';
     if (startTime <= now && endTime > now) {
       approvedStatus = 'ongoing';
     } else if (endTime <= now) {
@@ -224,7 +224,7 @@ export const eventService = {
   /**
    * Reject a pending event
    */
-  async reject(id: number, user: { id: number; role: string }, reason?: string) {
+  async reject(id: number, user: { id: number; role: UserRole }, reason?: string) {
     if (user.role !== 'admin') {
       throw new ForbiddenError('Only admin can reject events');
     }
@@ -233,7 +233,7 @@ export const eventService = {
     if (!event || event.deleted_at) {
       throw new NotFoundError('Event');
     }
-    if (event.status !== ('pending' as any)) {
+    if (event.status !== 'pending') {
       throw new ConflictError('Event is not pending approval');
     }
 
@@ -267,7 +267,7 @@ export const eventService = {
   /**
    * Update event
    */
-  async update(id: number, data: any, user: { id: number; role: string }) {
+  async update(id: number, data: any, user: { id: number; role: UserRole }) {
     // Check if event exists
     const event = await prisma.event.findUnique({
       where: { id },
@@ -327,7 +327,7 @@ export const eventService = {
    * Hủy sự kiện — chuyển status → cancelled
    * Tự động hủy tất cả registrations + gửi notification hàng loạt
    */
-  async cancelEvent(id: number, user: { id: number; role: string }) {
+  async cancelEvent(id: number, user: { id: number; role: UserRole }) {
     const event = await prisma.event.findUnique({
       where: { id },
     });
@@ -374,7 +374,7 @@ export const eventService = {
   /**
    * Delete event
    */
-  async delete(id: number, user: { id: number; role: string }) {
+  async delete(id: number, user: { id: number; role: UserRole }) {
     // Check if event exists
     const event = await prisma.event.findUnique({
       where: { id },

@@ -1,15 +1,16 @@
 import prisma from '../config/database';
+import { Prisma, UserRole } from '@prisma/client';
 import { createAuditLog } from './audit.service';
 
 interface GetUsersParams {
     page?: number;
     limit?: number;
     search?: string;
-    role?: string;
-    department_id?: string;
-    is_active?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
+    role?: UserRole;
+    department_id?: number;
+    is_active?: boolean;
+    sortBy?: 'created_at' | 'last_login' | 'full_name' | 'email';
+    sortOrder?: Prisma.SortOrder;
 }
 
 export const adminService = {
@@ -22,9 +23,24 @@ export const adminService = {
         const skip = (page - 1) * limit;
         const sortBy = params.sortBy || 'created_at';
         const sortOrder = params.sortOrder || 'desc';
+        let orderBy: Prisma.UserOrderByWithRelationInput;
+
+        switch (sortBy) {
+            case 'last_login':
+                orderBy = { last_login: sortOrder };
+                break;
+            case 'full_name':
+                orderBy = { full_name: sortOrder };
+                break;
+            case 'email':
+                orderBy = { email: sortOrder };
+                break;
+            default:
+                orderBy = { created_at: sortOrder };
+        }
 
         // Build where clause
-        const where: any = {};
+        const where: Prisma.UserWhereInput = {};
 
         if (params.search) {
             where.OR = [
@@ -37,12 +53,12 @@ export const adminService = {
             where.role = params.role;
         }
 
-        if (params.department_id) {
-            where.department_id = Number(params.department_id);
+        if (params.department_id !== undefined) {
+            where.department_id = params.department_id;
         }
 
-        if (params.is_active !== undefined && params.is_active !== '') {
-            where.is_active = params.is_active === 'true';
+        if (params.is_active !== undefined) {
+            where.is_active = params.is_active;
         }
 
         // Execute query
@@ -51,9 +67,7 @@ export const adminService = {
                 where,
                 skip,
                 take: limit,
-                orderBy: {
-                    [sortBy]: sortOrder,
-                },
+                orderBy,
                 include: {
                     department: {
                         select: {
@@ -157,7 +171,7 @@ export const adminService = {
      */
     async changeUserRole(
         userId: number,
-        newRole: string,
+        newRole: UserRole,
         adminId: number,
         ipAddress?: string,
         userAgent?: string
@@ -185,7 +199,7 @@ export const adminService = {
         const oldRole = user.role;
         const updatedUser = await prisma.user.update({
             where: { id: userId },
-            data: { role: newRole as any },
+            data: { role: newRole },
             include: {
                 department: true,
             },

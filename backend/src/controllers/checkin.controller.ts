@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import * as checkinService from '../services/checkin.service';
 import { successResponse } from '../utils/response.util';
+import { getAuthenticatedUser, parsePositiveInt } from '../utils/request.util';
 
 export const checkin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { qr_code } = req.body;
-        const checkedBy = req.user!.id;
-        const userRole = req.user!.role;
+        const user = getAuthenticatedUser(req);
+        const checkedBy = user.id;
+        const userRole = user.role;
 
         const attendance = await checkinService.checkinWithQR(qr_code, checkedBy, userRole);
 
@@ -26,7 +28,7 @@ export const getEventAttendances = async (
     next: NextFunction
 ) => {
     try {
-        const eventId = parseInt(req.params.eventId as string);
+        const eventId = parsePositiveInt(req.params.eventId, 'eventId');
 
         const attendances = await checkinService.getAttendanceByEvent(eventId);
 
@@ -42,7 +44,7 @@ export const getAttendanceStats = async (
     next: NextFunction
 ) => {
     try {
-        const eventId = parseInt(req.params.eventId as string);
+        const eventId = parsePositiveInt(req.params.eventId, 'eventId');
 
         const stats = await checkinService.getAttendanceStats(eventId);
 

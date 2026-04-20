@@ -1,10 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import * as trainingPointsService from '../services/training-points.service';
 import { successResponse } from '../utils/response.util';
+import {
+    getAuthenticatedUser,
+    getQueryString,
+    parsePositiveInt,
+    parseQueryInt,
+} from '../utils/request.util';
 
 export const getMyPoints = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.user!.id;
+        const userId = getAuthenticatedUser(req).id;
 
         const points = await trainingPointsService.getMyTrainingPoints(userId);
 
@@ -20,14 +26,14 @@ export const getMyPointsHistory = async (
     next: NextFunction
 ) => {
     try {
-        const userId = req.user!.id;
+        const userId = getAuthenticatedUser(req).id;
         const { semester, limit, offset } = req.query;
 
         const history = await trainingPointsService.getMyPointsHistory(
             userId,
-            semester as string,
-            limit ? parseInt(limit as string) : 50,
-            offset ? parseInt(offset as string) : 0
+            getQueryString(semester),
+            parseQueryInt(limit, 50, 'limit', { min: 1 }),
+            parseQueryInt(offset, 0, 'offset', { min: 0 })
         );
 
         res.json(successResponse(history, 'Lấy lịch sử điểm rèn luyện thành công'));
@@ -42,7 +48,7 @@ export const getUserPoints = async (
     next: NextFunction
 ) => {
     try {
-        const userId = parseInt(req.params.userId as string);
+        const userId = parsePositiveInt(req.params.userId, 'userId');
 
         const points = await trainingPointsService.getUserTrainingPoints(userId);
 
