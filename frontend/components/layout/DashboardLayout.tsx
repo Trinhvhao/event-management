@@ -19,7 +19,12 @@ import {
     ChevronLeft,
     ChevronRight,
     FileText,
-    Shield
+    Shield,
+    Bell,
+    Settings,
+    Activity,
+    LayoutDashboard,
+    ClipboardList
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
@@ -39,10 +44,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const router = useRouter();
     const { user, logout, isHydrated, isAuthenticated } = useAuthStore();
 
-    // Wait for hydration and check authentication
     React.useEffect(() => {
         if (!isHydrated) return;
-
         if (!isAuthenticated) {
             router.push('/login');
         }
@@ -54,23 +57,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         } catch {
             // Always clear client auth state even if server-side logout fails.
         }
-
         logout();
         toast.success('Đăng xuất thành công');
         router.push('/login');
     };
 
-    // Simplified navigation items based on role
     const getNavItems = () => {
         if (user?.role === 'admin') {
             return [
-                { href: '/dashboard', icon: Home, label: 'Dashboard' },
+                { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                 {
                     label: 'Sự kiện',
                     items: [
                         { href: '/dashboard/events', icon: Calendar, label: 'Danh sách sự kiện' },
                         { href: '/dashboard/events/calendar', icon: Calendar, label: 'Lịch sự kiện' },
-                        { href: '/dashboard/events/pending', icon: CheckSquare, label: 'Phê duyệt sự kiện' }
+                        { href: '/dashboard/events/pending', icon: ClipboardList, label: 'Phê duyệt sự kiện' }
                     ]
                 },
                 {
@@ -84,7 +85,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 { href: '/dashboard/admin/training-points', icon: Award, label: 'Điểm rèn luyện' },
                 { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
                 {
-                    label: 'Cài đặt hệ thống',
+                    label: 'Cài đặt',
                     items: [
                         { href: '/dashboard/settings/roles', icon: Shield, label: 'Phân quyền' },
                         { href: '/dashboard/settings/categories', icon: FileText, label: 'Danh mục' }
@@ -95,10 +96,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         if (user?.role === 'organizer') {
             return [
-                { href: '/dashboard', icon: Home, label: 'Trang chủ' },
+                { href: '/dashboard', icon: LayoutDashboard, label: 'Trang chủ' },
                 { href: '/dashboard/my-events', icon: Calendar, label: 'Sự kiện của tôi' },
-                { href: '/dashboard/events', icon: QrCode, label: 'Tất cả sự kiện' },
-                { href: '/dashboard/checkin', icon: CheckSquare, label: 'Check-in' },
+                { href: '/dashboard/events', icon: Calendar, label: 'Tất cả sự kiện' },
+                { href: '/dashboard/checkin', icon: QrCode, label: 'Check-in' },
                 { href: '/dashboard/admin/training-points', icon: Award, label: 'Điểm rèn luyện' },
                 { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
             ];
@@ -106,7 +107,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         // Student
         return [
-            { href: '/dashboard', icon: Home, label: 'Trang chủ' },
+            { href: '/dashboard', icon: LayoutDashboard, label: 'Trang chủ' },
             { href: '/dashboard/events', icon: Calendar, label: 'Khám phá sự kiện' },
             { href: '/dashboard/my-registrations', icon: CheckSquare, label: 'Sự kiện đã đăng ký' },
             { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
@@ -116,164 +117,179 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const navItems = getNavItems();
 
     return (
-        <div className="min-h-screen bg-offWhite">
+        <div className="min-h-screen bg-[var(--bg-page)]">
             {/* Mobile sidebar backdrop */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden transition-opacity"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
             {/* Sidebar */}
             <aside
-                className={`fixed top-0 left-0 z-50 h-screen bg-white border-r border-gray-200 shadow-sm transform transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                    } lg:translate-x-0 ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
+                className={`fixed top-0 left-0 z-50 h-screen bg-white border-r border-[var(--border-default)] shadow-[var(--shadow-sm)] transform transition-all duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                    } lg:translate-x-0 ${sidebarCollapsed ? 'lg:w-[72px]' : 'lg:w-64'}`}
             >
+                {/* Collapse toggle — desktop only */}
                 <button
                     onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    className="hidden lg:flex absolute -right-3 top-24 z-20 h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:text-primary transition-colors"
+                    className="hidden lg:flex absolute -right-3.5 top-20 z-20 h-7 w-7 items-center justify-center rounded-full border border-[var(--border-default)] bg-white text-[var(--text-muted)] shadow-[var(--shadow-sm)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] hover:shadow-[var(--shadow-md)] transition-all duration-200 active:scale-95"
                     title={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
                     aria-label={sidebarCollapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
                 >
                     {sidebarCollapsed ? (
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                     ) : (
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-3.5 h-3.5" />
                     )}
                 </button>
 
                 <div className="flex flex-col h-full">
                     {/* Logo */}
-                    <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                        {!sidebarCollapsed && (
-                            <Link href="/dashboard" className="flex items-center space-x-2 group">
-                                <div className="w-8 h-8 bg-linear-to-br from-brandBlue to-indigo-500 rounded-lg flex items-center justify-center shadow-sm shadow-brandBlue/20 transition-transform group-hover:scale-105">
-                                    <span className="text-white font-bold text-sm tracking-wide">DN</span>
+                    <div className="relative flex items-center justify-center p-5 border-b border-[var(--border-default)]">
+                        {sidebarCollapsed ? (
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                                <Activity className="w-4.5 h-4.5 text-white" />
+                            </div>
+                        ) : (
+                            <Link href="/dashboard" className="flex items-center gap-3 group w-full">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)] transition-transform group-hover:scale-105">
+                                    <Activity className="w-4.5 h-4.5 text-white" />
                                 </div>
-                                <span className="text-lg font-bold text-primary tracking-tight">DaiNam Events</span>
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-base font-bold text-[#050608] tracking-tight leading-tight">DaiNam</span>
+                                    <span className="text-xs font-semibold text-[var(--color-brand-navy)] tracking-wider uppercase">Events</span>
+                                </div>
                             </Link>
                         )}
-                        {sidebarCollapsed && (
-                            <div className="w-8 h-8 bg-linear-to-br from-brandBlue to-indigo-500 rounded-lg flex items-center justify-center mx-auto">
-                                <span className="text-white font-bold text-sm">DN</span>
-                            </div>
-                        )}
+
+                        {/* Mobile close */}
                         <button
                             onClick={() => setSidebarOpen(false)}
-                            className="lg:hidden text-gray-500 hover:text-primary"
+                            className="lg:hidden absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+                    <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
                         {navItems.map((item, index) => {
                             if ('items' in item && item.items) {
-                                // Group header
                                 return (
-                                    <div key={index} className="space-y-1">
+                                    <div key={index} className="space-y-0.5">
                                         {!sidebarCollapsed && (
-                                            <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                            <div className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                                                 {item.label}
                                             </div>
                                         )}
                                         {item.items.map((subItem) => {
                                             const Icon = subItem.icon;
-                                            const isActive = pathname === subItem.href;
+                                            const isActive = pathname === subItem.href || pathname.startsWith(subItem.href + '/');
                                             return (
                                                 <Link
                                                     key={subItem.href}
                                                     href={subItem.href}
-                                                    className={`relative flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${isActive
-                                                        ? 'bg-brandLightBlue/20 text-brandBlue font-semibold'
-                                                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                                                        }`}
+                                                    className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                                                            ? 'bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] text-[var(--color-brand-navy)] font-semibold'
+                                                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]'
+                                                        } ${sidebarCollapsed ? 'justify-center' : ''}`}
                                                     title={sidebarCollapsed ? subItem.label : ''}
                                                     onClick={() => setSidebarOpen(false)}
                                                 >
                                                     {isActive && (
-                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-brandBlue rounded-r-md" />
+                                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-[var(--color-brand-navy)] rounded-r-full" />
                                                     )}
-                                                    <Icon className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-brandBlue' : 'text-slate-400 group-hover:text-slate-600'
+                                                    <Icon className={`w-5 h-5 shrink-0 transition-colors flex-shrink-0 ${isActive ? 'text-[var(--color-brand-navy)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
                                                         }`} />
-                                                    {!sidebarCollapsed && <span className="text-sm">{subItem.label}</span>}
+                                                    {!sidebarCollapsed && <span className="text-sm truncate">{subItem.label}</span>}
                                                 </Link>
                                             );
                                         })}
                                     </div>
                                 );
                             } else {
-                                // Regular item
                                 const Icon = item.icon;
-                                const isActive = pathname === item.href;
+                                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                                 return (
                                     <Link
                                         key={item.href}
                                         href={item.href}
-                                        className={`relative flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${isActive
-                                            ? 'bg-brandLightBlue/20 text-brandBlue font-semibold'
-                                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                                            }`}
+                                        className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                                                ? 'bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] text-[var(--color-brand-navy)] font-semibold'
+                                                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]'
+                                            } ${sidebarCollapsed ? 'justify-center' : ''}`}
                                         title={sidebarCollapsed ? item.label : ''}
                                         onClick={() => setSidebarOpen(false)}
                                     >
                                         {isActive && (
-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-brandBlue rounded-r-md" />
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-[var(--color-brand-navy)] rounded-r-full" />
                                         )}
-                                        <Icon className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-brandBlue' : 'text-slate-400 group-hover:text-slate-600'
+                                        <Icon className={`w-5 h-5 shrink-0 transition-colors flex-shrink-0 ${isActive ? 'text-[var(--color-brand-navy)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
                                             }`} />
-                                        {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
+                                        {!sidebarCollapsed && <span className="text-sm truncate">{item.label}</span>}
                                     </Link>
                                 );
                             }
                         })}
                     </nav>
 
-                    {/* Logout button */}
-                    {!sidebarCollapsed && (
-                        <div className="p-3 border-t border-gray-200">
+                    {/* Bottom section */}
+                    <div className="p-3 border-t border-[var(--border-default)] space-y-1">
+                        {!sidebarCollapsed && (
                             <button
                                 onClick={handleLogout}
-                                className="flex items-center space-x-3 px-3 py-2.5 w-full rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                                className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
                             >
-                                <LogOut className="w-5 h-5 shrink-0" />
-                                <span className="font-medium text-sm">Đăng xuất</span>
+                                <LogOut className="w-5 h-5 shrink-0 text-red-400 group-hover:text-red-500" />
+                                <span className="text-sm font-medium">Đăng xuất</span>
                             </button>
-                        </div>
-                    )}
+                        )}
+                        {sidebarCollapsed && (
+                            <button
+                                onClick={handleLogout}
+                                className="group flex items-center justify-center w-full p-2.5 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
+                                title="Đăng xuất"
+                            >
+                                <LogOut className="w-5 h-5" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </aside>
 
             {/* Main content */}
-            <div className={`min-h-screen flex flex-col transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+            <div className={`min-h-screen flex flex-col transition-all duration-300 ease-out ${sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64'}`}>
                 {/* Top bar */}
-                <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
+                <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[var(--border-default)] shadow-[var(--shadow-xs)]">
+                    {/* Gradient accent line */}
+                    <div className="h-[2px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+
                     <div className="flex items-center justify-between px-4 lg:px-6 py-3 gap-4">
-                        <div className="flex items-center space-x-4 flex-1">
+                        <div className="flex items-center gap-4 flex-1">
                             <button
                                 onClick={() => setSidebarOpen(true)}
-                                className="lg:hidden text-gray-500 hover:text-brandBlue p-2"
+                                className="lg:hidden text-[var(--text-muted)] hover:text-[var(--color-brand-navy)] p-2 rounded-lg hover:bg-[var(--bg-muted)] transition-colors"
                             >
-                                <Menu className="w-6 h-6" />
+                                <Menu className="w-5 h-5" />
                             </button>
 
                             {/* Global Search */}
-                            <div className="hidden md:block flex-1 max-w-xl">
+                            <div className="hidden md:block flex-1 max-w-lg">
                                 <GlobalSearch />
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            {/* CTA Button - Create Event for Admin/Organizer */}
+                        <div className="flex items-center gap-2">
+                            {/* CTA — Create Event */}
                             {(user?.role === 'admin' || user?.role === 'organizer') && (
                                 <Link
                                     href="/dashboard/events/create"
-                                    className="hidden sm:flex items-center gap-2 px-4 py-2 bg-brandBlue text-white rounded-lg hover:bg-brandBlue/90 transition-colors shadow-sm font-medium"
+                                    className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[var(--color-brand-navy)] to-[#1a5fc8] text-white rounded-xl hover:opacity-90 transition-all duration-200 shadow-[var(--shadow-brand)] hover:shadow-[var(--shadow-md)] hover:-translate-y-px font-semibold text-sm active:scale-95"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    <span className="text-sm">Tạo sự kiện</span>
+                                    <span>Tạo sự kiện</span>
                                 </Link>
                             )}
 

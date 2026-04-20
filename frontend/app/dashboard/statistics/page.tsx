@@ -5,59 +5,26 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardHeader } from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
 import { motion } from 'framer-motion';
-import { BarChart3, Calendar, Users, CheckCircle, Star, Award, TrendingUp } from 'lucide-react';
+import { BarChart3, Calendar, Users, CheckCircle, Star, Award, TrendingUp, Activity, Trophy } from 'lucide-react';
 import { statisticsService, DashboardStats, OrganizerStats, StudentStats, DepartmentStats } from '@/services/statisticsService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
-const SKELETON_BAR_HEIGHTS = [64, 88, 74, 96] as const;
+// Chart palette
+const CHART_COLORS = ['#00358F', '#F26600', '#00A651', '#FFB800', '#FF4000', '#8b5cf6'];
 
-// Stat box component
-function StatBox({ label, value, icon, color, loading }: {
-    label: string; value: string; icon: React.ReactNode; color: string; loading?: boolean;
-}) {
+// Recharts custom tooltip
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color?: string; fill?: string }[]; label?: string }) {
+    if (!active || !payload?.length) return null;
     return (
-        <Card variant="glass" padding="none">
-            <div className="stat-card">
-                <div className="flex items-center justify-between mb-3">
-                    <span className="stat-card-label">{label}</span>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}15`, color }}>{icon}</div>
-                </div>
-                {loading ? (
-                    <Skeleton style={{ width: 60, height: 28, borderRadius: 6 }} />
-                ) : (
-                    <p className="stat-card-value">{value}</p>
-                )}
-            </div>
-        </Card>
-    );
-}
-
-// Simple bar chart
-function SimpleBarChart({ data, loading }: { data: { label: string; value: number; color: string }[]; loading?: boolean }) {
-    if (loading || data.length === 0) {
-        return (
-            <div className="flex items-end gap-3 h-40">
-                {SKELETON_BAR_HEIGHTS.map((height, i) => (
-                    <div key={i} className="flex flex-col items-center flex-1">
-                        <Skeleton style={{ width: '100%', height, borderRadius: 4 }} />
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
-    const maxVal = Math.max(...data.map(d => d.value), 1);
-    return (
-        <div className="flex items-end gap-3 h-40">
-            {data.map((item, idx) => (
-                <div key={idx} className="flex flex-col items-center flex-1">
-                    <span className="text-xs font-semibold text-[var(--dash-text-primary)] mb-1">{item.value}</span>
-                    <div
-                        className="w-full rounded-t-md transition-all"
-                        style={{ height: `${(item.value / maxVal) * 100}%`, background: item.color, minHeight: 4 }}
-                    />
-                    <span className="text-[10px] text-[var(--dash-text-muted)] mt-2 truncate w-full text-center">{item.label}</span>
+        <div className="bg-white rounded-xl border border-[var(--border-default)] shadow-[var(--shadow-lg)] px-4 py-3">
+            <p className="text-xs font-bold text-[var(--text-primary)] mb-1.5">{label}</p>
+            {payload.map((entry, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                    <div className="w-2 h-2 rounded-full" style={{ background: entry.color || entry.fill }} />
+                    <span className="text-[var(--text-muted)]">{entry.name}:</span>
+                    <span className="font-bold text-[var(--text-primary)]">{entry.value.toLocaleString('vi-VN')}</span>
                 </div>
             ))}
         </div>
@@ -65,14 +32,83 @@ function SimpleBarChart({ data, loading }: { data: { label: string; value: numbe
 }
 
 // Status labels
-const statusLabels: Record<string, string> = {
-    upcoming: 'Sắp diễn ra',
-    ongoing: 'Đang diễn ra',
-    completed: 'Đã kết thúc',
-    cancelled: 'Đã hủy',
-    pending: 'Chờ duyệt',
-    approved: 'Đã duyệt',
+const STATUS_LABELS: Record<string, string> = {
+    upcoming: 'Sắp diễn ra', ongoing: 'Đang diễn ra',
+    completed: 'Đã kết thúc', cancelled: 'Đã hủy',
+    pending: 'Chờ duyệt', approved: 'Đã duyệt',
 };
+
+// Status colors
+const STATUS_COLORS: Record<string, string> = {
+    upcoming: '#F26600', ongoing: '#00A651',
+    completed: '#00358F', cancelled: '#FF4000',
+    pending: '#FFB800', approved: '#00358F',
+};
+
+const SKELETON_HEIGHTS = [56, 80, 64, 88] as const;
+
+function StatBox({ label, value, icon, color, loading }: {
+    label: string; value: string; icon: React.ReactNode; color: string; loading?: boolean;
+}) {
+    return (
+        <div className="bg-white rounded-2xl border border-[var(--border-default)] p-5 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl" style={{ background: color }} />
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-1.5">{label}</p>
+                    {loading ? (
+                        <Skeleton width={80} height={28} />
+                    ) : (
+                        <p className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-none">{value}</p>
+                    )}
+                </div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0" style={{ background: `${color}18` }}>
+                    <div style={{ color }}>{icon}</div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function BarChartCard({ data, loading, title, subtitle }: {
+    data: { label: string; value: number; color: string }[];
+    loading?: boolean;
+    title: string;
+    subtitle?: string;
+}) {
+    const max = Math.max(...data.map(d => d.value), 1);
+    return (
+        <Card variant="glass" padding="lg">
+            <CardHeader title={title} subtitle={subtitle} icon={<BarChart3 className="w-5 h-5" />} />
+            {loading ? (
+                <div className="flex items-end gap-3 h-36">
+                    {SKELETON_HEIGHTS.map((h, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center">
+                            <Skeleton style={{ width: '100%', height: h, borderRadius: 6 }} />
+                        </div>
+                    ))}
+                </div>
+            ) : data.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-36 gap-2">
+                    <p className="text-sm text-[var(--text-muted)]">Không có dữ liệu</p>
+                </div>
+            ) : (
+                <div className="flex items-end gap-3 h-36">
+                    {data.map((item, idx) => (
+                        <div key={idx} className="flex flex-col items-center flex-1 group">
+                            <span className="text-xs font-bold text-[var(--text-primary)] mb-2 group-hover:text-[var(--color-brand-navy)] transition-colors">{item.value.toLocaleString('vi-VN')}</span>
+                            <div
+                                className="w-full rounded-t-lg transition-all duration-700"
+                                style={{ height: `${(item.value / max) * 100}%`, background: item.color, minHeight: 4 }}
+                            />
+                            <span className="text-[10px] text-[var(--text-muted)] mt-2 truncate w-full text-center leading-tight">{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </Card>
+    );
+}
 
 type TabKey = 'overview' | 'organizer' | 'students' | 'departments';
 
@@ -86,157 +122,137 @@ export default function StatisticsPage() {
     const [departmentStats, setDepartmentStats] = useState<DepartmentStats | null>(null);
     const [tabLoading, setTabLoading] = useState(false);
 
-    useEffect(() => {
-        loadDashboard();
-    }, []);
+    useEffect(() => { loadDashboard(); }, []);
 
     useEffect(() => {
         if (activeTab === 'organizer' && !organizerStats) loadOrganizerStats();
         if (activeTab === 'students' && !studentStats) loadStudentStats();
         if (activeTab === 'departments' && !departmentStats) loadDepartmentStats();
-    }, [activeTab, organizerStats, studentStats, departmentStats]);
+    }, [activeTab]);
 
     const loadDashboard = async () => {
-        try {
-            setLoading(true);
-            const data = await statisticsService.getDashboard();
-            setDashboardStats(data);
-        } catch {
-            toast.error('Không thể tải thống kê');
-        } finally {
-            setLoading(false);
-        }
+        try { setLoading(true); const data = await statisticsService.getDashboard(); setDashboardStats(data); }
+        catch { toast.error('Không thể tải thống kê'); }
+        finally { setLoading(false); }
     };
-
     const loadOrganizerStats = async () => {
-        try {
-            setTabLoading(true);
-            const data = await statisticsService.getOrganizerStats();
-            setOrganizerStats(data);
-        } catch {
-            toast.error('Không thể tải thống kê organizer');
-        } finally {
-            setTabLoading(false);
-        }
+        try { setTabLoading(true); const data = await statisticsService.getOrganizerStats(); setOrganizerStats(data); }
+        catch { toast.error('Không thể tải thống kê organizer'); }
+        finally { setTabLoading(false); }
     };
-
     const loadStudentStats = async () => {
-        try {
-            setTabLoading(true);
-            const data = await statisticsService.getStudentStats();
-            setStudentStats(data);
-        } catch {
-            toast.error('Không thể tải thống kê sinh viên');
-        } finally {
-            setTabLoading(false);
-        }
+        try { setTabLoading(true); const data = await statisticsService.getStudentStats(); setStudentStats(data); }
+        catch { toast.error('Không thể tải thống kê sinh viên'); }
+        finally { setTabLoading(false); }
     };
-
     const loadDepartmentStats = async () => {
-        try {
-            setTabLoading(true);
-            const data = await statisticsService.getDepartmentStats();
-            setDepartmentStats(data);
-        } catch {
-            toast.error('Không thể tải thống kê khoa');
-        } finally {
-            setTabLoading(false);
-        }
+        try { setTabLoading(true); const data = await statisticsService.getDepartmentStats(); setDepartmentStats(data); }
+        catch { toast.error('Không thể tải thống kê khoa'); }
+        finally { setTabLoading(false); }
     };
 
-    // Build tabs based on role
-    const tabs: { key: TabKey; label: string }[] = [
-        { key: 'overview', label: 'Tổng quan' },
+    const tabs: { key: TabKey; label: string; icon?: React.ReactNode }[] = [
+        { key: 'overview', label: 'Tổng quan', icon: <Activity className="w-4 h-4" /> },
     ];
     if (user?.role === 'organizer' || user?.role === 'admin') {
-        tabs.push({ key: 'organizer', label: 'Organizer' });
+        tabs.push({ key: 'organizer', label: 'Organizer', icon: <Star className="w-4 h-4" /> });
     }
     if (user?.role === 'admin') {
-        tabs.push({ key: 'students', label: 'Sinh viên' });
-        tabs.push({ key: 'departments', label: 'Khoa' });
+        tabs.push({ key: 'students', label: 'Sinh viên', icon: <Users className="w-4 h-4" /> });
+        tabs.push({ key: 'departments', label: 'Khoa', icon: <BarChart3 className="w-4 h-4" /> });
     }
 
-    // Chart data
-    const statusEntries = dashboardStats?.events_by_status ? Object.entries(dashboardStats.events_by_status) : [];
+    // Overview chart data
+    const statusEntries = Object.entries(dashboardStats?.events_by_status || {});
     const statusChartData = statusEntries.map(([status, count]) => ({
-        label: statusLabels[status] || status,
+        label: STATUS_LABELS[status] || status,
         value: count as number,
-        color: status === 'upcoming' ? '#3b82f6' : status === 'ongoing' ? '#22c55e' : status === 'completed' ? '#8b5cf6' : '#ef4444',
+        color: STATUS_COLORS[status] || '#00358F',
     }));
 
-    const orgStatusEntries = organizerStats?.events_by_status ? Object.entries(organizerStats.events_by_status) : [];
+    const orgStatusEntries = Object.entries(organizerStats?.events_by_status || {});
     const orgStatusChartData = orgStatusEntries.map(([status, count]) => ({
-        label: statusLabels[status] || status,
+        label: STATUS_LABELS[status] || status,
         value: count as number,
-        color: status === 'upcoming' ? '#3b82f6' : status === 'ongoing' ? '#22c55e' : status === 'completed' ? '#8b5cf6' : '#ef4444',
+        color: STATUS_COLORS[status] || '#00358F',
     }));
 
     const deptChartData = (departmentStats?.departments || []).map((d, i) => ({
         label: d.code || d.name.slice(0, 10),
         value: d.total_events,
-        color: ['#3b82f6', '#22c55e', '#f97316', '#8b5cf6', '#ef4444', '#06b6d4'][i % 6],
+        color: CHART_COLORS[i % CHART_COLORS.length],
     }));
 
     return (
         <DashboardLayout>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="page-header">
-                    <div>
-                        <h1 className="page-title">Thống kê</h1>
-                        <p className="page-subtitle">Tổng quan hoạt động sự kiện</p>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="p-4 md:p-6 space-y-6">
+
+                {/* Page header */}
+                <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white p-6 shadow-[var(--shadow-card)]">
+                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                            <BarChart3 className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Statistics</p>
+                            <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight">Thống kê</h1>
+                            <p className="text-sm text-[var(--text-muted)]">Tổng quan hoạt động sự kiện</p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Tabs */}
+                {/* Tab navigation */}
                 {tabs.length > 1 && (
-                    <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
+                    <div className="flex gap-1 bg-[var(--bg-muted)] rounded-2xl p-1.5 w-fit">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                                     activeTab === tab.key
-                                        ? 'bg-white text-primary shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                        ? 'bg-white text-[var(--color-brand-navy)] shadow-[var(--shadow-sm)]'
+                                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                                 }`}
                             >
+                                {tab.icon}
                                 {tab.label}
                             </button>
                         ))}
                     </div>
                 )}
 
-                {/* Overview Tab */}
+                {/* ─── OVERVIEW TAB ─── */}
                 {activeTab === 'overview' && (
                     <>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <StatBox loading={loading} label="Tổng sự kiện" value={String(dashboardStats?.total_events || 0)} icon={<Calendar size={20} />} color="#3b82f6" />
-                            <StatBox loading={loading} label="Tổng đăng ký" value={String(dashboardStats?.total_registrations || 0)} icon={<Users size={20} />} color="#22c55e" />
-                            <StatBox loading={loading} label="Đã check-in" value={String(dashboardStats?.total_attendances || 0)} icon={<CheckCircle size={20} />} color="#f97316" />
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <StatBox loading={loading} label="Tổng sự kiện" value={String(dashboardStats?.total_events || 0)} icon={<Calendar size={20} />} color="#00358F" />
+                            <StatBox loading={loading} label="Tổng đăng ký" value={String(dashboardStats?.total_registrations || 0)} icon={<Users size={20} />} color="#00A651" />
+                            <StatBox loading={loading} label="Đã check-in" value={String(dashboardStats?.total_attendances || 0)} icon={<CheckCircle size={20} />} color="#F26600" />
                             <StatBox loading={loading} label="Check-in rate" value={`${dashboardStats?.check_in_rate || 0}%`} icon={<BarChart3 size={20} />} color="#8b5cf6" />
                         </div>
+
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card variant="glass" padding="lg">
-                                <CardHeader title="Sự kiện theo trạng thái" subtitle="Phân loại theo status" />
-                                <SimpleBarChart data={statusChartData} loading={loading} />
-                            </Card>
-                            {/* Recent events */}
+                            <BarChartCard loading={loading} data={statusChartData} title="Sự kiện theo trạng thái" subtitle="Phân loại theo status" />
+
                             {dashboardStats?.recent_events && dashboardStats.recent_events.length > 0 && (
                                 <Card variant="glass" padding="lg">
-                                    <CardHeader title="Sự kiện gần đây" subtitle="5 sự kiện mới nhất" />
-                                    <div className="space-y-3 mt-2">
+                                    <CardHeader title="Sự kiện gần đây" subtitle="5 sự kiện mới nhất" icon={<Calendar className="w-5 h-5" />} />
+                                    <div className="space-y-2.5">
                                         {dashboardStats.recent_events.map((e) => (
-                                            <div key={e.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium text-primary truncate">{e.title}</p>
-                                                    <p className="text-xs text-gray-500">{new Date(e.start_time).toLocaleDateString('vi-VN')}</p>
+                                            <div key={e.id} className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-muted)]/40 hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_4%,transparent)] transition-colors">
+                                                <div className="min-w-0 flex-1 mr-3">
+                                                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{e.title}</p>
+                                                    <p className="text-[11px] text-[var(--text-muted)]">{new Date(e.start_time).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
                                                 </div>
-                                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                                    e.status === 'ongoing' ? 'bg-green-50 text-green-700' :
-                                                    e.status === 'upcoming' ? 'bg-blue-50 text-blue-700' :
-                                                    'bg-gray-100 text-gray-600'
+                                                <span className={`flex-shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                    e.status === 'ongoing'
+                                                        ? 'bg-[color-mix(in_srgb,#00A651_12%,transparent)] text-[#00875a]'
+                                                        : e.status === 'upcoming'
+                                                            ? 'bg-[color-mix(in_srgb,#F26600_12%,transparent)] text-[#c44e00]'
+                                                            : 'bg-[var(--bg-muted)] text-[var(--text-muted)]'
                                                 }`}>
-                                                    {statusLabels[e.status] || e.status}
+                                                    {STATUS_LABELS[e.status] || e.status}
                                                 </span>
                                             </div>
                                         ))}
@@ -247,61 +263,56 @@ export default function StatisticsPage() {
                     </>
                 )}
 
-                {/* Organizer Tab */}
+                {/* ─── ORGANIZER TAB ─── */}
                 {activeTab === 'organizer' && (
                     <>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <StatBox loading={tabLoading} label="Sự kiện của tôi" value={String(organizerStats?.total_events || 0)} icon={<Calendar size={20} />} color="#3b82f6" />
-                            <StatBox loading={tabLoading} label="Tổng đăng ký" value={String(organizerStats?.total_registrations || 0)} icon={<Users size={20} />} color="#22c55e" />
-                            <StatBox loading={tabLoading} label="Đã check-in" value={String(organizerStats?.total_attendances || 0)} icon={<CheckCircle size={20} />} color="#f97316" />
-                            <StatBox loading={tabLoading} label="Rating TB" value={String(organizerStats?.average_rating?.toFixed(1) || '0.0')} icon={<Star size={20} />} color="#eab308" />
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <StatBox loading={tabLoading} label="Sự kiện của tôi" value={String(organizerStats?.total_events || 0)} icon={<Calendar size={20} />} color="#00358F" />
+                            <StatBox loading={tabLoading} label="Tổng đăng ký" value={String(organizerStats?.total_registrations || 0)} icon={<Users size={20} />} color="#00A651" />
+                            <StatBox loading={tabLoading} label="Đã check-in" value={String(organizerStats?.total_attendances || 0)} icon={<CheckCircle size={20} />} color="#F26600" />
+                            <StatBox loading={tabLoading} label="Rating trung bình" value={organizerStats?.average_rating?.toFixed(1) || '0.0'} icon={<Star size={20} />} color="#FFB800" />
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card variant="glass" padding="lg">
-                                <CardHeader title="Sự kiện theo trạng thái" subtitle="Events của tôi" />
-                                <SimpleBarChart data={orgStatusChartData} loading={tabLoading} />
-                            </Card>
-                        </div>
+                        <BarChartCard loading={tabLoading} data={orgStatusChartData} title="Sự kiện theo trạng thái" subtitle="Events của tôi" />
                     </>
                 )}
 
-                {/* Students Tab (admin) */}
+                {/* ─── STUDENTS TAB (admin) ─── */}
                 {activeTab === 'students' && (
                     <>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <StatBox loading={tabLoading} label="Tổng sinh viên" value={String(studentStats?.total_students || 0)} icon={<Users size={20} />} color="#3b82f6" />
-                            <StatBox loading={tabLoading} label="Sinh viên tích cực" value={String(studentStats?.active_students || 0)} icon={<TrendingUp size={20} />} color="#22c55e" />
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <StatBox loading={tabLoading} label="Tổng sinh viên" value={String(studentStats?.total_students || 0)} icon={<Users size={20} />} color="#00358F" />
+                            <StatBox loading={tabLoading} label="Sinh viên tích cực" value={String(studentStats?.active_students || 0)} icon={<TrendingUp size={20} />} color="#00A651" />
                         </div>
                         {studentStats?.top_students && studentStats.top_students.length > 0 && (
                             <Card variant="glass" padding="lg">
-                                <CardHeader title="Top sinh viên" subtitle="Theo điểm rèn luyện" />
-                                <div className="overflow-x-auto mt-2">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Họ tên</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sự kiện</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tổng điểm</th>
+                                <CardHeader title="Top sinh viên" subtitle="Theo điểm rèn luyện" icon={<Trophy className="w-5 h-5" />} />
+                                <div className="overflow-x-auto mt-1">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-[var(--border-light)]">
+                                                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">#</th>
+                                                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Họ tên</th>
+                                                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Sự kiện</th>
+                                                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Tổng điểm</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100">
+                                        <tbody className="divide-y divide-[var(--border-light)]">
                                             {studentStats.top_students.map((s, i) => (
-                                                <tr key={s.id} className="hover:bg-gray-50">
+                                                <tr key={s.id} className="hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)] transition-colors">
                                                     <td className="px-4 py-3">
                                                         {i < 3 ? (
-                                                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${
-                                                                i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : 'bg-amber-600'
+                                                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white ${
+                                                                i === 0 ? 'bg-[#FFB800]' : i === 1 ? 'bg-[#94a3b8]' : 'bg-[#cd7f32]'
                                                             }`}>{i + 1}</span>
                                                         ) : (
-                                                            <span className="text-gray-500">{i + 1}</span>
+                                                            <span className="text-sm text-[var(--text-muted)] font-medium">{i + 1}</span>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3 font-medium text-primary">{s.full_name}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{s.events_attended}</td>
+                                                    <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{s.full_name}</td>
+                                                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{s.events_attended}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700">
-                                                            <Award className="w-3 h-3" /> {s.total_points}
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[color-mix(in_srgb,#00A651_12%,transparent)] text-[#00875a]">
+                                                            <Award className="w-3 h-3" /> {s.total_points} điểm
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -314,37 +325,34 @@ export default function StatisticsPage() {
                     </>
                 )}
 
-                {/* Departments Tab (admin) */}
+                {/* ─── DEPARTMENTS TAB (admin) ─── */}
                 {activeTab === 'departments' && (
                     <>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            <Card variant="glass" padding="lg">
-                                <CardHeader title="Sự kiện theo khoa" subtitle="Phân bổ theo department" />
-                                <SimpleBarChart data={deptChartData} loading={tabLoading} />
-                            </Card>
-                        </div>
+                        <BarChartCard loading={tabLoading} data={deptChartData} title="Sự kiện theo khoa" subtitle="Phân bổ theo department" />
                         {departmentStats?.departments && departmentStats.departments.length > 0 && (
                             <Card variant="glass" padding="lg">
-                                <CardHeader title="Chi tiết theo khoa" />
-                                <div className="overflow-x-auto mt-2">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Khoa</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mã</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Sự kiện</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Đăng ký</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Check-in</th>
+                                <CardHeader title="Chi tiết theo khoa" icon={<BarChart3 className="w-5 h-5" />} />
+                                <div className="overflow-x-auto mt-1">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-[var(--border-light)]">
+                                                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Khoa</th>
+                                                <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Mã</th>
+                                                <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Sự kiện</th>
+                                                <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Đăng ký</th>
+                                                <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Check-in</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100">
+                                        <tbody className="divide-y divide-[var(--border-light)]">
                                             {departmentStats.departments.map((d) => (
-                                                <tr key={d.id} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-medium text-primary">{d.name}</td>
-                                                    <td className="px-4 py-3 text-gray-500">{d.code}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{d.total_events}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{d.total_registrations}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{d.total_attendances}</td>
+                                                <tr key={d.id} className="hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)] transition-colors">
+                                                    <td className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">{d.name}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] text-[var(--color-brand-navy)]">{d.code}</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-sm font-bold text-[var(--text-primary)]">{d.total_events}</td>
+                                                    <td className="px-4 py-3 text-right text-sm text-[var(--text-secondary)]">{d.total_registrations}</td>
+                                                    <td className="px-4 py-3 text-right text-sm text-[var(--text-secondary)]">{d.total_attendances}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

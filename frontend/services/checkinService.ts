@@ -1,8 +1,17 @@
 import axios from '@/lib/axios';
 import { ApiResponse } from '@/types';
 
+type AttendanceStatus = 'checked_in' | 'checked_out';
+
 interface CheckinResult {
-    attendance: { id: number; registration_id: number; checked_in_at: string };
+    attendance: {
+        id: number;
+        registration_id: number;
+        checked_in_at: string;
+        checked_out_at: string | null;
+        status: AttendanceStatus;
+        checked_by: number;
+    };
     student: { id: number; full_name: string; email: string; student_id?: string };
     event: { id: number; title: string; training_points: number };
 }
@@ -11,6 +20,8 @@ interface AttendanceRecord {
     id: number;
     registration_id: number;
     checked_in_at: string;
+    checked_out_at: string | null;
+    status: AttendanceStatus;
     checked_by: number;
     registration: {
         user: {
@@ -25,6 +36,8 @@ interface AttendanceRecord {
 interface AttendanceStats {
     total_registrations: number;
     total_attendances: number;
+    total_checkouts: number;
+    active_checkins: number;
     attendance_rate: number;
 }
 
@@ -43,13 +56,13 @@ export const checkinService = {
         return response.data.data;
     },
 
-    /** Check-in thủ công theo registration_id hoặc student_id + event_id */
+    /** Check-in thủ công bằng registration_id hoặc student_id + event_id */
     async processManualCheckin(payload: ManualCheckinPayload): Promise<CheckinResult> {
         const response = await axios.post<ApiResponse<CheckinResult>>('/checkin/manual', payload);
         return response.data.data;
     },
 
-    /** Lấy danh sách đã check-in theo sự kiện */
+    /** Lấy danh sách điểm danh theo sự kiện */
     async getEventAttendances(eventId: number): Promise<AttendanceRecord[]> {
         const response = await axios.get<ApiResponse<AttendanceRecord[]>>(
             `/checkin/event/${eventId}`
@@ -61,6 +74,30 @@ export const checkinService = {
     async getAttendanceStats(eventId: number): Promise<AttendanceStats> {
         const response = await axios.get<ApiResponse<AttendanceStats>>(
             `/checkin/event/${eventId}/stats`
+        );
+        return response.data.data;
+    },
+
+    /** Lấy chi tiết 1 bản ghi điểm danh */
+    async getAttendance(attendanceId: number): Promise<{ attendance: AttendanceRecord }> {
+        const response = await axios.get<ApiResponse<{ attendance: AttendanceRecord }>>(
+            `/checkin/${attendanceId}`
+        );
+        return response.data.data;
+    },
+
+    /** Check-out sinh viên đã check-in */
+    async checkoutAttendance(attendanceId: number): Promise<{ attendance: AttendanceRecord }> {
+        const response = await axios.post<ApiResponse<{ attendance: AttendanceRecord }>>(
+            `/checkin/${attendanceId}/checkout`
+        );
+        return response.data.data;
+    },
+
+    /** Hủy bản ghi điểm danh (undo) */
+    async undoAttendance(attendanceId: number): Promise<{ deleted: boolean; attendanceId: number }> {
+        const response = await axios.delete<ApiResponse<{ deleted: boolean; attendanceId: number }>>(
+            `/checkin/${attendanceId}`
         );
         return response.data.data;
     },

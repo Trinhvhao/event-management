@@ -14,7 +14,11 @@ interface SkeletonProps {
 export default function Skeleton({ className, style, width, height, circle }: SkeletonProps) {
     return (
         <div
-            className={clsx('skeleton', circle && '!rounded-full', className)}
+            className={clsx(
+                'skeleton-animate',
+                circle && '!rounded-full',
+                className
+            )}
             style={{
                 width: width || '100%',
                 height: height || '16px',
@@ -27,7 +31,7 @@ export default function Skeleton({ className, style, width, height, circle }: Sk
 export function SkeletonCard() {
     return (
         <div className="card-solid p-5">
-            <Skeleton height={160} className="mb-4 !rounded-[var(--dash-radius)]" />
+            <Skeleton height={160} className="mb-4 !rounded-xl" />
             <Skeleton width="70%" height={20} className="mb-3" />
             <Skeleton width="50%" height={14} className="mb-2" />
             <Skeleton width="40%" height={14} />

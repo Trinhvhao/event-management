@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Analytics API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .success {
+            color: green;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Test Analytics API</h1>
+
+    <div class="section">
+        <h2>1. Login First</h2>
+        <input type="email" id="email" placeholder="Email" value="admin@university.edu.vn">
+        <input type="password" id="password" placeholder="Password" value="Admin@123">
+        <button onclick="login()">Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. Test Analytics Endpoints</h2>
+        <button onclick="testTimeSeries('week')">Time Series (Week)</button>
+        <button onclick="testTimeSeries('month')">Time Series (Month)</button>
+        <button onclick="testTimeSeries('year')">Time Series (Year)</button>
+        <button onclick="testDepartmentDistribution()">Department Distribution</button>
+        <div id="analyticsResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Current Token</h2>
+        <button onclick="showToken()">Show Token</button>
+        <button onclick="clearToken()">Clear Token</button>
+        <div id="tokenInfo"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:7776/api';
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('loginResult');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.data.token) {
+                    localStorage.setItem('token', data.data.token);
+                    if (data.data.refreshToken) {
+                        localStorage.setItem('refreshToken', data.data.refreshToken);
+                    }
+                    resultDiv.innerHTML = `<p class="success">✅ Login successful!</p><pre>${JSON.stringify(data.data.user, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Login failed: ${data.error?.message || 'Unknown error'}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testTimeSeries(timeRange) {
+            const resultDiv = document.getElementById('analyticsResult');
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                resultDiv.innerHTML = '<p class="error">❌ Please login first!</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/statistics/analytics/time-series?timeRange=${timeRange}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p class="success">✅ Time Series (${timeRange}) loaded successfully!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Failed (${response.status}): ${data.error?.message || 'Unknown error'}</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testDepartmentDistribution() {
+            const resultDiv = document.getElementById('analyticsResult');
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                resultDiv.innerHTML = '<p class="error">❌ Please login first!</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/statistics/analytics/department-distribution`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p class="success">✅ Department Distribution loaded successfully!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Failed (${response.status}): ${data.error?.message || 'Unknown error'}</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        function showToken() {
+            const token = localStorage.getItem('token');
+            const refreshToken = localStorage.getItem('refreshToken');
+            const tokenDiv = document.getElementById('tokenInfo');
+
+            if (token) {
+                tokenDiv.innerHTML = `
+                    <p class="success">✅ Token exists</p>
+                    <pre>Token: ${token.substring(0, 50)}...
+Refresh: ${refreshToken ? refreshToken.substring(0, 50) + '...' : 'N/A'}</pre>
+                `;
+            } else {
+                tokenDiv.innerHTML = '<p class="error">❌ No token found</p>';
+            }
+        }
+
+        function clearToken() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            document.getElementById('tokenInfo').innerHTML = '<p class="success">✅ Token cleared</p>';
+        }
+
+        // Show token on load
+        window.onload = showToken;
+    </script>
+</body>
+
+</html>

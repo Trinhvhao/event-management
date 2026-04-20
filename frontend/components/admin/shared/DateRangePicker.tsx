@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, ChevronLeft, RotateCcw } from 'lucide-react';
 
 interface DateRange {
     from: Date | null;
@@ -19,19 +19,19 @@ type Preset = {
     getValue: () => DateRange;
 };
 
-const presets: Preset[] = [
+const PRESETS: Preset[] = [
     {
-        label: 'Today',
+        label: 'Hôm nay',
         getValue: () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(today);
-            endOfDay.setHours(23, 59, 59, 999);
-            return { from: today, to: endOfDay };
+            const end = new Date(today);
+            end.setHours(23, 59, 59, 999);
+            return { from: today, to: end };
         },
     },
     {
-        label: 'This Week',
+        label: 'Tuần này',
         getValue: () => {
             const today = new Date();
             const dayOfWeek = today.getDay();
@@ -45,7 +45,7 @@ const presets: Preset[] = [
         },
     },
     {
-        label: 'This Month',
+        label: 'Tháng này',
         getValue: () => {
             const today = new Date();
             const from = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -54,7 +54,17 @@ const presets: Preset[] = [
         },
     },
     {
-        label: 'This Year',
+        label: 'Quý này',
+        getValue: () => {
+            const today = new Date();
+            const quarter = Math.floor(today.getMonth() / 3);
+            const from = new Date(today.getFullYear(), quarter * 3, 1);
+            const to = new Date(today.getFullYear(), quarter * 3 + 3, 0, 23, 59, 59, 999);
+            return { from, to };
+        },
+    },
+    {
+        label: 'Năm nay',
         getValue: () => {
             const today = new Date();
             const from = new Date(today.getFullYear(), 0, 1);
@@ -69,18 +79,13 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
     const [customMode, setCustomMode] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const formatDate = (date: Date | null) => {
+    const fmtDate = (date: Date | null) => {
         if (!date) return '';
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
+        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
     const handlePresetClick = (preset: Preset) => {
-        const range = preset.getValue();
-        onChange(range);
+        onChange(preset.getValue());
         setError(null);
         setCustomMode(false);
         setIsOpen(false);
@@ -89,116 +94,119 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
     const handleCustomDateChange = (type: 'from' | 'to', dateString: string) => {
         const newDate = dateString ? new Date(dateString) : null;
         const newRange = { ...value, [type]: newDate };
-
-        // Validation: end date must be after start date
         if (newRange.from && newRange.to && newRange.to < newRange.from) {
-            setError('End date must be after start date');
+            setError('Ngày kết thúc phải sau ngày bắt đầu');
+            onChange(newRange);
             return;
         }
-
         setError(null);
         onChange(newRange);
     };
 
     const displayText = value.from && value.to
-        ? `${formatDate(value.from)} - ${formatDate(value.to)}`
-        : 'Select date range';
+        ? `${fmtDate(value.from)} – ${fmtDate(value.to)}`
+        : 'Chọn khoảng ngày';
 
     return (
         <div className={`relative ${className}`}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-sm"
+                className="flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-[var(--border-default)] bg-white text-sm font-medium text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all shadow-[var(--shadow-xs)]"
             >
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <span className="text-gray-700">{displayText}</span>
+                <Calendar className="w-4 h-4 text-[var(--text-muted)]" />
+                <span>{displayText}</span>
             </button>
 
             {isOpen && (
                 <>
-                    <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setIsOpen(false)}
-                    />
-                    <div className="absolute z-20 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-[320px]">
+                    <div className="fixed inset-0 z-10" onClick={() => { setIsOpen(false); setCustomMode(false); }} />
+                    <div className="absolute z-20 mt-2 left-0 bg-white border border-[var(--border-default)] rounded-2xl shadow-[var(--shadow-xl)] p-4 min-w-[320px]">
                         {/* Presets */}
                         {!customMode && (
-                            <div className="space-y-2">
-                                <h4 className="text-sm font-medium text-gray-700 mb-3">Quick Select</h4>
-                                {presets.map((preset) => (
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] mb-3 px-1">Chọn nhanh</h4>
+                                {PRESETS.map((preset) => (
                                     <button
                                         key={preset.label}
                                         onClick={() => handlePresetClick(preset)}
-                                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                                        className="w-full text-left px-3 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)] rounded-xl transition-colors font-medium"
                                     >
                                         {preset.label}
                                     </button>
                                 ))}
                                 <button
                                     onClick={() => setCustomMode(true)}
-                                    className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md font-medium"
+                                    className="w-full text-left px-3 py-2.5 text-sm text-[var(--color-brand-navy)] hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_6%,transparent)] rounded-xl font-semibold transition-colors flex items-center gap-2"
                                 >
-                                    Custom Range
+                                    <ChevronLeft className="w-3.5 h-3.5" />
+                                    Chọn ngày tùy chỉnh
                                 </button>
                             </div>
                         )}
 
-                        {/* Custom Date Inputs */}
+                        {/* Custom inputs */}
                         {customMode && (
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h4 className="text-sm font-medium text-gray-700">Custom Range</h4>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h4 className="text-sm font-bold text-[var(--text-primary)]">Ngày tùy chỉnh</h4>
                                     <button
-                                        onClick={() => {
-                                            setCustomMode(false);
-                                            setError(null);
-                                        }}
-                                        className="text-sm text-gray-500 hover:text-gray-700"
+                                        onClick={() => { setCustomMode(false); setError(null); }}
+                                        className="text-xs text-[var(--color-brand-navy)] font-semibold hover:underline"
                                     >
-                                        Back
+                                        ← Quay lại
                                     </button>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                                        From
-                                    </label>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">Từ ngày</label>
                                     <input
                                         type="date"
                                         value={value.from ? value.from.toISOString().split('T')[0] : ''}
                                         onChange={(e) => handleCustomDateChange('from', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                        className="input-base text-sm"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                                        To
-                                    </label>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">Đến ngày</label>
                                     <input
                                         type="date"
                                         value={value.to ? value.to.toISOString().split('T')[0] : ''}
                                         onChange={(e) => handleCustomDateChange('to', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                        className="input-base text-sm"
                                     />
                                 </div>
 
                                 {error && (
-                                    <p className="text-xs text-red-600">{error}</p>
+                                    <p className="text-xs text-[var(--color-brand-red)] font-medium">{error}</p>
                                 )}
 
-                                <button
-                                    onClick={() => {
-                                        if (!error && value.from && value.to) {
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            if (!error && value.from && value.to) {
+                                                setIsOpen(false);
+                                                setCustomMode(false);
+                                            }
+                                        }}
+                                        disabled={!value.from || !value.to || !!error}
+                                        className="flex-1 btn btn-primary btn-sm"
+                                    >
+                                        Áp dụng
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            onChange({ from: null, to: null });
+                                            setError(null);
                                             setIsOpen(false);
                                             setCustomMode(false);
-                                        }
-                                    }}
-                                    disabled={!value.from || !value.to || !!error}
-                                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Apply
-                                </button>
+                                        }}
+                                        className="btn btn-ghost btn-sm flex items-center gap-1.5"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        Xóa
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

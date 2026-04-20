@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, Loader2 } from 'lucide-react';
 
 interface ConfirmDialogProps {
     isOpen: boolean;
@@ -21,8 +21,8 @@ export function ConfirmDialog({
     onConfirm,
     title,
     description,
-    confirmText = 'Confirm',
-    cancelText = 'Cancel',
+    confirmText = 'Xác nhận',
+    cancelText = 'Hủy',
     variant = 'default',
     loading = false,
 }: ConfirmDialogProps) {
@@ -45,36 +45,42 @@ export function ConfirmDialog({
     const isLoading = loading || isProcessing;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black bg-opacity-50"
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
                 onClick={isLoading ? undefined : onClose}
             />
 
             {/* Dialog */}
-            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <div
+                className="relative bg-white rounded-2xl shadow-[var(--shadow-xl)] max-w-md w-full p-6 animate-scale-in"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="dialog-title"
+            >
                 <div className="flex items-start gap-4">
                     {/* Icon */}
-                    <div
-                        className={`flex-shrink-0 ${variant === 'destructive'
-                                ? 'text-red-600'
-                                : 'text-blue-600'
-                            }`}
-                    >
+                    <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center ${
+                        variant === 'destructive'
+                            ? 'bg-[color-mix(in_srgb,var(--color-brand-red)_10%,transparent)]'
+                            : 'bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)]'
+                    }`}>
                         {variant === 'destructive' ? (
-                            <AlertTriangle className="h-6 w-6" />
+                            <AlertTriangle className="w-6 h-6 text-[var(--color-brand-red)]" />
                         ) : (
-                            <Info className="h-6 w-6" />
+                            <Info className="w-6 h-6 text-[var(--color-brand-navy)]" />
                         )}
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <div className="flex-1 min-w-0">
+                        <h3 id="dialog-title" className="text-base font-extrabold text-[var(--text-primary)]">
                             {title}
                         </h3>
-                        <p className="text-sm text-gray-600">{description}</p>
+                        <p className="text-sm text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                            {description}
+                        </p>
                     </div>
                 </div>
 
@@ -83,21 +89,20 @@ export function ConfirmDialog({
                     <button
                         onClick={onClose}
                         disabled={isLoading}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--text-secondary)] bg-[var(--bg-muted)] hover:bg-[var(--border-default)] transition-colors disabled:opacity-50"
                     >
                         {cancelText}
                     </button>
                     <button
                         onClick={handleConfirm}
                         disabled={isLoading}
-                        className={`px-4 py-2 text-sm font-medium text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${variant === 'destructive'
-                                ? 'bg-red-600 hover:bg-red-700'
-                                : 'bg-blue-600 hover:bg-blue-700'
-                            }`}
+                        className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60 active:scale-95 ${
+                            variant === 'destructive'
+                                ? 'bg-[var(--color-brand-red)] hover:bg-[color-mix(in_srgb,var(--color-brand-red)_88%,transparent)] shadow-sm'
+                                : 'bg-[var(--color-brand-navy)] hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_88%,transparent)] shadow-[var(--shadow-brand)]'
+                        }`}
                     >
-                        {isLoading && (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        )}
+                        {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                         {confirmText}
                     </button>
                 </div>

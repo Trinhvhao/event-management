@@ -15,68 +15,36 @@ interface KPIMetricsDisplayProps {
     metrics: Metrics;
 }
 
-export function KPIMetricsDisplay({ metrics }: KPIMetricsDisplayProps) {
-    const getPerformanceLevel = (rating: number) => {
-        if (rating >= 4.5) return { color: 'text-green-600', bg: 'bg-green-100', label: 'Excellent' };
-        if (rating >= 4.0) return { color: 'text-blue-600', bg: 'bg-blue-100', label: 'Good' };
-        if (rating >= 3.5) return { color: 'text-yellow-600', bg: 'bg-yellow-100', label: 'Average' };
-        return { color: 'text-red-600', bg: 'bg-red-100', label: 'Poor' };
-    };
+const RATING_LEVELS = [
+    { min: 4.5, color: 'text-[var(--color-brand-green)]',   bg: 'bg-[color-mix(in_srgb,var(--color-brand-green)_12%,transparent)]',   label: 'Xuất sắc' },
+    { min: 4.0, color: 'text-[var(--color-brand-navy)]',      bg: 'bg-[color-mix(in_srgb,var(--color-brand-navy)_12%,transparent)]',      label: 'Tốt' },
+    { min: 3.5, color: 'text-[var(--color-brand-orange)]',   bg: 'bg-[color-mix(in_srgb,var(--color-brand-orange)_12%,transparent)]',  label: 'Trung bình' },
+    { min: 0,   color: 'text-[var(--color-brand-red)]',       bg: 'bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)]',       label: 'Cần cải thiện' },
+];
 
-    const performance = getPerformanceLevel(metrics.averageRating);
+export function KPIMetricsDisplay({ metrics }: KPIMetricsDisplayProps) {
+    const level = RATING_LEVELS.find((l) => metrics.averageRating >= l.min) || RATING_LEVELS[RATING_LEVELS.length - 1];
+
+    const items = [
+        { icon: Calendar, iconColor: 'text-[var(--color-brand-navy)]',  iconBg: 'bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)]',   label: 'Sự kiện đã tạo', value: metrics.eventsCreated },
+        { icon: Users,   iconColor: 'text-[var(--color-brand-green)]',  iconBg: 'bg-[color-mix(in_srgb,var(--color-brand-green)_10%,transparent)]',    label: 'Lượt tham gia',  value: metrics.totalAttendees },
+        { icon: Star,     iconColor: level.color,                       iconBg: level.bg,                                                      label: 'Điểm đánh giá',  value: `${metrics.averageRating.toFixed(1)}` },
+        { icon: TrendingUp, iconColor: 'text-[var(--color-brand-orange)]', iconBg: 'bg-[color-mix(in_srgb,var(--color-brand-orange)_10%,transparent)]', label: 'Sắp diễn ra',   value: metrics.upcomingEvents },
+    ];
 
     return (
-        <div className="grid grid-cols-4 gap-3">
-            {/* Events Created */}
-            <div className="flex items-center gap-2">
-                <div className="flex-shrink-0">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                </div>
-                <div className="min-w-0">
-                    <p className="text-xs text-gray-500">Events</p>
-                    <p className="text-sm font-semibold text-gray-900">{metrics.eventsCreated}</p>
-                </div>
-            </div>
-
-            {/* Total Attendees */}
-            <div className="flex items-center gap-2">
-                <div className="flex-shrink-0">
-                    <Users className="h-4 w-4 text-gray-400" />
-                </div>
-                <div className="min-w-0">
-                    <p className="text-xs text-gray-500">Attendees</p>
-                    <p className="text-sm font-semibold text-gray-900">{metrics.totalAttendees}</p>
-                </div>
-            </div>
-
-            {/* Average Rating */}
-            <div className="flex items-center gap-2">
-                <div className="flex-shrink-0">
-                    <Star className="h-4 w-4 text-yellow-400" />
-                </div>
-                <div className="min-w-0">
-                    <p className="text-xs text-gray-500">Rating</p>
-                    <div className="flex items-center gap-1">
-                        <p className="text-sm font-semibold text-gray-900">
-                            {metrics.averageRating.toFixed(1)}
-                        </p>
-                        <span className={`text-xs ${performance.color}`}>
-                            {performance.label}
-                        </span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {items.map(({ icon: Icon, iconColor, iconBg, label, value }) => (
+                <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-muted)]/40 border border-[var(--border-light)]">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+                        <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+                        <p className="text-sm font-extrabold text-[var(--text-primary)]">{value}</p>
                     </div>
                 </div>
-            </div>
-
-            {/* Upcoming Events */}
-            <div className="flex items-center gap-2">
-                <div className="flex-shrink-0">
-                    <TrendingUp className="h-4 w-4 text-blue-400" />
-                </div>
-                <div className="min-w-0">
-                    <p className="text-xs text-gray-500">Upcoming</p>
-                    <p className="text-sm font-semibold text-gray-900">{metrics.upcomingEvents}</p>
-                </div>
-            </div>
+            ))}
         </div>
     );
 }

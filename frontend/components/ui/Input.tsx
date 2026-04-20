@@ -21,10 +21,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
         return (
             <div className="w-full">
-                {label && <label className="input-label">{label}</label>}
+                {label && (
+                    <label className="block text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">
+                        {label}
+                    </label>
+                )}
                 <div className="relative">
                     {(iconLeft || isSearch) && (
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--dash-text-muted)]">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none z-10">
                             {isSearch ? <Search size={16} /> : iconLeft}
                         </span>
                     )}
@@ -32,8 +36,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         ref={ref}
                         type={inputType}
                         className={clsx(
-                            'input-field',
-                            error && 'error',
+                            'input-base',
+                            error && 'border-[var(--color-brand-red)] focus:border-[var(--color-brand-red)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-red)_8%,transparent)]',
                             (iconLeft || isSearch) && 'pl-10',
                             (iconRight || isPassword) && 'pr-10',
                             className
@@ -44,19 +48,23 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--dash-text-muted)] hover:text-[var(--dash-text-secondary)] transition-colors"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                         >
                             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                     )}
                     {iconRight && !isPassword && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--dash-text-muted)]">
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none">
                             {iconRight}
                         </span>
                     )}
                 </div>
-                {error && <p className="input-error">{error}</p>}
-                {helperText && !error && <p className="input-helper">{helperText}</p>}
+                {error && (
+                    <p className="mt-1.5 text-xs font-medium text-[var(--color-brand-red)]">{error}</p>
+                )}
+                {helperText && !error && (
+                    <p className="mt-1.5 text-xs text-[var(--text-muted)]">{helperText}</p>
+                )}
             </div>
         );
     }

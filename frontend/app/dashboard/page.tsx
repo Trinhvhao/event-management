@@ -259,7 +259,7 @@ export default function DashboardPage() {
                             icon={Calendar}
                             label="Tổng sự kiện"
                             value={stats?.totalEvents || 0}
-                            subtitle="Đang mở đăng ký / Đang diễn ra"
+                            subtitle="Đang diễn ra"
                             color="bg-brandBlue"
                             href="/dashboard/events"
                             index={0}

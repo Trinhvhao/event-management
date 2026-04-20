@@ -1,12 +1,32 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { MoreVertical, Eye, Edit, CheckCircle, Link as LinkIcon, Clock } from 'lucide-react';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { MoreVertical, Eye, Edit, CheckCircle, Link as LinkIcon, Clock, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { eventService } from '@/services/eventService';
 import { useAuthStore } from '@/store/authStore';
 import type { Event, EventStatus } from '@/types';
+
+// Brand-aligned status config
+const STATUS_CONFIG: Record<EventStatus, { label: string; bgClass: string; textClass: string; dotClass: string }> = {
+    pending:   { label: 'Chờ duyệt',    bgClass: 'bg-[color-mix(in_srgb,#FFB800_12%,transparent)]', textClass: 'text-[#92700c]', dotClass: 'bg-[#FFB800]' },
+    approved:  { label: 'Đã duyệt',     bgClass: 'bg-[color-mix(in_srgb,#00358F_12%,transparent)]', textClass: 'text-[#00358F]', dotClass: 'bg-[#00358F]' },
+    upcoming:  { label: 'Sắp diễn ra', bgClass: 'bg-[color-mix(in_srgb,#00358F_10%,transparent)]', textClass: 'text-[#00358F]', dotClass: 'bg-[#00358F]' },
+    ongoing:   { label: 'Đang diễn ra', bgClass: 'bg-[color-mix(in_srgb,#00A651_12%,transparent)]', textClass: 'text-[#00A651]', dotClass: 'bg-[#00A651]' },
+    completed: { label: 'Đã kết thúc', bgClass: 'bg-[var(--bg-muted)]',                         textClass: 'text-[var(--text-muted)]', dotClass: 'bg-[var(--text-muted)]' },
+    cancelled: { label: 'Đã hủy',      bgClass: 'bg-[color-mix(in_srgb,#FF4000_12%,transparent)]', textClass: 'text-[#FF4000]', dotClass: 'bg-[#FF4000]' },
+};
+
+function StatusBadge({ status }: { status: EventStatus }) {
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.upcoming;
+    return (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${cfg.bgClass} ${cfg.textClass}`}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dotClass}`} />
+            {cfg.label}
+        </span>
+    );
+}
 
 export default function RecentEventsTable() {
     const { user } = useAuthStore();
@@ -14,6 +34,7 @@ export default function RecentEventsTable() {
     const [events, setEvents] = useState<Event[]>([]);
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
     const [approvingId, setApprovingId] = useState<number | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     const loadEvents = useCallback(async () => {
         try {
@@ -23,7 +44,6 @@ export default function RecentEventsTable() {
                 setEvents(myEvents.slice(0, 5));
                 return;
             }
-
             const response = await eventService.getAll({ page: 1, limit: 5 });
             setEvents(response.data.items || []);
         } catch (error) {
@@ -38,27 +58,19 @@ export default function RecentEventsTable() {
         loadEvents();
     }, [loadEvents]);
 
-    const getStatusBadge = (status: EventStatus) => {
-        const badges = {
-            pending: { text: 'Chờ duyệt', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-            approved: { text: 'Đã duyệt', className: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-            upcoming: { text: 'Sắp diễn ra', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-            ongoing: { text: 'Đang diễn ra', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-            completed: { text: 'Đã kết thúc', className: 'bg-gray-100 text-gray-700 border-gray-200' },
-            cancelled: { text: 'Đã hủy', className: 'bg-red-100 text-red-700 border-red-200' },
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setOpenMenuId(null);
+            }
         };
-
-        const badge = badges[status] || badges.upcoming;
-        return (
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${badge.className}`}>
-                {badge.text}
-            </span>
-        );
-    };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('vi-VN', {
+        return new Date(dateString).toLocaleDateString('vi-VN', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -67,19 +79,15 @@ export default function RecentEventsTable() {
         });
     };
 
-    const getProgressPercentage = (current: number, max: number) => {
-        if (max <= 0) return 0;
-        return Math.min((current / max) * 100, 100);
+    const normalizeCount = (value: unknown) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     };
 
     const getProgressColor = (percentage: number) => {
-        if (percentage >= 90) return 'bg-red-500';
-        if (percentage >= 70) return 'bg-yellow-500';
-        return 'bg-green-500';
-    };
-
-    const getOrganizerLabel = (event: Event) => {
-        return event.organizer?.full_name || event.department?.name || 'Chưa xác định';
+        if (percentage >= 90) return 'bg-[var(--color-brand-red)]';
+        if (percentage >= 70) return 'bg-[#FFB800]';
+        return 'bg-[var(--color-brand-green)]';
     };
 
     const handleApprove = async (eventId: number) => {
@@ -89,164 +97,179 @@ export default function RecentEventsTable() {
             toast.success('Đã phê duyệt sự kiện');
             setOpenMenuId(null);
             await loadEvents();
-        } catch (error) {
-            console.error('Failed to approve event:', error);
+        } catch {
             toast.error('Không thể phê duyệt sự kiện');
         } finally {
             setApprovingId(null);
         }
     };
 
+    const tableHeaderClass = 'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]';
+
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">Sự kiện gần đây</h3>
-                    <Link
-                        href="/dashboard/events"
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                        Xem tất cả →
-                    </Link>
+        <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden">
+            {/* Card header */}
+            <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--border-default)] bg-gradient-to-r from-[var(--bg-muted)]/50 to-transparent">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] flex items-center justify-center">
+                        <FileText className="w-4.5 h-4.5 text-[var(--color-brand-navy)]" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-bold text-[var(--text-primary)]">Sự kiện gần đây</h3>
+                        <p className="text-xs text-[var(--text-muted)]">{events.length} sự kiện được cập nhật</p>
+                    </div>
                 </div>
+                <Link
+                    href="/dashboard/events"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-[var(--color-brand-navy)] bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_14%,transparent)] transition-colors"
+                >
+                    Xem tất cả
+                    <span className="text-[var(--color-brand-orange)]">→</span>
+                </Link>
             </div>
 
+            {/* Table */}
             <div className="overflow-x-auto">
                 <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-[var(--bg-muted)]">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Tên sự kiện
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Đơn vị tổ chức
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Thời gian
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Đăng ký
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Trạng thái
-                            </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Thao tác
-                            </th>
+                            <th className={tableHeaderClass}>Tên sự kiện</th>
+                            <th className={`${tableHeaderClass} hidden md:table-cell`}>Đơn vị</th>
+                            <th className={tableHeaderClass}>Thời gian</th>
+                            <th className={tableHeaderClass}>Đăng ký</th>
+                            <th className={tableHeaderClass}>Trạng thái</th>
+                            <th className={`${tableHeaderClass} text-right`}>Thao tác</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-[var(--border-light)]">
                         {loading ? (
                             <tr>
-                                <td className="px-6 py-8 text-center text-gray-500" colSpan={6}>
-                                    Đang tải dữ liệu sự kiện...
+                                <td colSpan={6} className="px-5 py-10 text-center">
+                                    <div className="flex items-center justify-center gap-3">
+                                        <div className="w-6 h-6 rounded-full border-2 border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
+                                        <span className="text-sm text-[var(--text-muted)] font-medium">Đang tải dữ liệu sự kiện...</span>
+                                    </div>
                                 </td>
                             </tr>
                         ) : events.length === 0 ? (
                             <tr>
-                                <td className="px-6 py-8 text-center text-gray-500" colSpan={6}>
-                                    Chưa có sự kiện nào.
+                                <td colSpan={6} className="px-5 py-10 text-center">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-12 h-12 rounded-2xl bg-[var(--bg-muted)] flex items-center justify-center">
+                                            <Calendar className="w-6 h-6 text-[var(--text-muted)]" />
+                                        </div>
+                                        <p className="text-sm font-semibold text-[var(--text-secondary)]">Chưa có sự kiện nào</p>
+                                        <p className="text-xs text-[var(--text-muted)]">Hãy tạo sự kiện đầu tiên.</p>
+                                    </div>
                                 </td>
                             </tr>
                         ) : (
                             events.map((event) => {
-                                const progressPercentage = getProgressPercentage(
-                                    event.current_registrations,
-                                    event.capacity
-                                );
+                                const currentReg = normalizeCount(event.current_registrations ?? event._count?.registrations);
+                                const capacity = normalizeCount(event.capacity);
+                                const progress = capacity > 0 ? Math.min((currentReg / capacity) * 100, 100) : 0;
 
                                 return (
-                                    <tr key={event.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center">
-                                                <div className="w-10 h-10 rounded-lg bg-linear-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                                                    {event.title.charAt(0)}
-                                                </div>
-                                                <div className="ml-3">
-                                                    <div className="text-sm font-medium text-gray-900 line-clamp-1">
-                                                        {event.title}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{getOrganizerLabel(event)}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center text-sm text-gray-500">
-                                                <Clock className="w-4 h-4 mr-1" />
-                                                {formatDate(event.start_time)}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-gray-700 font-medium">
-                                                        {event.current_registrations}/{event.capacity}
-                                                    </span>
-                                                    <span className="text-gray-500 text-xs">
-                                                        {progressPercentage.toFixed(0)}%
-                                                    </span>
-                                                </div>
-                                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all duration-300 ${getProgressColor(
-                                                            progressPercentage
-                                                        )}`}
-                                                        style={{ width: `${progressPercentage}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {getStatusBadge(event.status)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <div className="relative inline-block">
-                                                <button
-                                                    onClick={() =>
-                                                        setOpenMenuId((prev) => (prev === event.id ? null : event.id))
-                                                    }
-                                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                    <tr key={event.id} className="hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)] transition-colors duration-150 group">
+                                        {/* Event name */}
+                                        <td className="px-5 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm"
+                                                    style={{ background: 'linear-gradient(135deg, var(--color-brand-navy), var(--color-brand-orange))' }}
                                                 >
-                                                    <MoreVertical className="w-5 h-5 text-gray-500" />
+                                                    {event.title.charAt(0).toUpperCase()}
+                                                </div>
+                                                <span className="text-sm font-semibold text-[var(--text-primary)] line-clamp-1 max-w-[160px]">
+                                                    {event.title}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        {/* Organizer */}
+                                        <td className="px-5 py-4 hidden md:table-cell">
+                                            <span className="text-sm text-[var(--text-secondary)]">
+                                                {event.organizer?.full_name || event.department?.name || '—'}
+                                            </span>
+                                        </td>
+
+                                        {/* Time */}
+                                        <td className="px-5 py-4">
+                                            <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                                                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                                                <span>{formatDate(event.start_time)}</span>
+                                            </div>
+                                        </td>
+
+                                        {/* Registration progress */}
+                                        <td className="px-5 py-4">
+                                            <div className="space-y-1.5 min-w-[100px]">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="font-semibold text-[var(--text-secondary)]">{currentReg}/{capacity}</span>
+                                                    <span className="text-[var(--text-muted)]">{progress.toFixed(0)}%</span>
+                                                </div>
+                                                <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${getProgressColor(progress)}`}
+                                                        style={{ width: `${progress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        {/* Status */}
+                                        <td className="px-5 py-4">
+                                            <StatusBadge status={event.status} />
+                                        </td>
+
+                                        {/* Actions */}
+                                        <td className="px-5 py-4 text-right">
+                                            <div className="relative" ref={menuRef}>
+                                                <button
+                                                    onClick={() => setOpenMenuId((prev) => prev === event.id ? null : event.id)}
+                                                    className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                    aria-label="Mở menu thao tác"
+                                                >
+                                                    <MoreVertical className="w-4.5 h-4.5" />
                                                 </button>
 
                                                 {openMenuId === event.id && (
-                                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                                                        <div className="py-1">
-                                                            <Link
-                                                                href={`/dashboard/events/${event.id}`}
-                                                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                    <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-[var(--shadow-xl)] border border-[var(--border-default)] z-20 py-1 overflow-hidden">
+                                                        <Link
+                                                            href={`/dashboard/events/${event.id}`}
+                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                            onClick={() => setOpenMenuId(null)}
+                                                        >
+                                                            <Eye className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                            Xem chi tiết
+                                                        </Link>
+                                                        <Link
+                                                            href={`/dashboard/events/${event.id}/edit`}
+                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                            onClick={() => setOpenMenuId(null)}
+                                                        >
+                                                            <Edit className="w-4 h-4 text-[var(--color-brand-orange)]" />
+                                                            Chỉnh sửa
+                                                        </Link>
+                                                        {event.status === 'pending' && user?.role === 'admin' && (
+                                                            <button
+                                                                onClick={() => handleApprove(event.id)}
+                                                                disabled={approvingId === event.id}
+                                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-brand-green)] hover:bg-[color-mix(in_srgb,var(--color-brand-green)_8%,transparent)] transition-colors disabled:opacity-60"
                                                             >
-                                                                <Eye className="w-4 h-4" />
-                                                                Xem chi tiết
-                                                            </Link>
-                                                            <Link
-                                                                href={`/dashboard/events/${event.id}/edit`}
-                                                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                                            >
-                                                                <Edit className="w-4 h-4" />
-                                                                Chỉnh sửa
-                                                            </Link>
-                                                            {event.status === 'pending' && user?.role === 'admin' && (
-                                                                <button
-                                                                    onClick={() => handleApprove(event.id)}
-                                                                    disabled={approvingId === event.id}
-                                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-600 hover:bg-green-50 disabled:opacity-60"
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4" />
-                                                                    {approvingId === event.id ? 'Đang phê duyệt...' : 'Phê duyệt'}
-                                                                </button>
-                                                            )}
-                                                            <Link
-                                                                href={`/dashboard/checkin?eventId=${event.id}`}
-                                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                                                            >
-                                                                <LinkIcon className="w-4 h-4" />
-                                                                Đi đến check-in
-                                                            </Link>
-                                                        </div>
+                                                                <CheckCircle className="w-4 h-4" />
+                                                                {approvingId === event.id ? 'Đang phê duyệt...' : 'Phê duyệt'}
+                                                            </button>
+                                                        )}
+                                                        <div className="border-t border-[var(--border-light)] my-1" />
+                                                        <Link
+                                                            href={`/dashboard/checkin?eventId=${event.id}`}
+                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                            onClick={() => setOpenMenuId(null)}
+                                                        >
+                                                            <LinkIcon className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                            Đi đến check-in
+                                                        </Link>
                                                     </div>
                                                 )}
                                             </div>

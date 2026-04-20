@@ -11,6 +11,7 @@ import trainingPointRoutes from './training-points.routes';
 import feedbackRoutes from './feedback.routes';
 import notificationRoutes from './notifications.routes';
 import statisticsRoutes from './statistics.routes';
+import analyticsRoutes from './analytics.routes';
 import adminRoutes from './admin.routes';
 import searchRoutes from './search.routes';
 
@@ -23,6 +24,7 @@ router.use('/training-points', trainingPointRoutes);
 router.use('/feedback', feedbackRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/statistics', statisticsRoutes);
+router.use('/analytics', analyticsRoutes);
 router.use('/admin', adminRoutes);
 router.use('/search', searchRoutes);
 
@@ -40,6 +42,7 @@ router.get('/', (_req, res) => {
       feedback: '/api/feedback',
       notifications: '/api/notifications',
       statistics: '/api/statistics',
+      analytics: '/api/analytics',
       admin: '/api/admin',
       search: '/api/search',
     },
@@ -47,3 +50,4 @@ router.get('/', (_req, res) => {
 });
 
 export default router;
+

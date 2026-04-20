@@ -12,6 +12,13 @@ interface CardProps {
     onClick?: () => void;
 }
 
+const paddingClass = {
+    none: '',
+    sm: 'p-4',
+    md: 'p-5',
+    lg: 'p-6',
+};
+
 export default function Card({
     children,
     className,
@@ -20,20 +27,12 @@ export default function Card({
     hover = false,
     onClick,
 }: CardProps) {
-    const paddingClass = {
-        none: '',
-        sm: 'p-4',
-        md: 'p-5',
-        lg: 'p-6',
-    }[padding];
-
     return (
         <div
             className={clsx(
                 variant === 'glass' ? 'card-glass' : 'card-solid',
-                paddingClass,
-                hover && 'cursor-pointer',
-                !hover && '[&]:hover:transform-none [&]:hover:shadow-[var(--dash-shadow-sm)]',
+                paddingClass[padding],
+                hover && 'cursor-pointer hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5',
                 className
             )}
             onClick={onClick}
@@ -48,16 +47,24 @@ interface CardHeaderProps {
     subtitle?: string;
     action?: React.ReactNode;
     className?: string;
+    icon?: React.ReactNode;
 }
 
-export function CardHeader({ title, subtitle, action, className }: CardHeaderProps) {
+export function CardHeader({ title, subtitle, action, className, icon }: CardHeaderProps) {
     return (
-        <div className={clsx('flex items-center justify-between mb-4', className)}>
-            <div>
-                <h3 className="text-base font-semibold text-[var(--dash-text-primary)]">{title}</h3>
-                {subtitle && (
-                    <p className="text-sm text-[var(--dash-text-muted)] mt-0.5">{subtitle}</p>
+        <div className={clsx('flex items-center justify-between mb-5', className)}>
+            <div className="flex items-center gap-3">
+                {icon && (
+                    <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] flex items-center justify-center shrink-0">
+                        <div className="text-[var(--color-brand-navy)]">{icon}</div>
+                    </div>
                 )}
+                <div>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">{title}</h3>
+                    {subtitle && (
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5">{subtitle}</p>
+                    )}
+                </div>
             </div>
             {action && <div>{action}</div>}
         </div>

@@ -9,55 +9,25 @@ interface StatusChipProps {
     variant?: StatusVariant;
 }
 
+// Brand-aligned palette — no gray
 const variantStyles: Record<StatusVariant, string> = {
-    default: 'bg-gray-100 text-gray-800 border-gray-300',
-    success: 'bg-green-100 text-green-800 border-green-300',
-    warning: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    error: 'bg-red-100 text-red-800 border-red-300',
-    info: 'bg-blue-100 text-blue-800 border-blue-300',
+    default: 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border-[var(--border-default)]',
+    success: 'bg-[color-mix(in_srgb,var(--color-brand-green)_12%,transparent)] text-[var(--color-brand-green)] border-[color-mix(in_srgb,var(--color-brand-green)_30%,transparent)]',
+    warning: 'bg-[color-mix(in_srgb,var(--color-brand-orange)_12%,transparent)] text-[var(--color-brand-orange)] border-[color-mix(in_srgb,var(--color-brand-orange)_30%,transparent)]',
+    error:   'bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)] text-[var(--color-brand-red)] border-[color-mix(in_srgb,var(--color-brand-red)_30%,transparent)]',
+    info:    'bg-[color-mix(in_srgb,var(--color-brand-navy)_12%,transparent)] text-[var(--color-brand-navy)] border-[color-mix(in_srgb,var(--color-brand-navy)_30%,transparent)]',
 };
 
-// Auto-map status strings to variants
 const getVariantFromStatus = (status: string): StatusVariant => {
-    const lowerStatus = status.toLowerCase();
-
-    if (
-        lowerStatus.includes('active') ||
-        lowerStatus.includes('approved') ||
-        lowerStatus.includes('completed') ||
-        lowerStatus.includes('success') ||
-        lowerStatus.includes('verified')
-    ) {
+    const s = status.toLowerCase();
+    if (s.includes('active') || s.includes('approved') || s.includes('completed') || s.includes('success') || s.includes('verified') || s.includes('hoạt động'))
         return 'success';
-    }
-
-    if (
-        lowerStatus.includes('pending') ||
-        lowerStatus.includes('warning') ||
-        lowerStatus.includes('upcoming')
-    ) {
+    if (s.includes('pending') || s.includes('warning') || s.includes('upcoming') || s.includes('sắp') || s.includes('chờ'))
         return 'warning';
-    }
-
-    if (
-        lowerStatus.includes('inactive') ||
-        lowerStatus.includes('rejected') ||
-        lowerStatus.includes('cancelled') ||
-        lowerStatus.includes('error') ||
-        lowerStatus.includes('failed') ||
-        lowerStatus.includes('locked')
-    ) {
+    if (s.includes('inactive') || s.includes('rejected') || s.includes('cancelled') || s.includes('failed') || s.includes('locked') || s.includes('khóa') || s.includes('hủy'))
         return 'error';
-    }
-
-    if (
-        lowerStatus.includes('info') ||
-        lowerStatus.includes('draft') ||
-        lowerStatus.includes('ongoing')
-    ) {
+    if (s.includes('info') || s.includes('draft') || s.includes('ongoing') || s.includes('đang'))
         return 'info';
-    }
-
     return 'default';
 };
 
@@ -65,9 +35,7 @@ export function StatusChip({ status, variant }: StatusChipProps) {
     const finalVariant = variant || getVariantFromStatus(status);
 
     return (
-        <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${variantStyles[finalVariant]}`}
-        >
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${variantStyles[finalVariant]}`}>
             {status}
         </span>
     );

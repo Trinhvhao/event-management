@@ -28,6 +28,12 @@ enum EventStatus {
 enum RegistrationStatus {
   registered
   cancelled
+  attended
+}
+
+enum AttendanceStatus {
+  checked_in
+  checked_out
 }
 
 enum NotificationType {
@@ -163,15 +169,20 @@ model Registration {
 }
 
 model Attendance {
-  id              Int      @id @default(autoincrement())
-  registration_id Int      @unique
-  checked_in_at   DateTime @default(now())
-  checked_by      Int
+  id              Int              @id @default(autoincrement())
+  registration_id Int              @unique
+  checked_in_at   DateTime         @default(now())
+  checked_out_at  DateTime?
+  status         AttendanceStatus  @default(checked_in)
+  checked_by     Int
 
   // Relations
   registration Registration @relation(fields: [registration_id], references: [id], onDelete: Cascade)
   checker      User         @relation("CheckedBy", fields: [checked_by], references: [id])
 
+  @@index([registration_id])
+  @@index([status])
+  @@index([checked_in_at])
   @@map("attendance")
 }
 

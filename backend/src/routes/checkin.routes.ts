@@ -6,7 +6,7 @@ import * as checkinValidator from '../validators/checkin.validator';
 
 const router = Router();
 
-// Scan QR check-in (Organizer/Admin)
+// POST /checkin/scan — Quét QR check-in
 router.post(
     '/scan',
     authenticate,
@@ -15,7 +15,7 @@ router.post(
     checkinController.scanCheckin
 );
 
-// Manual check-in by registration id or student id (Organizer/Admin)
+// POST /checkin/manual — Check-in thủ công bằng MSSV hoặc registration_id
 router.post(
     '/manual',
     authenticate,
@@ -24,7 +24,7 @@ router.post(
     checkinController.manualCheckin
 );
 
-// Backward-compatible scan endpoint
+// POST /checkin/ — Backward-compatible alias
 router.post(
     '/',
     authenticate,
@@ -33,6 +33,7 @@ router.post(
     checkinController.scanCheckin
 );
 
+// GET /checkin/event/:eventId — Danh sách điểm danh của sự kiện
 router.get(
     '/event/:eventId',
     authenticate,
@@ -40,11 +41,36 @@ router.get(
     checkinController.getEventAttendances
 );
 
+// GET /checkin/event/:eventId/stats — Thống kê điểm danh
 router.get(
     '/event/:eventId/stats',
     authenticate,
     authorize('organizer', 'admin'),
     checkinController.getAttendanceStats
+);
+
+// GET /checkin/:attendanceId — Lấy chi tiết 1 bản ghi điểm danh
+router.get(
+    '/:attendanceId',
+    authenticate,
+    authorize('organizer', 'admin'),
+    checkinController.getAttendanceById
+);
+
+// POST /checkin/:attendanceId/checkout — Check-out sinh viên
+router.post(
+    '/:attendanceId/checkout',
+    authenticate,
+    authorize('organizer', 'admin'),
+    checkinController.checkoutAttendance
+);
+
+// DELETE /checkin/:attendanceId — Hủy bản ghi điểm danh (undo)
+router.delete(
+    '/:attendanceId',
+    authenticate,
+    authorize('organizer', 'admin'),
+    checkinController.undoAttendance
 );
 
 export default router;
