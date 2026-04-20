@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { UserRole } from '@prisma/client';
 import * as notificationsService from './notifications.service';
 import { ValidationError, NotFoundError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
 
@@ -61,7 +62,7 @@ const decodeQrPayload = (qrCode: string): QRCodeData | null => {
     }
 };
 
-export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole: string) => {
+export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole: UserRole) => {
     let qrData = decodeQrPayload(qrCode);
     let registration: RegistrationWithRelations | null = null;
 
