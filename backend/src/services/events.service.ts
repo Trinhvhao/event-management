@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { NotFoundError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
 import { EventStatus, UserRole, Prisma } from '@prisma/client';
 import { createNotification } from './notifications.service';
+import { transformEvents, transformEvent } from '../utils/event.util';
 
 export const eventService = {
   /**
@@ -23,7 +24,10 @@ export const eventService = {
     if (category !== undefined) where.category_id = category;
     if (department !== undefined) where.department_id = department;
     if (status === 'upcoming') {
-      where.status = 'upcoming' as EventStatus;
+      // Backward compatibility for legacy records that still use approved.
+      where.status = { in: ['upcoming', 'approved'] };
+    } else if (status === 'approved') {
+      where.status = { in: ['upcoming', 'approved'] };
     } else if (status) {
       where.status = status as EventStatus;
     } else {
@@ -59,7 +63,7 @@ export const eventService = {
     ]);
 
     return {
-      items: events,
+      items: transformEvents(events),
       total,
       page,
       pageSize: limit,
@@ -97,7 +101,7 @@ export const eventService = {
     ]);
 
     return {
-      items: events,
+      items: transformEvents(events),
       total,
       page,
       pageSize: limit,
@@ -110,7 +114,7 @@ export const eventService = {
    */
   async getById(id: number) {
     const event = await prisma.event.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
       include: {
         category: true,
         department: true,
@@ -127,7 +131,7 @@ export const eventService = {
       throw new NotFoundError('Event');
     }
 
-    return event;
+    return transformEvent(event);
   },
 
   /**
@@ -166,7 +170,7 @@ export const eventService = {
       }
     });
 
-    return event;
+    return transformEvent(event);
   },
 
   /**
@@ -218,7 +222,7 @@ export const eventService = {
       type: 'event_update',
     }).catch(() => { });
 
-    return updated;
+    return transformEvent(updated);
   },
 
   /**
@@ -261,7 +265,7 @@ export const eventService = {
       type: 'event_update',
     }).catch(() => { });
 
-    return updated;
+    return transformEvent(updated);
   },
 
   /**
@@ -270,7 +274,7 @@ export const eventService = {
   async update(id: number, data: any, user: { id: number; role: UserRole }) {
     // Check if event exists
     const event = await prisma.event.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
       include: {
         _count: { select: { registrations: true } }
       }
@@ -320,7 +324,7 @@ export const eventService = {
       }).catch(() => { });
     }
 
-    return updated;
+    return transformEvent(updated);
   },
 
   /**
@@ -329,7 +333,7 @@ export const eventService = {
    */
   async cancelEvent(id: number, user: { id: number; role: UserRole }) {
     const event = await prisma.event.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
     });
     if (!event) throw new NotFoundError('Event');
     if (event.organizer_id !== user.id && user.role !== 'admin') {
@@ -377,7 +381,7 @@ export const eventService = {
   async delete(id: number, user: { id: number; role: UserRole }) {
     // Check if event exists
     const event = await prisma.event.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
       include: {
         _count: { select: { registrations: true } }
       }
@@ -429,8 +433,8 @@ export const eventService = {
    * Dùng cho trang "Sự kiện của tôi" của organizer
    */
   async getMyEvents(organizerId: number) {
-    return prisma.event.findMany({
-      where: { organizer_id: organizerId },
+    const events = await prisma.event.findMany({
+      where: { organizer_id: organizerId, deleted_at: null },
       include: {
         category: true,
         department: true,
@@ -438,6 +442,8 @@ export const eventService = {
       },
       orderBy: { created_at: 'desc' },
     });
+
+    return transformEvents(events);
   },
 
   /**
@@ -450,7 +456,8 @@ export const eventService = {
     const completingEvents = await prisma.event.findMany({
       where: {
         end_time: { lte: now },
-        status: { in: ['upcoming', 'ongoing'] },
+        status: { in: ['approved', 'upcoming', 'ongoing'] },
+        deleted_at: null,
       },
       select: { id: true, title: true },
     });
@@ -460,7 +467,7 @@ export const eventService = {
       where: {
         start_time: { lte: now },
         end_time: { gt: now },
-        status: 'upcoming',
+        status: { in: ['approved', 'upcoming'] },
         deleted_at: null
       },
       data: { status: 'ongoing' }
@@ -470,7 +477,8 @@ export const eventService = {
     await prisma.event.updateMany({
       where: {
         end_time: { lte: now },
-        status: { in: ['upcoming', 'ongoing'] },
+        status: { in: ['approved', 'upcoming', 'ongoing'] },
+        deleted_at: null,
       },
       data: { status: 'completed' }
     });
@@ -505,7 +513,8 @@ export const eventService = {
     const events = await prisma.event.findMany({
       where: {
         start_time: { gt: now, lte: in24h },
-        status: 'upcoming',
+        status: { in: ['upcoming', 'approved'] },
+        deleted_at: null,
       },
       select: { id: true, title: true, start_time: true, location: true },
     });

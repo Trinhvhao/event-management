@@ -1,7 +1,24 @@
 import prisma from '../config/database';
 import { NotFoundError } from '../middleware/errorHandler';
+import { UserRole } from '@prisma/client';
 
 export const statisticsService = {
+    async getRoleScopedDashboardStats(requester: { id: number; role: UserRole }) {
+        if (requester.role === 'admin') {
+            const data = await this.getDashboardStats();
+            return {
+                scope: 'admin',
+                ...data,
+            };
+        }
+
+        const data = await this.getOrganizerStats(requester.id);
+        return {
+            scope: 'organizer',
+            ...data,
+        };
+    },
+
     /**
      * Lấy thống kê tổng quan cho dashboard (dành cho admin)
      * 
@@ -24,13 +41,13 @@ export const statisticsService = {
         const eventsByStatus = await prisma.event.groupBy({
             by: ['status'],
             where: { deleted_at: null },
-            _count: true,
+            _count: { _all: true },
         });
 
         // Users theo vai trò (GROUP BY role)
         const usersByRole = await prisma.user.groupBy({
             by: ['role'],
-            _count: true,
+            _count: { _all: true },
         });
 
         // Tính tỷ lệ check-in = tổng điểm danh / tổng đăng ký
@@ -38,13 +55,25 @@ export const statisticsService = {
             ? Math.round((totalAttendances / totalRegistrations) * 100)
             : 0;
 
+        const normalizedEventStatusCounts = new Map<string, number>();
+        for (const row of eventsByStatus) {
+            const normalizedStatus = row.status === 'approved' ? 'upcoming' : row.status;
+            normalizedEventStatusCounts.set(
+                normalizedStatus,
+                (normalizedEventStatusCounts.get(normalizedStatus) || 0) + row._count._all
+            );
+        }
+
         return {
             totalEvents,
             totalUsers,
             totalRegistrations,
             totalAttendances,
-            eventsByStatus: eventsByStatus.map(e => ({ status: e.status, count: e._count })),
-            usersByRole: usersByRole.map(u => ({ role: u.role, count: u._count })),
+            eventsByStatus: Array.from(normalizedEventStatusCounts.entries()).map(([status, count]) => ({
+                status,
+                count,
+            })),
+            usersByRole: usersByRole.map(u => ({ role: u.role, count: u._count._all })),
             checkInRate,
         };
     },
@@ -122,7 +151,7 @@ export const statisticsService = {
             feedbackCount: feedbacks.length,
             topEvents,
             eventsByStatus: {
-                upcoming: events.filter(e => e.status === 'upcoming').length,
+                upcoming: events.filter(e => e.status === 'upcoming' || e.status === 'approved').length,
                 ongoing: events.filter(e => e.status === 'ongoing').length,
                 completed: events.filter(e => e.status === 'completed').length,
                 cancelled: events.filter(e => e.status === 'cancelled').length,

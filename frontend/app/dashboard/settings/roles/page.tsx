@@ -1,47 +1,91 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adminService } from '@/services/adminService';
 import { User, UserRole } from '@/types';
 import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
+type RoleSummary = {
+  total: number;
+  active: number;
+  inactive: number;
+  percentage: number;
+};
+
+type RoleMatrixState = Record<UserRole, { permissions: string[] }>;
+
+const DEFAULT_ROLE_SUMMARY: Record<UserRole, RoleSummary> = {
+  admin: { total: 0, active: 0, inactive: 0, percentage: 0 },
+  organizer: { total: 0, active: 0, inactive: 0, percentage: 0 },
+  student: { total: 0, active: 0, inactive: 0, percentage: 0 },
+};
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  admin: 'Admin',
+  organizer: 'Ban tổ chức',
+  student: 'Sinh viên',
+};
+
+const formatPermission = (permission: string): string =>
+  permission.replace(':', ' / ').replace(/_/g, ' ');
+
 export default function SettingsRolesPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [roleStats, setRoleStats] = useState<Record<UserRole, RoleSummary>>(DEFAULT_ROLE_SUMMARY);
+  const [roleMatrix, setRoleMatrix] = useState<RoleMatrixState | null>(null);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const loadUsers = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await adminService.getUsers({ page: 1, limit: 100 });
-      setUsers(res.data || []);
+
+      const [usersResponse, roleStatistics, matrix] = await Promise.all([
+        adminService.getUsers({ page: 1, limit: 100 }),
+        adminService.getRoleStatistics(),
+        adminService.getRoleMatrix(),
+      ]);
+
+      setUsers(usersResponse.data || []);
+      setTotalUsers(roleStatistics.totalUsers || 0);
+
+      const nextStats: Record<UserRole, RoleSummary> = {
+        admin: { ...DEFAULT_ROLE_SUMMARY.admin },
+        organizer: { ...DEFAULT_ROLE_SUMMARY.organizer },
+        student: { ...DEFAULT_ROLE_SUMMARY.student },
+      };
+
+      for (const row of roleStatistics.byRole || []) {
+        nextStats[row.role] = {
+          total: row.total,
+          active: row.active,
+          inactive: row.inactive,
+          percentage: row.percentage,
+        };
+      }
+
+      setRoleStats(nextStats);
+      setRoleMatrix(matrix);
     } catch {
       toast.error('Không thể tải dữ liệu phân quyền');
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadUsers();
   }, []);
 
-  const roleStats = useMemo(() => {
-    return {
-      admin: users.filter((u) => u.role === 'admin').length,
-      organizer: users.filter((u) => u.role === 'organizer').length,
-      student: users.filter((u) => u.role === 'student').length,
-    };
-  }, [users]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const updateRole = async (user: User, role: UserRole) => {
     try {
       setProcessingId(String(user.id));
       await adminService.changeUserRole(String(user.id), role);
-      setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, role } : item)));
       toast.success('Cập nhật vai trò thành công');
+      await loadData();
     } catch {
       toast.error('Không thể cập nhật vai trò');
     } finally {
@@ -67,15 +111,50 @@ export default function SettingsRolesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <p className="text-sm text-gray-500">Admin</p>
-            <p className="text-2xl font-bold text-red-600">{roleStats.admin}</p>
+            <p className="text-2xl font-bold text-red-600">{roleStats.admin.total}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Active: {roleStats.admin.active} | Inactive: {roleStats.admin.inactive}
+            </p>
           </div>
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <p className="text-sm text-gray-500">Ban tổ chức</p>
-            <p className="text-2xl font-bold text-blue-600">{roleStats.organizer}</p>
+            <p className="text-2xl font-bold text-blue-600">{roleStats.organizer.total}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Active: {roleStats.organizer.active} | Inactive: {roleStats.organizer.inactive}
+            </p>
           </div>
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <p className="text-sm text-gray-500">Sinh viên</p>
-            <p className="text-2xl font-bold text-emerald-600">{roleStats.student}</p>
+            <p className="text-2xl font-bold text-emerald-600">{roleStats.student.total}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Active: {roleStats.student.active} | Inactive: {roleStats.student.inactive}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h2 className="text-lg font-semibold text-primary mb-3">Ma trận quyền theo vai trò</h2>
+          <p className="text-sm text-gray-500 mb-4">Tổng người dùng: {totalUsers}</p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {(['admin', 'organizer', 'student'] as UserRole[]).map((role) => (
+              <div key={role} className="rounded-lg border border-gray-200 p-3">
+                <h3 className="font-semibold text-primary mb-2">{ROLE_LABEL[role]}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {(roleMatrix?.[role]?.permissions || []).map((permission) => (
+                    <span
+                      key={permission}
+                      className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
+                    >
+                      {formatPermission(permission)}
+                    </span>
+                  ))}
+                  {(roleMatrix?.[role]?.permissions || []).length === 0 && (
+                    <span className="text-xs text-gray-500">Không có dữ liệu quyền.</span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

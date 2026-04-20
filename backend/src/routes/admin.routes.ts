@@ -37,13 +37,11 @@ router.put('/departments/:id', adminController.updateDepartment);
 router.delete('/departments/:id', adminController.deleteDepartment);
 
 // Role Management Routes
-// TODO: Implement in Phase 3
-// GET /api/admin/roles/matrix - Get role permission matrix
-// GET /api/admin/roles/statistics - Get role distribution statistics
+router.get('/roles/matrix', adminController.getRoleMatrix);
+router.get('/roles/statistics', adminController.getRoleStatistics);
 
 // Statistics Routes
-// TODO: Implement in Phase 4
-// GET /api/admin/statistics/dashboard - Get dashboard metrics
-// GET /api/admin/statistics/charts - Get chart data
+router.get('/statistics/dashboard', adminController.getStatisticsDashboard);
+router.get('/statistics/charts', adminController.getStatisticsCharts);
 
 export default router;

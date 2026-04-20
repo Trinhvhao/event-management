@@ -27,6 +27,7 @@ export default function MyEventsPage() {
     const [loading, setLoading] = useState(true);
     const [registrations, setRegistrations] = useState<Registration[]>([]);
     const [selectedQR, setSelectedQR] = useState<Registration | null>(null);
+    const [qrLoadingId, setQrLoadingId] = useState<number | null>(null);
     const [filter, setFilter] = useState<'all' | 'upcoming' | 'completed'>('upcoming');
 
     useEffect(() => {
@@ -62,6 +63,18 @@ export default function MyEventsPage() {
         } catch (error: unknown) {
             const message = getErrorMessage(error, 'Hủy đăng ký thất bại');
             toast.error(message);
+        }
+    };
+
+    const handleOpenQrModal = async (registration: Registration) => {
+        try {
+            setQrLoadingId(registration.id);
+            const qrPayload = await registrationService.getRegistrationQRCode(registration.id);
+            setSelectedQR({ ...registration, qr_code: qrPayload.qr_code });
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Không thể tải QR code'));
+        } finally {
+            setQrLoadingId(null);
         }
     };
 
@@ -244,11 +257,12 @@ export default function MyEventsPage() {
                                             {registration.status === 'registered' && registration.event?.status === 'upcoming' && (
                                                 <>
                                                     <button
-                                                        onClick={() => setSelectedQR(registration)}
+                                                        onClick={() => handleOpenQrModal(registration)}
+                                                        disabled={qrLoadingId === registration.id}
                                                         className="px-5 py-2.5 bg-brandBlue text-white rounded-xl hover:bg-brandBlue/90 transition-all font-semibold flex items-center gap-2 shadow-md shadow-brandBlue/20 hover:scale-105"
                                                     >
                                                         <QrCodeIcon className="w-5 h-5" />
-                                                        Lấy QR Code
+                                                        {qrLoadingId === registration.id ? 'Đang tải QR...' : 'Lấy QR Code'}
                                                     </button>
                                                     <button
                                                         onClick={() => handleCancelRegistration(registration.id)}

@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Search, X } from 'lucide-react';
+import Link from 'next/link';
+import { SearchResult, searchService } from '@/services/searchService';
 
-interface SearchResult {
-    type: 'event' | 'student' | 'user';
-    id: string;
-    title: string;
-    subtitle?: string;
-}
+const getResultHref = (result: SearchResult): string => {
+    if (result.type === 'event') {
+        return `/dashboard/events/${result.id}`;
+    }
+
+    return `/dashboard/admin/users?search=${encodeURIComponent(result.title)}`;
+};
 
 export default function GlobalSearch() {
     const [isOpen, setIsOpen] = useState(false);
@@ -37,18 +40,8 @@ export default function GlobalSearch() {
 
             setLoading(true);
             try {
-                const response = await fetch(`http://localhost:3001/api/search?q=${encodeURIComponent(query)}`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setResults(data.data || []);
-                } else {
-                    setResults([]);
-                }
+                const data = await searchService.globalSearch(query);
+                setResults(data);
             } catch (error) {
                 console.error('Search error:', error);
                 setResults([]);
@@ -97,8 +90,9 @@ export default function GlobalSearch() {
                         <ul className="py-2">
                             {results.map((result) => (
                                 <li key={result.id}>
-                                    <a
-                                        href={`/dashboard/${result.type}s/${result.id}`}
+                                    <Link
+                                        href={getResultHref(result)}
+                                        onClick={() => setIsOpen(false)}
                                         className="block px-4 py-3 hover:bg-gray-50 transition-colors"
                                     >
                                         <div className="flex items-center gap-3">
@@ -116,7 +110,7 @@ export default function GlobalSearch() {
                                                 )}
                                             </div>
                                         </div>
-                                    </a>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>

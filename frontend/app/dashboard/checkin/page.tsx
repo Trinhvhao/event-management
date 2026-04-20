@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardHeader } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { QrCode, Camera, CheckCircle, Award, Users, AlertCircle, BarChart3, Download, Search } from 'lucide-react';
 import { checkinService, CheckinResult, AttendanceRecord, AttendanceStats } from '@/services/checkinService';
 import { eventService } from '@/services/eventService';
@@ -18,8 +18,8 @@ import { vi } from 'date-fns/locale';
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
     if (error && typeof error === 'object' && 'response' in error) {
-        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
-        return response?.data?.error?.message || fallback;
+        const response = (error as { response?: { data?: { error?: { message?: string }; message?: string } } }).response;
+        return response?.data?.error?.message || response?.data?.message || fallback;
     }
     return fallback;
 };
@@ -28,6 +28,8 @@ export default function CheckinPage() {
     const { user } = useAuthStore();
     const [mode, setMode] = useState<'manual' | 'camera'>('manual');
     const [qrInput, setQrInput] = useState('');
+    const [manualStudentId, setManualStudentId] = useState('');
+    const [manualRegistrationId, setManualRegistrationId] = useState('');
     const [processing, setProcessing] = useState(false);
     const [lastResult, setLastResult] = useState<CheckinResult | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -38,39 +40,29 @@ export default function CheckinPage() {
     const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
     const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
     const [stats, setStats] = useState<AttendanceStats | null>(null);
-    const [loadingAttendances, setLoadingAttendances] = useState(false);
+    const [, setLoadingAttendances] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Load events for organizer
-    useEffect(() => {
-        const loadEvents = async () => {
-            try {
-                const response = await eventService.getAll({ limit: 100 });
-                // Filter to ongoing/upcoming events for check-in
-                const relevantEvents = (response.data.items || []).filter(
-                    (e: Event) => e.status === 'ongoing' || e.status === 'upcoming' || e.status === 'approved'
-                );
-                setEvents(relevantEvents);
-                if (relevantEvents.length > 0 && !selectedEventId) {
-                    // Auto-select first ongoing event
-                    const ongoing = relevantEvents.find((e: Event) => e.status === 'ongoing');
-                    if (ongoing) setSelectedEventId(ongoing.id);
-                }
-            } catch (err) {
-                console.error('Failed to load events:', err);
-            }
-        };
-        loadEvents();
-    }, []);
+    const loadEvents = useCallback(async () => {
+        try {
+            const rawEvents =
+                user?.role === 'organizer'
+                    ? await eventService.getMyEvents()
+                    : (await eventService.getAll({ limit: 100 })).data.items || [];
 
-    // Load attendances when event selected
-    useEffect(() => {
-        if (selectedEventId) {
-            loadAttendanceData();
+            const relevantEvents = rawEvents.filter(
+                (event: Event) =>
+                    event.status === 'ongoing' || event.status === 'upcoming' || event.status === 'approved'
+            );
+
+            setEvents(relevantEvents);
+        } catch (err) {
+            console.error('Failed to load events:', err);
+            toast.error('Không thể tải danh sách sự kiện');
         }
-    }, [selectedEventId]);
+    }, [user?.role]);
 
-    const loadAttendanceData = async () => {
+    const loadAttendanceData = useCallback(async () => {
         if (!selectedEventId) return;
         try {
             setLoadingAttendances(true);
@@ -85,7 +77,27 @@ export default function CheckinPage() {
         } finally {
             setLoadingAttendances(false);
         }
-    };
+    }, [selectedEventId]);
+
+    useEffect(() => {
+        loadEvents();
+    }, [loadEvents]);
+
+    useEffect(() => {
+        if (selectedEventId || events.length === 0) {
+            return;
+        }
+
+        const ongoing = events.find((event) => event.status === 'ongoing');
+        setSelectedEventId(ongoing?.id || events[0].id);
+    }, [events, selectedEventId]);
+
+    // Load attendances when event selected
+    useEffect(() => {
+        if (selectedEventId) {
+            loadAttendanceData();
+        }
+    }, [selectedEventId, loadAttendanceData]);
 
     const handleCheckin = async (qrData: string) => {
         if (!qrData.trim()) {
@@ -107,6 +119,55 @@ export default function CheckinPage() {
             if (selectedEventId) loadAttendanceData();
         } catch (err: unknown) {
             const msg = getErrorMessage(err, 'Check-in thất bại');
+            setError(msg);
+            toast.error(msg);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleManualCheckin = async () => {
+        if (!selectedEventId) {
+            toast.error('Vui lòng chọn sự kiện trước');
+            return;
+        }
+
+        const trimmedStudentId = manualStudentId.trim();
+        const trimmedRegistrationId = manualRegistrationId.trim();
+
+        if (!trimmedStudentId && !trimmedRegistrationId) {
+            toast.error('Vui lòng nhập MSSV hoặc Registration ID');
+            return;
+        }
+
+        let parsedRegistrationId: number | undefined;
+        if (trimmedRegistrationId) {
+            parsedRegistrationId = Number.parseInt(trimmedRegistrationId, 10);
+            if (!Number.isInteger(parsedRegistrationId) || parsedRegistrationId <= 0) {
+                toast.error('Registration ID không hợp lệ');
+                return;
+            }
+        }
+
+        setProcessing(true);
+        setError(null);
+        setLastResult(null);
+
+        try {
+            const result = await checkinService.processManualCheckin({
+                event_id: selectedEventId,
+                registration_id: parsedRegistrationId,
+                student_id: trimmedStudentId || undefined,
+            });
+
+            setLastResult(result);
+            setHistory((prev) => [result, ...prev]);
+            setManualStudentId('');
+            setManualRegistrationId('');
+            toast.success(`Check-in thủ công thành công: ${result.student.full_name}`);
+            await loadAttendanceData();
+        } catch (err: unknown) {
+            const msg = getErrorMessage(err, 'Check-in thủ công thất bại');
             setError(msg);
             toast.error(msg);
         } finally {
@@ -143,8 +204,6 @@ export default function CheckinPage() {
             (a.registration.user.student_id || '').toLowerCase().includes(term)
         );
     });
-
-    const selectedEvent = events.find(e => e.id === selectedEventId);
 
     return (
         <DashboardLayout>
@@ -234,11 +293,11 @@ export default function CheckinPage() {
                         {/* Nhập mã thủ công */}
                         {mode === 'manual' && (
                             <div>
-                                <label className="block text-sm font-medium text-[var(--dash-text-primary)] mb-2">
-                                    Dán mã QR (JWT token)
+                                <label className="block text-sm font-medium text-(--dash-text-primary) mb-2">
+                                    Dán nội dung mã QR
                                 </label>
                                 <textarea
-                                    className="w-full p-3 rounded-xl bg-[var(--dash-bg)] border border-[var(--dash-border)] text-sm text-[var(--dash-text-primary)] resize-none focus:border-[var(--dash-accent)] focus:outline-none transition-colors"
+                                    className="w-full p-3 rounded-xl bg-(--dash-bg) border border-(--dash-border) text-sm text-(--dash-text-primary) resize-none focus:border-(--dash-accent) focus:outline-none transition-colors"
                                     rows={4}
                                     placeholder="Paste nội dung mã QR vào đây..."
                                     value={qrInput}
@@ -251,14 +310,46 @@ export default function CheckinPage() {
                                     onClick={() => handleCheckin(qrInput)}
                                     icon={<CheckCircle size={16} />}
                                 >
-                                    Check-in
+                                    Check-in bằng QR
                                 </Button>
+
+                                <div className="mt-5 border-t border-(--dash-border) pt-5 space-y-3">
+                                    <p className="text-sm font-medium text-(--dash-text-primary)">Check-in thủ công</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <input
+                                            type="text"
+                                            value={manualStudentId}
+                                            onChange={(e) => setManualStudentId(e.target.value)}
+                                            placeholder="MSSV (ví dụ: B22DCCN001)"
+                                            className="w-full rounded-lg border border-(--dash-border) px-3 py-2 text-sm text-(--dash-text-primary) focus:border-(--dash-accent) focus:outline-none"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={manualRegistrationId}
+                                            onChange={(e) => setManualRegistrationId(e.target.value)}
+                                            placeholder="Registration ID"
+                                            className="w-full rounded-lg border border-(--dash-border) px-3 py-2 text-sm text-(--dash-text-primary) focus:border-(--dash-accent) focus:outline-none"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-(--dash-text-muted)">
+                                        Nhập ít nhất một trong hai trường: MSSV hoặc Registration ID.
+                                    </p>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        isLoading={processing}
+                                        onClick={handleManualCheckin}
+                                        icon={<Users size={16} />}
+                                    >
+                                        Check-in thủ công
+                                    </Button>
+                                </div>
                             </div>
                         )}
 
                         {/* Camera mode - placeholder */}
                         {mode === 'camera' && (
-                            <div className="aspect-square rounded-xl bg-[var(--dash-bg)] border-2 border-dashed border-[var(--dash-border)] flex flex-col items-center justify-center text-[var(--dash-text-muted)]">
+                            <div className="aspect-square rounded-xl bg-(--dash-bg) border-2 border-dashed border-(--dash-border) flex flex-col items-center justify-center text-(--dash-text-muted)">
                                 <Camera size={48} className="mb-3 opacity-40" />
                                 <p className="text-sm font-medium">Camera QR Scanner</p>
                                 <p className="text-xs mt-1">Tính năng quét camera sẽ được tích hợp</p>
@@ -286,11 +377,11 @@ export default function CheckinPage() {
                                 <div className="w-14 h-14 rounded-full bg-green-100 text-green-500 flex items-center justify-center mx-auto mb-3">
                                     <CheckCircle size={28} />
                                 </div>
-                                <h3 className="text-lg font-bold text-[var(--dash-text-primary)]">{lastResult.student.full_name}</h3>
-                                <p className="text-sm text-[var(--dash-text-muted)]">
+                                <h3 className="text-lg font-bold text-(--dash-text-primary)">{lastResult.student.full_name}</h3>
+                                <p className="text-sm text-(--dash-text-muted)">
                                     {lastResult.student.student_id || lastResult.student.email}
                                 </p>
-                                <p className="text-sm text-[var(--dash-text-muted)] mt-1">
+                                <p className="text-sm text-(--dash-text-muted) mt-1">
                                     {lastResult.event.title}
                                 </p>
                                 {lastResult.event.training_points > 0 && (
@@ -309,10 +400,10 @@ export default function CheckinPage() {
                         <>
                             <div className="flex items-center justify-between mb-4">
                                 <div>
-                                    <h3 className="font-semibold text-[var(--dash-text-primary)]">
+                                    <h3 className="font-semibold text-(--dash-text-primary)">
                                         Danh sách điểm danh
                                     </h3>
-                                    <p className="text-xs text-[var(--dash-text-muted)]">
+                                    <p className="text-xs text-(--dash-text-muted)">
                                         {attendances.length} sinh viên đã check-in
                                     </p>
                                 </div>
@@ -337,16 +428,16 @@ export default function CheckinPage() {
                                 />
                             </div>
 
-                            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                            <div className="space-y-2 max-h-125 overflow-y-auto">
                                 {filteredAttendances.map((att, i) => (
-                                    <div key={att.id} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--dash-bg)]">
+                                    <div key={att.id} className="flex items-center gap-3 p-3 rounded-lg bg-(--dash-bg)">
                                         <span className="text-xs text-gray-400 w-6 text-right">{i + 1}</span>
                                         <Avatar name={att.registration.user.full_name} size="sm" />
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-[var(--dash-text-primary)] truncate">
+                                            <p className="text-sm font-medium text-(--dash-text-primary) truncate">
                                                 {att.registration.user.full_name}
                                             </p>
-                                            <p className="text-xs text-[var(--dash-text-muted)]">
+                                            <p className="text-xs text-(--dash-text-muted)">
                                                 {att.registration.user.student_id || att.registration.user.email}
                                             </p>
                                         </div>
@@ -365,19 +456,19 @@ export default function CheckinPage() {
                                 subtitle={`${history.length} sinh viên đã check-in`}
                             />
                             {history.length === 0 ? (
-                                <div className="text-center py-10 text-[var(--dash-text-muted)]">
+                                <div className="text-center py-10 text-(--dash-text-muted)">
                                     <Users size={32} className="mx-auto mb-3 opacity-40" />
                                     <p className="text-sm">Chưa có check-in nào</p>
                                     <p className="text-xs mt-1">Quét mã QR để bắt đầu</p>
                                 </div>
                             ) : (
-                                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                                <div className="space-y-2 max-h-125 overflow-y-auto">
                                     {history.map((item, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--dash-bg)]">
+                                        <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-(--dash-bg)">
                                             <Avatar name={item.student.full_name} size="sm" />
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-[var(--dash-text-primary)] truncate">{item.student.full_name}</p>
-                                                <p className="text-xs text-[var(--dash-text-muted)]">{item.student.student_id || item.student.email}</p>
+                                                <p className="text-sm font-medium text-(--dash-text-primary) truncate">{item.student.full_name}</p>
+                                                <p className="text-xs text-(--dash-text-muted)">{item.student.student_id || item.student.email}</p>
                                             </div>
                                             <Badge variant="success" dot>OK</Badge>
                                         </div>

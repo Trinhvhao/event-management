@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Bell, CheckCheck, Calendar, Award, AlertCircle, Info, Trash2 } from 'lucide-react';
@@ -27,8 +27,63 @@ interface Notification {
 export default function NotificationsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [offset, setOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
+
+    const PAGE_SIZE = 20;
+
+    const refreshUnreadCount = useCallback(async () => {
+        try {
+            const count = await notificationService.getUnreadCount();
+            setUnreadCount(count);
+        } catch {
+            setUnreadCount(0);
+        }
+    }, []);
+
+    const fetchNotifications = useCallback(async (options?: {
+        reset?: boolean;
+        nextFilter?: 'all' | 'unread';
+        nextOffset?: number;
+    }) => {
+        const reset = options?.reset || false;
+        const appliedFilter = options?.nextFilter ?? filter;
+        const appliedOffset = options?.nextOffset ?? 0;
+
+        try {
+            if (reset) {
+                setLoading(true);
+            } else {
+                setLoadingMore(true);
+            }
+
+            const response = await notificationService.getAll({
+                limit: PAGE_SIZE,
+                offset: appliedOffset,
+                unread_only: appliedFilter === 'unread',
+            });
+
+            const rows = response.notifications || [];
+
+            setNotifications((prev) => (reset ? rows : [...prev, ...rows]));
+            setOffset(appliedOffset + rows.length);
+            setHasMore(response.has_more);
+            await refreshUnreadCount();
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+            toast.error('Không thể tải thông báo');
+        } finally {
+            if (reset) {
+                setLoading(false);
+            } else {
+                setLoadingMore(false);
+            }
+        }
+    }, [refreshUnreadCount]); // Remove filter and offset from dependencies
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -36,38 +91,25 @@ export default function NotificationsPage() {
             router.push('/login');
             return;
         }
-        fetchNotifications();
-    }, [router]);
 
-    const fetchNotifications = async () => {
-        try {
-            const response = await notificationService.getAll({ limit: 50 });
-            setNotifications(response.notifications || []);
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-            toast.error('Không thể tải thông báo');
-        } finally {
-            setLoading(false);
-        }
-    };
+        void fetchNotifications({ reset: true, nextFilter: filter, nextOffset: 0 });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filter]); // Only re-fetch when filter changes
 
     const markAsRead = async (id: number) => {
         try {
             await notificationService.markAsRead(id);
-            setNotifications(prev =>
-                prev.map(notif => notif.id === id ? { ...notif, is_read: true } : notif)
-            );
+            await fetchNotifications({ reset: true, nextFilter: filter, nextOffset: 0 });
         } catch (error) {
             console.error('Error marking as read:', error);
+            toast.error('Không thể đánh dấu đã đọc');
         }
     };
 
     const markAllAsRead = async () => {
         try {
             await notificationService.markAllAsRead();
-            setNotifications(prev =>
-                prev.map(notif => ({ ...notif, is_read: true }))
-            );
+            await fetchNotifications({ reset: true, nextFilter: filter, nextOffset: 0 });
             toast.success('Đã đánh dấu tất cả là đã đọc');
         } catch (error) {
             console.error('Error marking all as read:', error);
@@ -80,9 +122,9 @@ export default function NotificationsPage() {
         if (!confirm('Bạn có chắc muốn xóa thông báo này?')) return;
         try {
             await notificationService.delete(id);
-            setNotifications(prev => prev.filter(n => n.id !== id));
+            await fetchNotifications({ reset: true, nextFilter: filter, nextOffset: 0 });
             toast.success('Đã xóa thông báo');
-        } catch (error) {
+        } catch {
             toast.error('Không thể xóa thông báo');
         }
     };
@@ -91,7 +133,7 @@ export default function NotificationsPage() {
         switch (type) {
             case 'event_reminder':
                 return { Icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' };
-            case 'registration_success':
+            case 'registration_confirm':
                 return { Icon: CheckCheck, color: 'text-green-600', bg: 'bg-green-50' };
             case 'points_awarded':
                 return { Icon: Award, color: 'text-secondary', bg: 'bg-orange-50' };
@@ -105,12 +147,6 @@ export default function NotificationsPage() {
                 return { Icon: Info, color: 'text-gray-600', bg: 'bg-gray-50' };
         }
     };
-
-    const filteredNotifications = filter === 'unread'
-        ? notifications.filter(n => !n.is_read)
-        : notifications;
-
-    const unreadCount = notifications.filter(n => !n.is_read).length;
 
     if (loading) {
         return (
@@ -176,7 +212,7 @@ export default function NotificationsPage() {
 
                 {/* Notifications List */}
                 <div className="space-y-3">
-                    {filteredNotifications.length === 0 ? (
+                    {notifications.length === 0 ? (
                         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                             <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <p className="text-gray-500 font-medium mb-2">Không có thông báo</p>
@@ -185,7 +221,7 @@ export default function NotificationsPage() {
                             </p>
                         </div>
                     ) : (
-                        filteredNotifications.map((notification, index) => {
+                        notifications.map((notification, index) => {
                             const { Icon, color, bg } = getNotificationIcon(notification.type);
 
                             return (
@@ -247,6 +283,19 @@ export default function NotificationsPage() {
                                 </motion.div>
                             );
                         })
+                    )}
+
+                    {notifications.length > 0 && hasMore && (
+                        <div className="flex justify-center pt-2">
+                            <button
+                                type="button"
+                                onClick={() => fetchNotifications({ reset: false, nextFilter: filter, nextOffset: offset })}
+                                disabled={loadingMore}
+                                className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                            >
+                                {loadingMore ? 'Đang tải...' : 'Tải thêm thông báo'}
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

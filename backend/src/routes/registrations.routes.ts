@@ -13,6 +13,8 @@ router.delete('/:id', authenticate, authorize('student'), registrationsControlle
 
 // Organizer/Admin routes
 router.get('/event/:eventId', authenticate, authorize('organizer', 'admin'), registrationsController.getEventRegistrations);
+router.get('/:id/qrcode', authenticate, registrationsController.getRegistrationQRCode);
+router.get('/:id/qr', authenticate, registrationsController.getRegistrationQRCode);
 router.get('/:id', authenticate, registrationsController.getRegistrationById);
 
 export default router;

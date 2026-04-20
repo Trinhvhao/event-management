@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
+import { User, Calendar, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -52,15 +52,7 @@ export default function ProfilePage() {
         confirm: false,
     });
 
-    useEffect(() => {
-        if (!token) {
-            router.push('/login');
-            return;
-        }
-        fetchProfile();
-    }, [router, token]);
-
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         try {
             let userData: UserProfile | null = (authUser as UserProfile | null) || null;
 
@@ -88,7 +80,15 @@ export default function ProfilePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [authUser]);
+
+    useEffect(() => {
+        if (!token) {
+            router.push('/login');
+            return;
+        }
+        fetchProfile();
+    }, [router, token, fetchProfile]);
 
     const handleSave = async () => {
         if (formData.new_password && formData.new_password !== formData.confirm_password) {
@@ -268,9 +268,8 @@ export default function ProfilePage() {
                                         <input
                                             type="email"
                                             value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            disabled={!editing}
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all disabled:bg-gray-100 disabled:text-gray-600"
+                                            disabled
+                                            className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-600"
                                         />
                                     </div>
                                     <div>
@@ -280,10 +279,9 @@ export default function ProfilePage() {
                                         <input
                                             type="tel"
                                             value={formData.phone}
-                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            disabled={!editing}
+                                            disabled
                                             placeholder="Chưa cập nhật"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all disabled:bg-gray-100 disabled:text-gray-600"
+                                            className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-600"
                                         />
                                     </div>
                                     <div>

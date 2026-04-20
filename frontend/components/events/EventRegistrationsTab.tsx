@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Users, Download, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Users, Download, Search, CheckCircle, XCircle } from 'lucide-react';
 import { registrationService } from '@/services/registrationService';
 import { Registration } from '@/types';
 import { format } from 'date-fns';
@@ -26,11 +26,7 @@ export default function EventRegistrationsTab({ eventId }: EventRegistrationsTab
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    useEffect(() => {
-        loadRegistrations();
-    }, [eventId]);
-
-    const loadRegistrations = async () => {
+    const loadRegistrations = useCallback(async () => {
         try {
             setLoading(true);
             const data = await registrationService.getEventRegistrations(eventId);
@@ -40,7 +36,11 @@ export default function EventRegistrationsTab({ eventId }: EventRegistrationsTab
         } finally {
             setLoading(false);
         }
-    };
+    }, [eventId]);
+
+    useEffect(() => {
+        loadRegistrations();
+    }, [loadRegistrations]);
 
     const exportCsv = () => {
         if (registrations.length === 0) return;

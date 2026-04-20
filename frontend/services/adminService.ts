@@ -17,6 +17,31 @@ interface BulkActionResult {
     failures?: Array<{ userId: string; error: string }>;
 }
 
+interface UserAuditLogsQuery {
+    page?: number;
+    limit?: number;
+    actionType?: string;
+}
+
+interface RoleMatrix {
+    admin: { permissions: string[] };
+    organizer: { permissions: string[] };
+    student: { permissions: string[] };
+}
+
+interface RoleStatisticsRow {
+    role: 'admin' | 'organizer' | 'student';
+    total: number;
+    active: number;
+    inactive: number;
+    percentage: number;
+}
+
+interface RoleStatistics {
+    totalUsers: number;
+    byRole: RoleStatisticsRow[];
+}
+
 export const adminService = {
     // Get users with filters and pagination
     async getUsers(params: GetUsersParams) {
@@ -55,8 +80,20 @@ export const adminService = {
     },
 
     // Get user audit logs
-    async getUserAuditLogs(userId: string, params?: { page?: number; limit?: number; actionType?: string }) {
+    async getUserAuditLogs(userId: string, params?: UserAuditLogsQuery) {
         const response = await axios.get(`/admin/users/${userId}/audit-logs`, { params });
         return response.data;
+    },
+
+    // Get role permission matrix
+    async getRoleMatrix(): Promise<RoleMatrix> {
+        const response = await axios.get('/admin/roles/matrix');
+        return response.data.data;
+    },
+
+    // Get role statistics
+    async getRoleStatistics(): Promise<RoleStatistics> {
+        const response = await axios.get('/admin/roles/statistics');
+        return response.data.data;
     },
 };

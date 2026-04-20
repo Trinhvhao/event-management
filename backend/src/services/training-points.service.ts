@@ -1,4 +1,30 @@
 import prisma from '../config/database';
+import { UserRole } from '@prisma/client';
+import {
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+} from '../middleware/errorHandler';
+import { notifyPointsAwarded } from './notifications.service';
+
+type RequesterContext = {
+    id: number;
+    role: UserRole;
+};
+
+type AwardPointsInput = {
+    userId: number;
+    eventId: number;
+    points?: number;
+    semester?: string;
+};
+
+type ExportTrainingPointsFilters = {
+    semester?: string;
+    eventId?: number;
+    userId?: number;
+};
 
 export const getMyTrainingPoints = async (userId: number) => {
     // Get all training points grouped by semester
@@ -109,7 +135,7 @@ export const getUserTrainingPoints = async (userId: number) => {
     });
 
     if (!user) {
-        throw new Error('Người dùng không tồn tại');
+        throw new NotFoundError('User');
     }
 
     const pointsData = await getMyTrainingPoints(userId);
@@ -221,4 +247,193 @@ export const getCurrentSemester = (): string => {
     else {
         return `${year - 1}-${year}-summer`;
     }
+};
+
+export const awardTrainingPoints = async (
+    payload: AwardPointsInput,
+    requester: RequesterContext
+) => {
+    const { userId, eventId, points, semester } = payload;
+
+    const [student, event] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                full_name: true,
+                student_id: true,
+                email: true,
+                role: true,
+            },
+        }),
+        prisma.event.findUnique({
+            where: { id: eventId },
+            select: {
+                id: true,
+                title: true,
+                organizer_id: true,
+                training_points: true,
+                deleted_at: true,
+            },
+        }),
+    ]);
+
+    if (!student || student.role !== 'student') {
+        throw new NotFoundError('User');
+    }
+
+    if (!event || event.deleted_at) {
+        throw new NotFoundError('Event');
+    }
+
+    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+        throw new ForbiddenError('Bạn không có quyền cộng điểm cho sự kiện này');
+    }
+
+    const attendance = await prisma.attendance.findFirst({
+        where: {
+            registration: {
+                user_id: userId,
+                event_id: eventId,
+            },
+        },
+        select: { id: true },
+    });
+
+    if (!attendance) {
+        throw new ValidationError('Sinh viên chưa check-in sự kiện này');
+    }
+
+    const existing = await prisma.trainingPoint.findUnique({
+        where: {
+            user_id_event_id: {
+                user_id: userId,
+                event_id: eventId,
+            },
+        },
+        select: { id: true },
+    });
+
+    if (existing) {
+        throw new ConflictError('Điểm rèn luyện cho sự kiện này đã được cộng trước đó');
+    }
+
+    const awardedPoints = points ?? event.training_points;
+    if (!Number.isInteger(awardedPoints) || awardedPoints <= 0) {
+        throw new ValidationError('points phải là số nguyên dương');
+    }
+
+    const awardedSemester = semester?.trim() || getCurrentSemester();
+
+    const created = await prisma.trainingPoint.create({
+        data: {
+            user_id: userId,
+            event_id: eventId,
+            points: awardedPoints,
+            semester: awardedSemester,
+            earned_at: new Date(),
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    full_name: true,
+                    student_id: true,
+                },
+            },
+            event: {
+                select: {
+                    id: true,
+                    title: true,
+                },
+            },
+        },
+    });
+
+    try {
+        await notifyPointsAwarded(userId, eventId, event.title, awardedPoints);
+    } catch (error) {
+        console.error('Failed to notify points awarded:', error);
+    }
+
+    return created;
+};
+
+export const exportTrainingPoints = async (
+    filters: ExportTrainingPointsFilters,
+    requester: RequesterContext
+) => {
+    const where: {
+        semester?: string;
+        event_id?: number;
+        user_id?: number;
+        event?: {
+            organizer_id: number;
+        };
+    } = {};
+
+    if (filters.semester) {
+        where.semester = filters.semester;
+    }
+
+    if (filters.eventId) {
+        where.event_id = filters.eventId;
+    }
+
+    if (filters.userId) {
+        where.user_id = filters.userId;
+    }
+
+    if (requester.role === 'organizer') {
+        where.event = { organizer_id: requester.id };
+    }
+
+    const records = await prisma.trainingPoint.findMany({
+        where,
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    full_name: true,
+                    student_id: true,
+                    email: true,
+                },
+            },
+            event: {
+                select: {
+                    id: true,
+                    title: true,
+                    organizer_id: true,
+                },
+            },
+        },
+        orderBy: {
+            earned_at: 'desc',
+        },
+    });
+
+    const totalPoints = records.reduce((sum, item) => sum + item.points, 0);
+
+    return {
+        total_records: records.length,
+        total_points: totalPoints,
+        filters: {
+            semester: filters.semester,
+            event_id: filters.eventId,
+            user_id: filters.userId,
+            scope: requester.role,
+        },
+        records: records.map((item) => ({
+            id: item.id,
+            user_id: item.user_id,
+            student_id: item.user.student_id,
+            full_name: item.user.full_name,
+            email: item.user.email,
+            event_id: item.event_id,
+            event_title: item.event.title,
+            points: item.points,
+            semester: item.semester,
+            earned_at: item.earned_at,
+        })),
+    };
 };

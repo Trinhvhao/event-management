@@ -8,6 +8,7 @@ describe('Training Points Module Tests', () => {
     let adminToken: string;
     let studentId: number;
     let adminId: number;
+    let awardEventId: number;
 
     beforeAll(async () => {
         // Clean test data
@@ -95,6 +96,23 @@ describe('Training Points Module Tests', () => {
             },
         });
 
+        const event3 = await prisma.event.create({
+            data: {
+                title: 'Test Event 3 for Training Award',
+                description: 'Award endpoint event',
+                start_time: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                end_time: new Date(Date.now() - 60 * 60 * 1000),
+                location: 'Test Location',
+                capacity: 100,
+                training_points: 2,
+                status: 'completed',
+                organizer_id: adminId,
+                category_id: 1,
+                department_id: 1,
+            },
+        });
+        awardEventId = event3.id;
+
         // Create training points for student (different events)
         await prisma.trainingPoint.create({
             data: {
@@ -113,6 +131,22 @@ describe('Training Points Module Tests', () => {
                 points: 3,
                 semester: '2024-2025-1',
                 earned_at: new Date(),
+            },
+        });
+
+        const registrationForAward = await prisma.registration.create({
+            data: {
+                user_id: studentId,
+                event_id: awardEventId,
+                status: 'registered',
+                qr_code: `training-award-${Date.now()}`,
+            },
+        });
+
+        await prisma.attendance.create({
+            data: {
+                registration_id: registrationForAward.id,
+                checked_by: adminId,
             },
         });
     });
@@ -211,7 +245,78 @@ describe('Training Points Module Tests', () => {
                 .get('/api/training-points/user/99999')
                 .set('Authorization', `Bearer ${adminToken}`);
 
-            expect(response.status).toBe(500);
+            expect(response.status).toBe(404);
+        });
+    });
+
+    describe('POST /api/training-points/award', () => {
+        it('should allow admin to award points for attended event', async () => {
+            const response = await request(app)
+                .post('/api/training-points/award')
+                .set('Authorization', `Bearer ${adminToken}`)
+                .send({
+                    user_id: studentId,
+                    event_id: awardEventId,
+                    points: 2,
+                });
+
+            expect(response.status).toBe(201);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data.points).toBe(2);
+            expect(response.body.data.user_id).toBe(studentId);
+            expect(response.body.data.event_id).toBe(awardEventId);
+        });
+
+        it('should fail when awarding duplicate points', async () => {
+            const response = await request(app)
+                .post('/api/training-points/award')
+                .set('Authorization', `Bearer ${adminToken}`)
+                .send({
+                    user_id: studentId,
+                    event_id: awardEventId,
+                    points: 2,
+                });
+
+            expect(response.status).toBe(409);
+            expect(response.body.success).toBe(false);
+        });
+
+        it('should fail when student tries to award points', async () => {
+            const response = await request(app)
+                .post('/api/training-points/award')
+                .set('Authorization', `Bearer ${studentToken}`)
+                .send({
+                    user_id: studentId,
+                    event_id: awardEventId,
+                    points: 2,
+                });
+
+            expect(response.status).toBe(403);
+            expect(response.body.success).toBe(false);
+        });
+    });
+
+    describe('GET /api/training-points/export', () => {
+        it('should export training points in JSON for admin', async () => {
+            const response = await request(app)
+                .get('/api/training-points/export?format=json')
+                .set('Authorization', `Bearer ${adminToken}`);
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data).toHaveProperty('total_records');
+            expect(response.body.data).toHaveProperty('total_points');
+            expect(Array.isArray(response.body.data.records)).toBe(true);
+        });
+
+        it('should export training points in CSV for admin', async () => {
+            const response = await request(app)
+                .get('/api/training-points/export?format=csv')
+                .set('Authorization', `Bearer ${adminToken}`);
+
+            expect(response.status).toBe(200);
+            expect(response.text).toContain('user_id');
+            expect(response.text).toContain('event_title');
         });
     });
 

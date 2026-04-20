@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { adminService } from '@/services/adminService';
 
@@ -25,13 +25,14 @@ export function GrantOrganizerDialog({ isOpen, onClose, onGrant }: GrantOrganize
     const [loading, setLoading] = useState(false);
     const [granting, setGranting] = useState(false);
 
-    const handleSearch = async () => {
-        if (!searchQuery.trim()) return;
+    const handleSearch = useCallback(async (query: string) => {
+        const normalizedQuery = query.trim();
+        if (!normalizedQuery) return;
 
         setLoading(true);
         try {
             const response = await adminService.getUsers({
-                search: searchQuery,
+                search: normalizedQuery,
                 role: 'student', // Only search non-organizer users
                 limit: 10,
             });
@@ -41,7 +42,7 @@ export function GrantOrganizerDialog({ isOpen, onClose, onGrant }: GrantOrganize
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const handleGrant = async (userId: string) => {
         setGranting(true);
@@ -61,13 +62,13 @@ export function GrantOrganizerDialog({ isOpen, onClose, onGrant }: GrantOrganize
     React.useEffect(() => {
         const timer = setTimeout(() => {
             if (searchQuery) {
-                handleSearch();
+                handleSearch(searchQuery);
             } else {
                 setSearchResults([]);
             }
         }, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, handleSearch]);
 
     if (!isOpen) return null;
 

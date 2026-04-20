@@ -23,12 +23,6 @@ export default function WelcomeBanner({ userName, role, quickLinks }: WelcomeBan
         student: 'Sinh viên',
     };
 
-    const descriptions: Record<UserRole, string> = {
-        admin: 'Tổng quan hệ thống quản lý sự kiện - Đại học Đại Nam',
-        organizer: 'Quản lý và tổ chức các sự kiện của bạn',
-        student: 'Khám phá và tham gia các sự kiện thú vị',
-    };
-
     const defaultQuickLinks: QuickLink[] = [
         {
             icon: <FileCheck className="w-4 h-4" />,

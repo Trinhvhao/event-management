@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { TrendingUp, TrendingDown, Users, Calendar, Star } from 'lucide-react';
+import { TrendingUp, Users, Calendar, Star } from 'lucide-react';
 
 interface Metrics {
     eventsCreated: number;

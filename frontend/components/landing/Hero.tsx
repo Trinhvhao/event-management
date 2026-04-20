@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight, Play, CheckCircle2, Star, Shield, Users, Mouse } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Button from './Button';
 
 const Hero: React.FC = () => {
@@ -71,8 +72,8 @@ const Hero: React.FC = () => {
           <div className="flex items-center gap-8 pt-8 border-t border-white/10">
             <div className="flex -space-x-3">
               {[1,2,3,4].map((i) => (
-                <div key={i} className="w-10 h-10 rounded-full border-2 border-brandBlue bg-brandBlue overflow-hidden hover:-translate-y-1 transition-transform duration-300 z-0 hover:z-10">
-                   <img src={`https://i.pravatar.cc/100?img=${i+10}`} alt="User" className="w-full h-full object-cover" />
+                <div key={i} className="relative w-10 h-10 rounded-full border-2 border-brandBlue bg-brandBlue overflow-hidden hover:-translate-y-1 transition-transform duration-300 z-0 hover:z-10">
+                   <Image src={`https://i.pravatar.cc/100?img=${i+10}`} alt="User" fill sizes="40px" className="object-cover" unoptimized />
                 </div>
               ))}
               <div className="w-10 h-10 rounded-full border-2 border-brandBlue bg-secondary text-white flex items-center justify-center text-xs font-bold z-10">

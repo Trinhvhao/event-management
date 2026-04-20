@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, MapPin, Clock, ArrowRight, Search, Grid, CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { Calendar, MapPin, Clock, ArrowRight, Search, Grid, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import Button from './Button';
 
 interface ShowcaseEvent {
@@ -25,7 +26,7 @@ const EventCard: React.FC<ShowcaseEvent> = ({
   >
     <div className="relative h-56 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10 opacity-60 group-hover:opacity-40 transition-opacity"></div>
-      <img src={image} alt={title} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+      <Image src={image} alt={title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transform group-hover:scale-110 transition-transform duration-700" unoptimized />
       <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur-sm text-slate-800 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
         {category}
       </div>

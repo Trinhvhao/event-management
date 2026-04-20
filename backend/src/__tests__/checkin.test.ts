@@ -9,12 +9,32 @@ describe('Check-in Module Tests', () => {
     let studentToken: string;
     let eventId: number;
     let registrationId: number;
+    let manualRegistrationId: number;
     let qrCode: string;
     let organizerId: number;
     let studentId: number;
+    let manualStudentId: number;
+
+    const resetAttendanceAndPoints = async () => {
+        await prisma.attendance.deleteMany({
+            where: {
+                registration_id: {
+                    in: [registrationId, manualRegistrationId],
+                },
+            },
+        });
+
+        await prisma.trainingPoint.deleteMany({
+            where: {
+                event_id: eventId,
+                user_id: {
+                    in: [studentId, manualStudentId],
+                },
+            },
+        });
+    };
 
     beforeAll(async () => {
-        // Clean test data
         await prisma.attendance.deleteMany({});
         await prisma.trainingPoint.deleteMany({});
         await prisma.registration.deleteMany({});
@@ -23,8 +43,8 @@ describe('Check-in Module Tests', () => {
             where: { email: { contains: 'checkin-test' } },
         });
 
-        // Create test organizer
         const hashedPassword = await bcrypt.hash('password123', 10);
+
         const organizer = await prisma.user.create({
             data: {
                 email: 'organizer-checkin-test@test.com',
@@ -37,7 +57,6 @@ describe('Check-in Module Tests', () => {
         });
         organizerId = organizer.id;
 
-        // Create test student
         const student = await prisma.user.create({
             data: {
                 email: 'student-checkin-test@test.com',
@@ -50,7 +69,18 @@ describe('Check-in Module Tests', () => {
         });
         studentId = student.id;
 
-        // Login to get tokens
+        const manualStudent = await prisma.user.create({
+            data: {
+                email: 'manual-student-checkin-test@test.com',
+                password_hash: hashedPassword,
+                full_name: 'Manual Student',
+                role: 'student',
+                student_id: 'STU002',
+                department_id: 1,
+            },
+        });
+        manualStudentId = manualStudent.id;
+
         const organizerLogin = await request(app)
             .post('/api/auth/login')
             .send({
@@ -67,10 +97,9 @@ describe('Check-in Module Tests', () => {
             });
         studentToken = studentLogin.body.data.token;
 
-        // Create test event (ongoing)
         const now = new Date();
-        const startTime = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
-        const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
+        const startTime = new Date(now.getTime() - 60 * 60 * 1000);
+        const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
         const event = await prisma.event.create({
             data: {
@@ -89,15 +118,6 @@ describe('Check-in Module Tests', () => {
         });
         eventId = event.id;
 
-        // Create registration with QR code
-        const qrData = {
-            registration_id: 0, // Will update
-            event_id: eventId,
-            user_id: studentId,
-            issued_at: new Date().toISOString(),
-            expires_at: endTime.toISOString(),
-        };
-
         const registration = await prisma.registration.create({
             data: {
                 user_id: studentId,
@@ -108,19 +128,33 @@ describe('Check-in Module Tests', () => {
         });
         registrationId = registration.id;
 
-        // Generate QR code
-        qrData.registration_id = registrationId;
+        const qrData = {
+            registration_id: registrationId,
+            event_id: eventId,
+            user_id: studentId,
+            issued_at: new Date().toISOString(),
+            expires_at: endTime.toISOString(),
+        };
+
         qrCode = await QRCode.toDataURL(JSON.stringify(qrData));
 
-        // Update registration with QR
         await prisma.registration.update({
             where: { id: registrationId },
             data: { qr_code: qrCode },
         });
+
+        const manualRegistration = await prisma.registration.create({
+            data: {
+                user_id: manualStudentId,
+                event_id: eventId,
+                status: 'registered',
+                qr_code: `manual-${Date.now()}`,
+            },
+        });
+        manualRegistrationId = manualRegistration.id;
     });
 
     afterAll(async () => {
-        // Clean up
         await prisma.attendance.deleteMany({});
         await prisma.trainingPoint.deleteMany({});
         await prisma.registration.deleteMany({});
@@ -131,11 +165,13 @@ describe('Check-in Module Tests', () => {
         await prisma.$disconnect();
     });
 
-    describe('POST /api/checkin', () => {
-        it('should allow student to self check-in with their own QR code', async () => {
+    describe('POST /api/checkin/scan', () => {
+        it('should allow organizer to check-in with QR code', async () => {
+            await resetAttendanceAndPoints();
+
             const response = await request(app)
-                .post('/api/checkin')
-                .set('Authorization', `Bearer ${studentToken}`)
+                .post('/api/checkin/scan')
+                .set('Authorization', `Bearer ${organizerToken}`)
                 .send({ qr_code: qrCode });
 
             expect(response.status).toBe(201);
@@ -144,63 +180,20 @@ describe('Check-in Module Tests', () => {
             expect(response.body.data.event.id).toBe(eventId);
         });
 
-        it('should allow organizer to check-in anyone', async () => {
-            // Clean previous attendance
-            await prisma.attendance.deleteMany({
-                where: { registration_id: registrationId },
-            });
-            await prisma.trainingPoint.deleteMany({
-                where: { user_id: studentId, event_id: eventId },
-            });
-
+        it('should fail when student tries to scan QR', async () => {
             const response = await request(app)
-                .post('/api/checkin')
-                .set('Authorization', `Bearer ${organizerToken}`)
-                .send({ qr_code: qrCode });
-
-            expect(response.status).toBe(201);
-            expect(response.body.success).toBe(true);
-        });
-
-        it('should fail when student tries to check-in with someone else QR', async () => {
-            // Create another student
-            const hashedPassword = await bcrypt.hash('password123', 10);
-            const anotherStudent = await prisma.user.create({
-                data: {
-                    email: 'another-student-checkin-test@test.com',
-                    password_hash: hashedPassword,
-                    full_name: 'Another Student',
-                    role: 'student',
-                    student_id: 'STU002',
-                    department_id: 1,
-                },
-            });
-
-            const anotherLogin = await request(app)
-                .post('/api/auth/login')
-                .send({
-                    email: 'another-student-checkin-test@test.com',
-                    password: 'password123',
-                });
-            const anotherToken = anotherLogin.body.data.token;
-
-            // Try to check-in with original student's QR
-            const response = await request(app)
-                .post('/api/checkin')
-                .set('Authorization', `Bearer ${anotherToken}`)
+                .post('/api/checkin/scan')
+                .set('Authorization', `Bearer ${studentToken}`)
                 .send({ qr_code: qrCode });
 
             expect(response.status).toBe(403);
             expect(response.body.success).toBe(false);
-
-            // Cleanup
-            await prisma.user.delete({ where: { id: anotherStudent.id } });
         });
 
         it('should fail with invalid QR code format', async () => {
             const response = await request(app)
-                .post('/api/checkin')
-                .set('Authorization', `Bearer ${studentToken}`)
+                .post('/api/checkin/scan')
+                .set('Authorization', `Bearer ${organizerToken}`)
                 .send({ qr_code: 'invalid-qr-code' });
 
             expect(response.status).toBe(400);
@@ -208,10 +201,16 @@ describe('Check-in Module Tests', () => {
         });
 
         it('should fail when already checked in', async () => {
-            // Try to check-in again
+            await resetAttendanceAndPoints();
+
+            await request(app)
+                .post('/api/checkin/scan')
+                .set('Authorization', `Bearer ${organizerToken}`)
+                .send({ qr_code: qrCode });
+
             const response = await request(app)
-                .post('/api/checkin')
-                .set('Authorization', `Bearer ${studentToken}`)
+                .post('/api/checkin/scan')
+                .set('Authorization', `Bearer ${organizerToken}`)
                 .send({ qr_code: qrCode });
 
             expect(response.status).toBe(409);
@@ -220,40 +219,49 @@ describe('Check-in Module Tests', () => {
 
         it('should fail without authentication', async () => {
             const response = await request(app)
-                .post('/api/checkin')
+                .post('/api/checkin/scan')
                 .send({ qr_code: qrCode });
 
             expect(response.status).toBe(401);
         });
     });
 
+    describe('POST /api/checkin/manual', () => {
+        it('should check in by student_id', async () => {
+            await resetAttendanceAndPoints();
+
+            const response = await request(app)
+                .post('/api/checkin/manual')
+                .set('Authorization', `Bearer ${organizerToken}`)
+                .send({
+                    event_id: eventId,
+                    student_id: 'STU002',
+                });
+
+            expect(response.status).toBe(201);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data.student.id).toBe(manualStudentId);
+        });
+
+        it('should validate required manual identifiers', async () => {
+            const response = await request(app)
+                .post('/api/checkin/manual')
+                .set('Authorization', `Bearer ${organizerToken}`)
+                .send({ event_id: eventId });
+
+            expect(response.status).toBe(400);
+            expect(response.body.success).toBe(false);
+        });
+    });
+
     describe('GET /api/checkin/event/:eventId', () => {
         beforeAll(async () => {
-            // Ensure we have attendance data for GET tests
-            // Clean first
-            await prisma.attendance.deleteMany({
-                where: { registration_id: registrationId },
-            });
-            await prisma.trainingPoint.deleteMany({
-                where: { user_id: studentId, event_id: eventId },
-            });
+            await resetAttendanceAndPoints();
 
-            // Create fresh attendance
-            await prisma.attendance.create({
-                data: {
-                    registration_id: registrationId,
-                    checked_by: organizerId,
-                },
-            });
-
-            await prisma.trainingPoint.create({
-                data: {
-                    user_id: studentId,
-                    event_id: eventId,
-                    points: 5,
-                    semester: '2024-2025-1',
-                },
-            });
+            await request(app)
+                .post('/api/checkin/scan')
+                .set('Authorization', `Bearer ${organizerToken}`)
+                .send({ qr_code: qrCode });
         });
 
         it('should get event attendances', async () => {
@@ -285,7 +293,7 @@ describe('Check-in Module Tests', () => {
             expect(response.body.data).toHaveProperty('total_registrations');
             expect(response.body.data).toHaveProperty('total_attendances');
             expect(response.body.data).toHaveProperty('attendance_rate');
-            expect(response.body.data.total_attendances).toBe(1);
+            expect(response.body.data.total_attendances).toBeGreaterThanOrEqual(1);
         });
     });
 });

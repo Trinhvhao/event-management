@@ -1,39 +1,83 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Building2, CheckCircle2, Sparkles, Zap, Award, Users as UsersIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { authService } from '@/services/authService';
+import { eventService } from '@/services/eventService';
+import type { Department, RegisterData } from '@/types';
+
+const toErrorMessage = (error: unknown, fallback: string): string => {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+        return response?.data?.error?.message || fallback;
+    }
+
+    return fallback;
+};
 
 export default function RegisterPage() {
     const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [departments, setDepartments] = useState<Department[]>([]);
+    const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
         studentId: '',
-        department: '',
+        departmentId: '',
         password: '',
         confirmPassword: '',
     });
     const [isLoading, setIsLoading] = useState(false);
 
+    useEffect(() => {
+        const fetchDepartments = async () => {
+            try {
+                const data = await eventService.getDepartments();
+                setDepartments(data);
+            } catch {
+                toast.error('Không tải được danh sách khoa. Bạn vẫn có thể đăng ký mà không chọn khoa.');
+            } finally {
+                setIsLoadingDepartments(false);
+            }
+        };
+
+        fetchDepartments();
+    }, []);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (formData.password !== formData.confirmPassword) {
-            alert('Mật khẩu xác nhận không khớp!');
+            toast.error('Mật khẩu xác nhận không khớp');
             return;
         }
 
         setIsLoading(true);
 
-        // TODO: Implement actual registration logic
-        setTimeout(() => {
+        try {
+            const payload: RegisterData = {
+                email: formData.email.trim(),
+                password: formData.password,
+                full_name: formData.fullName.trim(),
+                student_id: formData.studentId.trim() || undefined,
+                role: 'student',
+                department_id: formData.departmentId ? Number(formData.departmentId) : undefined,
+            };
+
+            await authService.register(payload);
+            toast.success('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
             router.push('/login');
-        }, 1500);
+        } catch (error: unknown) {
+            toast.error(toErrorMessage(error, 'Đăng ký thất bại'));
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -164,16 +208,17 @@ export default function RegisterPage() {
                                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brandBlue transition-colors pointer-events-none z-10" size={20} />
                                         <select
                                             id="department"
-                                            required
-                                            value={formData.department}
-                                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                            value={formData.departmentId}
+                                            onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
                                             className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 focus:border-brandBlue focus:ring-2 focus:ring-brandBlue/20 outline-none transition-all bg-white text-primary appearance-none"
                                         >
-                                            <option value="">Chọn</option>
-                                            <option value="CNTT">CNTT</option>
-                                            <option value="KTPM">KTPM</option>
-                                            <option value="KHMT">KHMT</option>
-                                            <option value="MMT">MMT</option>
+                                            <option value="">Chọn (không bắt buộc)</option>
+                                            {isLoadingDepartments && <option value="">Đang tải khoa...</option>}
+                                            {!isLoadingDepartments && departments.map((department) => (
+                                                <option key={department.id} value={department.id}>
+                                                    {department.name}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>

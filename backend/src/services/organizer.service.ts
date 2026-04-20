@@ -1,6 +1,10 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { createAuditLog } from './audit.service';
+import {
+    notifyOrganizerRightsGranted,
+    notifyOrganizerRightsRevoked,
+} from './notifications.service';
 
 interface GetOrganizersParams {
     page?: number;
@@ -137,6 +141,7 @@ export const organizerService = {
     async computeOrganizerMetrics(organizerId: number, dateFrom?: Date, dateTo?: Date) {
         const eventWhere: any = {
             organizer_id: organizerId,
+            deleted_at: null,
         };
 
         if (dateFrom || dateTo) {
@@ -148,6 +153,7 @@ export const organizerService = {
         const [
             eventsCreated,
             upcomingEvents,
+            ongoingEvents,
             completedEvents,
             attendanceData,
             feedbackData,
@@ -160,7 +166,15 @@ export const organizerService = {
                 where: {
                     ...eventWhere,
                     start_time: { gte: new Date() },
-                    status: 'approved',
+                    status: 'upcoming',
+                },
+            }),
+
+            // Ongoing events
+            prisma.event.count({
+                where: {
+                    ...eventWhere,
+                    status: 'ongoing',
                 },
             }),
 
@@ -169,7 +183,7 @@ export const organizerService = {
                 where: {
                     ...eventWhere,
                     end_time: { lt: new Date() },
-                    status: 'approved',
+                    status: 'completed',
                 },
             }),
 
@@ -198,6 +212,7 @@ export const organizerService = {
             totalAttendees: attendanceData,
             averageRating: feedbackData._avg.rating || 0,
             upcomingEvents,
+            ongoingEvents,
             completedEvents,
         };
     },
@@ -255,13 +270,11 @@ export const organizerService = {
             userAgent,
         });
 
-        // TODO: Send notification to user
-        // await notificationService.create({
-        //   user_id: userId,
-        //   type: 'organizer_granted',
-        //   title: 'Organizer Rights Granted',
-        //   message: 'You have been granted organizer rights.',
-        // });
+        try {
+            await notifyOrganizerRightsGranted(userId);
+        } catch (error) {
+            console.error('Failed to notify organizer rights grant:', error);
+        }
 
         return updatedUser;
     },
@@ -319,13 +332,11 @@ export const organizerService = {
             userAgent,
         });
 
-        // TODO: Send notification to user
-        // await notificationService.create({
-        //   user_id: userId,
-        //   type: 'organizer_revoked',
-        //   title: 'Organizer Rights Revoked',
-        //   message: 'Your organizer rights have been revoked.',
-        // });
+        try {
+            await notifyOrganizerRightsRevoked(userId);
+        } catch (error) {
+            console.error('Failed to notify organizer rights revoke:', error);
+        }
 
         return updatedUser;
     },
@@ -348,15 +359,24 @@ export const organizerService = {
 
         const basicMetrics = await this.computeOrganizerMetrics(organizerId, from, to);
 
+        const metricWhere: Prisma.EventWhereInput = {
+            organizer_id: organizerId,
+            deleted_at: null,
+            ...(from || to
+                ? {
+                      start_time: {
+                          ...(from ? { gte: from } : {}),
+                          ...(to ? { lte: to } : {}),
+                      },
+                  }
+                : {}),
+        };
+
         // Get events by category
         const eventsByCategory = await prisma.event.groupBy({
             by: ['category_id'],
-            where: {
-                organizer_id: organizerId,
-                ...(from && { start_time: { gte: from } }),
-                ...(to && { start_time: { lte: to } }),
-            },
-            _count: true,
+            where: metricWhere,
+            _count: { _all: true },
         });
 
         const categoriesData = await Promise.all(
@@ -367,7 +387,7 @@ export const organizerService = {
                 return {
                     categoryId: item.category_id,
                     categoryName: category?.name || 'Unknown',
-                    count: item._count,
+                    count: item._count._all,
                 };
             })
         );

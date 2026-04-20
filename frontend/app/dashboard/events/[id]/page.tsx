@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -21,7 +22,7 @@ import type { LucideIcon } from 'lucide-react';
 import { eventService } from '@/services/eventService';
 import { registrationService } from '@/services/registrationService';
 import { Event, Registration } from '@/types';
-import { format, isPast, isFuture, differenceInHours } from 'date-fns';
+import { format, isPast, differenceInHours } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
 import EventFeedbackSection from '@/components/feedback/EventFeedbackSection';
@@ -48,22 +49,7 @@ export default function EventDetailPage() {
     const [isRegistered, setIsRegistered] = useState(false);
     const [registrationId, setRegistrationId] = useState<number | null>(null);
 
-    useEffect(() => {
-        if (!isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
-        if (!isValidEventId) {
-            toast.error('ID sự kiện không hợp lệ');
-            router.push('/dashboard/events');
-            return;
-        }
-
-        fetchEventDetail();
-    }, [isAuthenticated, router, isValidEventId, eventId]);
-
-    const fetchEventDetail = async () => {
+    const fetchEventDetail = useCallback(async () => {
         try {
             setLoading(true);
             const eventData = await eventService.getById(eventId);
@@ -89,7 +75,22 @@ export default function EventDetailPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [eventId, router]);
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+
+        if (!isValidEventId) {
+            toast.error('ID sự kiện không hợp lệ');
+            router.push('/dashboard/events');
+            return;
+        }
+
+        fetchEventDetail();
+    }, [isAuthenticated, router, isValidEventId, fetchEventDetail]);
 
     const handleRegister = async () => {
         if (!event) return;
@@ -218,10 +219,12 @@ export default function EventDetailPage() {
                     {/* Event image */}
                     <div className="relative h-64 md:h-96 bg-gradient-to-br from-brandBlue to-secondary">
                         {event.image_url ? (
-                            <img
+                            <Image
                                 src={event.image_url}
                                 alt={event.title}
-                                className="w-full h-full object-cover"
+                                fill
+                                sizes="100vw"
+                                className="object-cover"
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">

@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { NotificationType } from '@prisma/client';
+import { ForbiddenError, NotFoundError } from '../middleware/errorHandler';
 
 interface CreateNotificationData {
     user_id: number;
@@ -85,11 +86,11 @@ export const markAsRead = async (userId: number, notificationId: number) => {
     });
 
     if (!notification) {
-        throw new Error('Thông báo không tồn tại');
+        throw new NotFoundError('Notification');
     }
 
     if (notification.user_id !== userId) {
-        throw new Error('Bạn không có quyền đánh dấu thông báo này');
+        throw new ForbiddenError('Bạn không có quyền đánh dấu thông báo này');
     }
 
     if (notification.is_read) {
@@ -125,11 +126,11 @@ export const deleteNotification = async (userId: number, notificationId: number)
     });
 
     if (!notification) {
-        throw new Error('Thông báo không tồn tại');
+        throw new NotFoundError('Notification');
     }
 
     if (notification.user_id !== userId) {
-        throw new Error('Bạn không có quyền xóa thông báo này');
+        throw new ForbiddenError('Bạn không có quyền xóa thông báo này');
     }
 
     await prisma.notification.delete({
@@ -226,5 +227,25 @@ export const notifyPointsAwarded = async (
         title: 'Cộng điểm rèn luyện',
         message: `Bạn đã nhận được ${points} điểm rèn luyện từ sự kiện "${eventTitle}".`,
         event_id: eventId,
+    });
+};
+
+export const notifyOrganizerRightsGranted = async (userId: number) => {
+    return createNotification({
+        user_id: userId,
+        type: 'event_update',
+        title: 'Được cấp quyền Ban tổ chức',
+        message:
+            'Tài khoản của bạn đã được cấp quyền Ban tổ chức. Bạn có thể tạo và quản lý sự kiện của mình từ bây giờ.',
+    });
+};
+
+export const notifyOrganizerRightsRevoked = async (userId: number) => {
+    return createNotification({
+        user_id: userId,
+        type: 'event_update',
+        title: 'Thu hồi quyền Ban tổ chức',
+        message:
+            'Quyền Ban tổ chức của bạn đã được thu hồi. Nếu có thắc mắc, vui lòng liên hệ quản trị viên.',
     });
 };

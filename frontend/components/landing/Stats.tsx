@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { motion, useInView, useMotionValue, useSpring } from 'framer-motion';
+import { useInView, useMotionValue, useSpring } from 'framer-motion';
 
 const Counter: React.FC<{ value: number; suffix?: string; label: string; decimals?: number }> = ({ value, suffix = "", label, decimals = 0 }) => {
     const ref = useRef<HTMLDivElement>(null);

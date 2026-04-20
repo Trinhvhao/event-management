@@ -13,7 +13,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Calendar, MapPin, Users, Award, Image, Send, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, MapPin, Users, Award, Image as ImageIcon, Send, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -174,7 +174,7 @@ export default function CreateEventPage() {
                                     <Input label="Số lượng tối đa *" type="number" placeholder="100" error={errors.capacity?.message} iconLeft={<Users size={16} />} {...register('capacity')} />
                                     <Input label="Điểm rèn luyện" type="number" placeholder="0" helperText="Số điểm RL cộng khi check-in" iconLeft={<Award size={16} />} {...register('training_points')} />
                                 </div>
-                                <Input label="URL hình ảnh" type="url" placeholder="https://example.com/image.jpg" helperText="URL hình ảnh bìa sự kiện" iconLeft={<Image size={16} />} error={errors.image_url?.message} {...register('image_url')} />
+                                <Input label="URL hình ảnh" type="url" placeholder="https://example.com/image.jpg" helperText="URL hình ảnh bìa sự kiện" iconLeft={<ImageIcon size={16} />} error={errors.image_url?.message} {...register('image_url')} />
                             </motion.div>
                         )}
 

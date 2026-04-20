@@ -8,7 +8,7 @@ import { StatusChip } from '@/components/admin/shared/StatusChip';
 import { BulkActionToolbar } from '@/components/admin/shared/BulkActionToolbar';
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
 import { UserDetailPanel } from '@/components/admin/users/UserDetailPanel';
-import { Search, Filter, Lock, Unlock, Download } from 'lucide-react';
+import { Search, Lock, Unlock } from 'lucide-react';
 import { ColumnDef } from '@tanstack/react-table';
 
 interface User {
@@ -60,7 +60,7 @@ export default function UserManagementPage() {
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [fetchUsers]);
 
     // Debounce search
     useEffect(() => {
@@ -68,7 +68,7 @@ export default function UserManagementPage() {
             updateFilters({ search: searchInput });
         }, 300);
         return () => clearTimeout(timer);
-    }, [searchInput]);
+    }, [searchInput, updateFilters]);
 
     const handleLockClick = (userId: string) => {
         setConfirmDialog({ isOpen: true, type: 'lock', userId });
@@ -113,7 +113,7 @@ export default function UserManagementPage() {
     const columns: ColumnDef<User>[] = [
         {
             id: 'select',
-            header: ({ table }) => (
+            header: () => (
                 <input
                     type="checkbox"
                     checked={selectedUsers.size === users.length && users.length > 0}

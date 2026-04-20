@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { clsx } from 'clsx';
 
 interface AvatarProps {
@@ -21,16 +22,23 @@ function getInitials(name: string): string {
 
 export default function Avatar({ src, name, size = 'md', className }: AvatarProps) {
     const sizeClass = {
-        sm: 'avatar-sm',
-        md: 'avatar-md',
-        lg: 'avatar-lg',
-        xl: 'avatar-xl',
+        sm: 'h-7 w-7 text-[11px]',
+        md: 'h-9 w-9 text-sm',
+        lg: 'h-11 w-11 text-base',
+        xl: 'h-14 w-14 text-xl',
     }[size];
 
     return (
-        <div className={clsx('avatar', sizeClass, className)} title={name}>
+        <div
+            className={clsx(
+                'relative inline-flex items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brandBlue to-brandLightBlue text-white font-semibold shrink-0',
+                sizeClass,
+                className
+            )}
+            title={name}
+        >
             {src ? (
-                <img src={src} alt={name} />
+                <Image src={src} alt={name} fill sizes="64px" className="object-cover" />
             ) : (
                 <span>{getInitials(name)}</span>
             )}

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/errorHandler';
+import { registerApiDocs } from './docs/apiDocs';
 
 const app: Application = express();
 
@@ -13,7 +14,7 @@ app.use(helmet());
 // CORS configuration
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:7777',
     credentials: true,
   })
 );
@@ -51,6 +52,9 @@ app.get('/health', (_req, res) => {
 // API Routes
 import apiRoutes from './routes';
 app.use('/api', apiRoutes);
+
+// API Docs
+registerApiDocs(app);
 
 // 404 handler
 app.use((_req, res) => {

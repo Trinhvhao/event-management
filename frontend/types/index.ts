@@ -141,6 +141,8 @@ export type NotificationType =
   | 'event_reminder'
   | 'event_update'
   | 'event_cancelled'
+  | 'checkin_success'
+  | 'points_awarded'
   | 'feedback_request'
   | 'training_points_awarded';
 

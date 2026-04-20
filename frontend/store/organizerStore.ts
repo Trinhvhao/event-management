@@ -7,6 +7,11 @@ interface OrganizerMetrics {
     averageRating: number;
     upcomingEvents: number;
     completedEvents: number;
+    eventsByCategory?: Array<{
+        categoryId: string;
+        categoryName: string;
+        count: number;
+    }>;
 }
 
 interface Organizer {

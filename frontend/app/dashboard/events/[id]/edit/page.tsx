@@ -14,7 +14,7 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import Skeleton from '@/components/ui/Skeleton';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Users, Award, Image, Save } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Award, Image as ImageIcon, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -80,7 +80,7 @@ export default function EditEventPage() {
             setValue('image_url', event.image_url || '');
             setFormReady(true);
         }
-    }, [event]);
+    }, [event, formReady, setValue]);
 
     const categoryOptions = categories.map(c => ({ value: c.id.toString(), label: c.name }));
     const departmentOptions = departments.map(d => ({ value: d.id.toString(), label: d.name }));
@@ -189,7 +189,7 @@ export default function EditEventPage() {
                         <Input label="Điểm rèn luyện" type="number" helperText="Cộng khi check-in thành công" iconLeft={<Award size={16} />} {...register('training_points')} />
                     </div>
 
-                    <Input label="URL hình ảnh" type="url" placeholder="https://..." helperText="URL ảnh bìa sự kiện" iconLeft={<Image size={16} />} error={errors.image_url?.message} {...register('image_url')} />
+                    <Input label="URL hình ảnh" type="url" placeholder="https://..." helperText="URL ảnh bìa sự kiện" iconLeft={<ImageIcon size={16} />} error={errors.image_url?.message} {...register('image_url')} />
                 </Card>
 
                 {/* Submit */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Star, MessageSquare, Send, User as UserIcon } from 'lucide-react';
 import { feedbackService, FeedbackSummary } from '@/services/feedbackService';
 import { Feedback } from '@/types';
@@ -10,11 +10,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+const FEEDBACK_PAGE_SIZE = 10;
+
 const getErrorMessage = (error: unknown, fallback: string): string => {
     if (error && typeof error === 'object' && 'response' in error) {
-        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
-        return response?.data?.error?.message || fallback;
+        const response = (
+            error as { response?: { data?: { message?: string; error?: { message?: string } } } }
+        ).response;
+
+        if (response?.data?.message) {
+            return response.data.message;
+        }
+
+        if (response?.data?.error?.message) {
+            return response.data.error.message;
+        }
     }
+
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+
     return fallback;
 };
 
@@ -91,8 +107,12 @@ export default function EventFeedbackSection({ eventId, eventStatus }: EventFeed
     const { user } = useAuthStore();
     const [summary, setSummary] = useState<FeedbackSummary | null>(null);
     const [feedbacks, setFeedbacks] = useState<(Feedback & { user?: { id: number | null; full_name: string; student_id: string | null } })[]>([]);
+    const [totalFeedbacks, setTotalFeedbacks] = useState(0);
+    const [feedbackOffset, setFeedbackOffset] = useState(0);
+    const [hasMoreFeedbacks, setHasMoreFeedbacks] = useState(false);
     const [myFeedback, setMyFeedback] = useState<Feedback | null | undefined>(undefined);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     // Form state
@@ -101,29 +121,78 @@ export default function EventFeedbackSection({ eventId, eventStatus }: EventFeed
     const [suggestions, setSuggestions] = useState('');
     const [isAnonymous, setIsAnonymous] = useState(false);
 
-    useEffect(() => {
-        loadFeedbackData();
-    }, [eventId]);
+    const canViewSummary = user?.role === 'organizer' || user?.role === 'admin';
 
-    const loadFeedbackData = async () => {
+    const loadFeedbackData = useCallback(async () => {
         try {
             setLoading(true);
-            const [summaryData, feedbackData] = await Promise.all([
-                feedbackService.getFeedbackSummary(eventId),
-                feedbackService.getEventFeedbacks(eventId, { limit: 10 }),
-            ]);
-            setSummary(summaryData);
+
+            const feedbackData = await feedbackService.getEventFeedbacks(eventId, {
+                limit: FEEDBACK_PAGE_SIZE,
+                offset: 0,
+            });
+
             setFeedbacks(feedbackData.feedbacks);
+            setTotalFeedbacks(feedbackData.total);
+            setFeedbackOffset(feedbackData.feedbacks.length);
+            setHasMoreFeedbacks(feedbackData.has_more);
+
+            if (canViewSummary) {
+                try {
+                    const summaryData = await feedbackService.getFeedbackSummary(eventId);
+                    setSummary(summaryData);
+                } catch (error) {
+                    console.error('Error loading feedback summary:', error);
+                    setSummary(null);
+                }
+            } else {
+                setSummary(null);
+            }
 
             // Check if current user has already submitted
             if (user) {
-                const myFb = await feedbackService.getMyFeedback(eventId);
-                setMyFeedback(myFb);
+                try {
+                    const myFb = await feedbackService.getMyFeedback(eventId);
+                    setMyFeedback(myFb);
+                } catch (error) {
+                    console.error('Error loading my feedback:', error);
+                    setMyFeedback(undefined);
+                }
             }
         } catch (error) {
-            console.error('Error loading feedback:', error);
+            const msg = getErrorMessage(error, 'Không thể tải dữ liệu đánh giá');
+            toast.error(msg);
         } finally {
             setLoading(false);
+        }
+    }, [canViewSummary, eventId, user]);
+
+    useEffect(() => {
+        loadFeedbackData();
+    }, [loadFeedbackData]);
+
+    const loadMoreFeedbacks = async () => {
+        if (!hasMoreFeedbacks || loadingMore) {
+            return;
+        }
+
+        try {
+            setLoadingMore(true);
+
+            const nextPage = await feedbackService.getEventFeedbacks(eventId, {
+                limit: FEEDBACK_PAGE_SIZE,
+                offset: feedbackOffset,
+            });
+
+            setFeedbacks((prev) => [...prev, ...nextPage.feedbacks]);
+            setFeedbackOffset((prev) => prev + nextPage.feedbacks.length);
+            setHasMoreFeedbacks(nextPage.has_more);
+            setTotalFeedbacks(nextPage.total);
+        } catch (error) {
+            const msg = getErrorMessage(error, 'Không thể tải thêm đánh giá');
+            toast.error(msg);
+        } finally {
+            setLoadingMore(false);
         }
     };
 
@@ -193,6 +262,15 @@ export default function EventFeedbackSection({ eventId, eventStatus }: EventFeed
                                 distribution={summary.rating_distribution}
                                 total={summary.total_feedbacks}
                             />
+                        </div>
+                    ) : !canViewSummary && totalFeedbacks > 0 ? (
+                        <div className="space-y-3 py-2">
+                            <p className="text-sm font-semibold text-primary">Tổng quan đánh giá</p>
+                            <p className="text-3xl font-bold text-primary">{totalFeedbacks}</p>
+                            <p className="text-xs text-gray-500">đánh giá đã gửi cho sự kiện này</p>
+                            <p className="text-xs text-gray-500">
+                                Thống kê chi tiết chỉ hiển thị cho ban tổ chức hoặc quản trị viên.
+                            </p>
                         </div>
                     ) : (
                         <div className="text-center py-6">
@@ -313,6 +391,19 @@ export default function EventFeedbackSection({ eventId, eventStatus }: EventFeed
                                         )}
                                     </motion.div>
                                 ))}
+
+                                {hasMoreFeedbacks && (
+                                    <div className="flex justify-center pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={loadMoreFeedbacks}
+                                            disabled={loadingMore}
+                                            className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                                        >
+                                            {loadingMore ? 'Đang tải...' : 'Tải thêm đánh giá'}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             !canSubmitFeedback && (

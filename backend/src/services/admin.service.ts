@@ -282,4 +282,84 @@ export const adminService = {
 
         return results;
     },
+
+    /**
+     * Get role permission matrix
+     */
+    async getRoleMatrix() {
+        return {
+            admin: {
+                permissions: [
+                    'users:read',
+                    'users:write',
+                    'roles:write',
+                    'events:approve',
+                    'events:manage',
+                    'categories:manage',
+                    'departments:manage',
+                    'statistics:read',
+                    'audit:read',
+                ],
+            },
+            organizer: {
+                permissions: [
+                    'events:create',
+                    'events:manage_own',
+                    'registrations:read_own_events',
+                    'attendance:manage_own_events',
+                    'statistics:read_own',
+                ],
+            },
+            student: {
+                permissions: [
+                    'events:read',
+                    'registrations:create',
+                    'registrations:read_own',
+                    'attendance:read_own',
+                    'feedback:create',
+                    'profile:manage_own',
+                ],
+            },
+        };
+    },
+
+    /**
+     * Get role distribution statistics
+     */
+    async getRoleStatistics() {
+        const [totalUsers, roleTotals, activeRoleTotals] = await Promise.all([
+            prisma.user.count(),
+            prisma.user.groupBy({
+                by: ['role'],
+                _count: { _all: true },
+            }),
+            prisma.user.groupBy({
+                by: ['role'],
+                where: { is_active: true },
+                _count: { _all: true },
+            }),
+        ]);
+
+        const totalsMap = new Map(roleTotals.map((row) => [row.role, row._count._all]));
+        const activeMap = new Map(activeRoleTotals.map((row) => [row.role, row._count._all]));
+        const roles: UserRole[] = ['admin', 'organizer', 'student'];
+
+        const byRole = roles.map((role) => {
+            const total = totalsMap.get(role) || 0;
+            const active = activeMap.get(role) || 0;
+
+            return {
+                role,
+                total,
+                active,
+                inactive: Math.max(total - active, 0),
+                percentage: totalUsers > 0 ? Number(((total / totalUsers) * 100).toFixed(2)) : 0,
+            };
+        });
+
+        return {
+            totalUsers,
+            byRole,
+        };
+    },
 };

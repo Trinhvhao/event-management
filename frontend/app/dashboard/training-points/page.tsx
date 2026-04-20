@@ -1,31 +1,78 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Award, TrendingUp, Calendar, BookOpen, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { trainingPointsService } from '@/services/trainingPointsService';
+import Button from '@/components/ui/Button';
+import { trainingPointsService, TrainingPointRecord } from '@/services/trainingPointsService';
 import { toast } from 'sonner';
 
-interface TrainingPoint {
-    id: number;
-    event: {
-        id: number;
-        title: string;
-        start_time: string;
-    };
-    points: number;
-    semester: string;
-    earned_at: string;
-}
+const HISTORY_PAGE_SIZE = 12;
 
 export default function TrainingPointsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
-    const [points, setPoints] = useState<TrainingPoint[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [points, setPoints] = useState<TrainingPointRecord[]>([]);
+    const [totalEvents, setTotalEvents] = useState(0);
     const [totalPoints, setTotalPoints] = useState(0);
     const [currentSemesterPoints, setCurrentSemesterPoints] = useState(0);
+    const [currentSemester, setCurrentSemester] = useState('');
+    const [semesterFilter, setSemesterFilter] = useState('');
+    const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+    const [historyOffset, setHistoryOffset] = useState(0);
+    const [historyHasMore, setHistoryHasMore] = useState(false);
+
+    const fetchSummary = useCallback(async () => {
+        const [data, semesterData] = await Promise.all([
+            trainingPointsService.getMyPoints(),
+            trainingPointsService.getCurrentSemester(),
+        ]);
+
+        setTotalPoints(data.grand_total);
+        setTotalEvents(data.total_events);
+        setCurrentSemester(semesterData.semester);
+        setAvailableSemesters(data.semesters.map((semester) => semester.semester));
+
+        const currentSemesterRow =
+            data.semesters.find((semester) => semester.semester === semesterData.semester) ||
+            data.semesters[0];
+        setCurrentSemesterPoints(currentSemesterRow?.total_points || 0);
+    }, []);
+
+    const fetchHistory = useCallback(async (options?: {
+        append?: boolean;
+        offset?: number;
+        semester?: string;
+    }) => {
+        const append = options?.append || false;
+        const offset = options?.offset || 0;
+        const selectedSemester = options?.semester ?? '';
+
+        if (append) {
+            setLoadingMore(true);
+        } else {
+            setHistoryLoading(true);
+        }
+
+        try {
+            const historyData = await trainingPointsService.getMyPointsHistory({
+                semester: selectedSemester || undefined,
+                limit: HISTORY_PAGE_SIZE,
+                offset,
+            });
+
+            setPoints((prev) => (append ? [...prev, ...historyData.points] : historyData.points));
+            setHistoryOffset(offset + historyData.points.length);
+            setHistoryHasMore(historyData.has_more);
+        } finally {
+            setHistoryLoading(false);
+            setLoadingMore(false);
+        }
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -33,30 +80,36 @@ export default function TrainingPointsPage() {
             router.push('/login');
             return;
         }
-        fetchTrainingPoints();
-    }, [router]);
 
-    const fetchTrainingPoints = async () => {
+        const initialize = async () => {
+            try {
+                await Promise.all([fetchSummary(), fetchHistory({ append: false, offset: 0, semester: '' })]);
+            } catch (error) {
+                console.error('Error fetching training points:', error);
+                toast.error('Không thể tải điểm rèn luyện');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void initialize();
+    }, [fetchHistory, fetchSummary, router]);
+
+    const applySemesterFilter = async () => {
         try {
-            const data = await trainingPointsService.getMyPoints();
-
-            // Flatten all points from all semesters
-            const allPoints: TrainingPoint[] = [];
-            data.semesters.forEach(semester => {
-                allPoints.push(...semester.points);
-            });
-
-            setPoints(allPoints);
-            setTotalPoints(data.grand_total);
-
-            // Get current semester points (first semester in array)
-            const currentSemester = data.semesters[0];
-            setCurrentSemesterPoints(currentSemester?.total_points || 0);
+            await fetchHistory({ append: false, offset: 0, semester: semesterFilter });
         } catch (error) {
-            console.error('Error fetching training points:', error);
-            toast.error('Không thể tải điểm rèn luyện');
-        } finally {
-            setLoading(false);
+            console.error('Error filtering history:', error);
+            toast.error('Không thể lọc lịch sử điểm');
+        }
+    };
+
+    const loadMoreHistory = async () => {
+        try {
+            await fetchHistory({ append: true, offset: historyOffset, semester: semesterFilter });
+        } catch (error) {
+            console.error('Error loading more history:', error);
+            toast.error('Không thể tải thêm lịch sử điểm');
         }
     };
 
@@ -83,7 +136,7 @@ export default function TrainingPointsPage() {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative overflow-hidden bg-gradient-to-br from-brandBlue via-[#0041a8] to-secondary rounded-2xl p-8 text-white shadow-xl"
+                    className="relative overflow-hidden bg-linear-to-br from-brandBlue via-[#0041a8] to-secondary rounded-2xl p-8 text-white shadow-xl"
                 >
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
                     <div className="absolute bottom-0 left-0 w-48 h-48 bg-brandLightBlue/20 rounded-full -ml-24 -mb-24 blur-2xl"></div>
@@ -103,7 +156,7 @@ export default function TrainingPointsPage() {
                             <div>
                                 <p className="text-white/70 text-sm mb-1">Học kỳ hiện tại</p>
                                 <p className="text-3xl font-bold">{currentSemesterPoints}</p>
-                                <p className="text-white/60 text-xs mt-1">HK2 2025-2026</p>
+                                <p className="text-white/60 text-xs mt-1">{currentSemester || 'N/A'}</p>
                             </div>
                             <div>
                                 <p className="text-white/70 text-sm mb-1">Tổng tất cả học kỳ</p>
@@ -118,8 +171,8 @@ export default function TrainingPointsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
                         { icon: TrendingUp, label: 'Xu hướng', value: `+${currentSemesterPoints}`, color: 'text-green-600', bg: 'bg-green-50' },
-                        { icon: Calendar, label: 'Sự kiện tham gia', value: points.length.toString(), color: 'text-blue-600', bg: 'bg-blue-50' },
-                        { icon: BookOpen, label: 'Học kỳ', value: 'HK2', color: 'text-purple-600', bg: 'bg-purple-50' },
+                        { icon: Calendar, label: 'Sự kiện tham gia', value: totalEvents.toString(), color: 'text-blue-600', bg: 'bg-blue-50' },
+                        { icon: BookOpen, label: 'Học kỳ', value: currentSemester || 'N/A', color: 'text-purple-600', bg: 'bg-purple-50' },
                     ].map((stat, i) => (
                         <motion.div
                             key={i}
@@ -145,18 +198,37 @@ export default function TrainingPointsPage() {
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                     <div className="p-6 border-b border-gray-200">
                         <h2 className="text-xl font-bold text-primary">Lịch sử điểm rèn luyện</h2>
-                        <p className="text-gray-500 text-sm mt-1">Chi tiết điểm từ các sự kiện đã tham gia</p>
+                        <p className="text-gray-500 text-sm mt-1">Chi tiết điểm từ các sự kiện đã tham gia theo lịch sử phân trang</p>
+                        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <select
+                                value={semesterFilter}
+                                onChange={(e) => setSemesterFilter(e.target.value)}
+                                className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 focus:border-brandBlue focus:outline-none"
+                            >
+                                <option value="">Tất cả học kỳ</option>
+                                {availableSemesters.map((semester) => (
+                                    <option key={semester} value={semester}>
+                                        {semester}
+                                    </option>
+                                ))}
+                            </select>
+                            <Button onClick={applySemesterFilter} isLoading={historyLoading} size="sm">
+                                Áp dụng bộ lọc
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="divide-y divide-gray-100">
-                        {points.length === 0 ? (
+                        {historyLoading ? (
+                            <div className="p-12 text-center text-sm text-gray-500">Đang tải lịch sử điểm...</div>
+                        ) : points.length === 0 ? (
                             <div className="p-12 text-center">
                                 <Award className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                                 <p className="text-gray-500 font-medium mb-2">Chưa có điểm rèn luyện</p>
                                 <p className="text-gray-400 text-sm mb-6">Tham gia sự kiện để tích lũy điểm rèn luyện</p>
                                 <button
                                     onClick={() => router.push('/dashboard/events')}
-                                    className="px-6 py-2.5 bg-gradient-to-r from-brandBlue to-secondary text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                                    className="px-6 py-2.5 bg-linear-to-r from-brandBlue to-secondary text-white rounded-lg font-semibold hover:shadow-lg transition-all"
                                 >
                                     Khám phá sự kiện
                                 </button>
@@ -198,6 +270,14 @@ export default function TrainingPointsPage() {
                             ))
                         )}
                     </div>
+
+                    {!historyLoading && historyHasMore && (
+                        <div className="border-t border-gray-100 p-4 text-center">
+                            <Button onClick={loadMoreHistory} isLoading={loadingMore} variant="outline">
+                                Tải thêm lịch sử
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
         </DashboardLayout>

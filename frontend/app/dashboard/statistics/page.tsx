@@ -5,7 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card, { CardHeader } from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
 import { motion } from 'framer-motion';
-import { BarChart3, Calendar, Users, CheckCircle, Star, Building2, Award, TrendingUp } from 'lucide-react';
+import { BarChart3, Calendar, Users, CheckCircle, Star, Award, TrendingUp } from 'lucide-react';
 import { statisticsService, DashboardStats, OrganizerStats, StudentStats, DepartmentStats } from '@/services/statisticsService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
@@ -94,7 +94,7 @@ export default function StatisticsPage() {
         if (activeTab === 'organizer' && !organizerStats) loadOrganizerStats();
         if (activeTab === 'students' && !studentStats) loadStudentStats();
         if (activeTab === 'departments' && !departmentStats) loadDepartmentStats();
-    }, [activeTab]);
+    }, [activeTab, organizerStats, studentStats, departmentStats]);
 
     const loadDashboard = async () => {
         try {

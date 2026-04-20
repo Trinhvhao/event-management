@@ -4,9 +4,10 @@ import { successResponse } from '../utils/response.util';
 import { getAuthenticatedUser, parsePositiveInt } from '../utils/request.util';
 
 export const statisticsController = {
-    async getDashboard(_req: Request, res: Response, next: NextFunction) {
+    async getDashboard(req: Request, res: Response, next: NextFunction) {
         try {
-            const result = await statisticsService.getDashboardStats();
+            const requester = getAuthenticatedUser(req);
+            const result = await statisticsService.getRoleScopedDashboardStats(requester);
             res.json(successResponse(result));
         } catch (error) { next(error); }
     },

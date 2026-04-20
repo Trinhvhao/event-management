@@ -28,12 +28,24 @@ interface AttendanceStats {
     attendance_rate: number;
 }
 
+interface ManualCheckinPayload {
+    event_id: number;
+    registration_id?: number;
+    student_id?: string;
+}
+
 export const checkinService = {
-    /** Check-in bằng mã QR */
+    /** Check-in bằng QR scan */
     async processCheckin(qrCode: string): Promise<CheckinResult> {
-        const response = await axios.post<ApiResponse<CheckinResult>>('/checkin', {
+        const response = await axios.post<ApiResponse<CheckinResult>>('/checkin/scan', {
             qr_code: qrCode,
         });
+        return response.data.data;
+    },
+
+    /** Check-in thủ công theo registration_id hoặc student_id + event_id */
+    async processManualCheckin(payload: ManualCheckinPayload): Promise<CheckinResult> {
+        const response = await axios.post<ApiResponse<CheckinResult>>('/checkin/manual', payload);
         return response.data.data;
     },
 

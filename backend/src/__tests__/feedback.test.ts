@@ -194,6 +194,58 @@ describe('Feedback Module Tests', () => {
             await prisma.event.delete({ where: { id: anotherEvent.id } });
         });
 
+        it('should fail when event is not completed even if attended', async () => {
+            const inProgressEvent = await prisma.event.create({
+                data: {
+                    title: 'In Progress Event',
+                    description: 'Test',
+                    start_time: new Date(Date.now() - 60 * 60 * 1000),
+                    end_time: new Date(Date.now() + 60 * 60 * 1000),
+                    location: 'Test',
+                    capacity: 100,
+                    training_points: 3,
+                    status: 'ongoing',
+                    organizer_id: organizerId,
+                    category_id: 1,
+                    department_id: 1,
+                },
+            });
+
+            const inProgressRegistration = await prisma.registration.create({
+                data: {
+                    user_id: studentId,
+                    event_id: inProgressEvent.id,
+                    status: 'registered',
+                    qr_code: `qr-in-progress-${inProgressEvent.id}`,
+                },
+            });
+
+            await prisma.attendance.create({
+                data: {
+                    registration_id: inProgressRegistration.id,
+                    checked_in_at: new Date(),
+                    checked_by: organizerId,
+                },
+            });
+
+            const response = await request(app)
+                .post('/api/feedback')
+                .set('Authorization', `Bearer ${studentToken}`)
+                .send({
+                    event_id: inProgressEvent.id,
+                    rating: 5,
+                });
+
+            expect(response.status).toBe(403);
+            expect(response.body.success).toBe(false);
+
+            await prisma.attendance.deleteMany({
+                where: { registration_id: inProgressRegistration.id },
+            });
+            await prisma.registration.delete({ where: { id: inProgressRegistration.id } });
+            await prisma.event.delete({ where: { id: inProgressEvent.id } });
+        });
+
         it('should fail without authentication', async () => {
             const response = await request(app).post('/api/feedback').send({
                 event_id: eventId,

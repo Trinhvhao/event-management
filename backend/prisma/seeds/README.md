@@ -15,6 +15,7 @@ seeds/
 ├── 06-training-points.ts             # Seed training points
 ├── 07-feedback.ts                    # Seed feedback
 └── 08-notifications.ts               # Seed notifications
+└── 09-demo-expansion.ts              # Mo rong du lieu demo cho tat ca module
 ```
 
 ## 🚀 Cách sử dụng
@@ -60,35 +61,31 @@ await seedCategories(prisma);
 
 Tất cả password mặc định: `admin123`, `organizer123`, `student123`
 
-### Events (7)
-- 2 Completed events (đã hoàn thành)
-- 1 Ongoing event (đang diễn ra)
-- 4 Upcoming events (sắp diễn ra)
+### Events (base + expansion)
+- Du cac status: pending, approved, upcoming, ongoing, completed, cancelled
+- Co su kien featured va su kien soft-delete de test bo loc
 
-### Registrations (14)
-- Completed Event 1: 5 registrations
-- Completed Event 2: 3 registrations
-- Ongoing Event: 4 registrations
-- Upcoming Event 1: 2 registrations
+### Registrations
+- Dang ky tren nhieu su kien va nhieu khoa
+- Co du lieu `registered` va `cancelled`
 
-### Attendances (9)
-- Completed Event 1: 5 attendances (100%)
-- Completed Event 2: 2 attendances (67%)
-- Ongoing Event: 2 attendances (50%)
+### Attendances
+- Tao check-in cho event completed/ongoing
+- Co du lieu du de demo check-in rates
 
-### Training Points (9)
-Tự động tạo cho tất cả students đã check-in
+### Training Points
+- Tu dong tao theo attendance
+- Co phan bo theo semester de demo thong ke
 
-### Feedback (6)
-- Completed Event 1: 4 feedback (80%)
-- Completed Event 2: 2 feedback (100%)
+### Feedback
+- Danh gia event completed voi comment + suggestions + anonymous
 
-### Notifications (35)
-- Registration confirmations
-- Check-in success
-- Points awarded
-- Event reminders
-- Feedback requests
+### Notifications
+- Day du cac loai thong bao trong enum NotificationType
+- Co read/unread de demo Notification Bell
+
+### Audit Logs
+- Tao log cho luong admin: role change, lock user, event approval, category/department updates
 
 ## 🔧 Thêm seed mới
 

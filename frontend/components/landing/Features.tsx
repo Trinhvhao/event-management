@@ -1,5 +1,5 @@
 import React from 'react';
-import { QrCode, ShieldCheck, BarChart3, Users, Zap, Award, Smartphone, Globe, ScanLine, Lock, Mail, Layout } from 'lucide-react';
+import { ShieldCheck, BarChart3, Award, Globe, ScanLine, Lock, Mail, Layout } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // --- Visual Components for Cards ---

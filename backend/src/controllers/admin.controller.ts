@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client';
 import { adminService } from '../services/admin.service';
 import { getUserAuditLogs } from '../services/audit.service';
 import { categoryService } from '../services/category.service';
+import { adminStatisticsService } from '../services/admin-statistics.service';
 import {
     getAuthenticatedUser,
     getQueryString,
@@ -293,6 +294,50 @@ export const adminController = {
             res.status(500).json({
                 success: false,
                 message: 'Failed to fetch audit logs',
+                error: (error as Error).message,
+            });
+        }
+    },
+
+    /**
+     * GET /api/admin/roles/matrix
+     * Get role permission matrix
+     */
+    async getRoleMatrix(_req: Request, res: Response): Promise<void> {
+        try {
+            const matrix = await adminService.getRoleMatrix();
+
+            res.json({
+                success: true,
+                data: matrix,
+            });
+        } catch (error) {
+            console.error('Get role matrix error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch role matrix',
+                error: (error as Error).message,
+            });
+        }
+    },
+
+    /**
+     * GET /api/admin/roles/statistics
+     * Get role distribution statistics
+     */
+    async getRoleStatistics(_req: Request, res: Response): Promise<void> {
+        try {
+            const statistics = await adminService.getRoleStatistics();
+
+            res.json({
+                success: true,
+                data: statistics,
+            });
+        } catch (error) {
+            console.error('Get role statistics error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch role statistics',
                 error: (error as Error).message,
             });
         }
@@ -673,6 +718,62 @@ export const adminController = {
             res.status(err.statusCode || 400).json({
                 success: false,
                 message: err.message,
+            });
+        }
+    },
+
+    /**
+     * GET /api/admin/statistics/dashboard
+     * Get admin dashboard statistics with optional filters
+     */
+    async getStatisticsDashboard(req: Request, res: Response): Promise<void> {
+        try {
+            const { dateFrom, dateTo, department_id, category_id } = req.query;
+
+            const result = await adminStatisticsService.getDashboard({
+                dateFrom: getQueryString(dateFrom),
+                dateTo: getQueryString(dateTo),
+                departmentId: parseOptionalPositiveInt(department_id, 'department_id'),
+                categoryId: parseOptionalPositiveInt(category_id, 'category_id'),
+            });
+
+            res.json({
+                success: true,
+                data: result,
+            });
+        } catch (error) {
+            console.error('Get admin dashboard statistics error:', error);
+            res.status(400).json({
+                success: false,
+                message: (error as Error).message,
+            });
+        }
+    },
+
+    /**
+     * GET /api/admin/statistics/charts
+     * Get admin chart datasets with optional filters
+     */
+    async getStatisticsCharts(req: Request, res: Response): Promise<void> {
+        try {
+            const { dateFrom, dateTo, department_id, category_id } = req.query;
+
+            const result = await adminStatisticsService.getCharts({
+                dateFrom: getQueryString(dateFrom),
+                dateTo: getQueryString(dateTo),
+                departmentId: parseOptionalPositiveInt(department_id, 'department_id'),
+                categoryId: parseOptionalPositiveInt(category_id, 'category_id'),
+            });
+
+            res.json({
+                success: true,
+                data: result,
+            });
+        } catch (error) {
+            console.error('Get admin chart statistics error:', error);
+            res.status(400).json({
+                success: false,
+                message: (error as Error).message,
             });
         }
     },

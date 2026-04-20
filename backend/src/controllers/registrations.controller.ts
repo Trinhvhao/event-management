@@ -51,8 +51,13 @@ export const getEventRegistrations = async (req: Request, res: Response, next: N
     try {
         const eventId = parsePositiveInt(req.params.eventId, 'eventId');
         const { status } = req.query;
+        const requester = getAuthenticatedUser(req);
 
-        const registrations = await registrationsService.getEventRegistrations(eventId, getQueryString(status));
+        const registrations = await registrationsService.getEventRegistrations(
+            eventId,
+            getQueryString(status),
+            requester
+        );
 
         res.json(successResponse(registrations));
     } catch (error) {
@@ -63,10 +68,30 @@ export const getEventRegistrations = async (req: Request, res: Response, next: N
 export const getRegistrationById = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const registrationId = parsePositiveInt(req.params.id, 'id');
+        const requester = getAuthenticatedUser(req);
 
-        const registration = await registrationsService.getRegistrationById(registrationId);
+        const registration = await registrationsService.getRegistrationByIdWithAccess(
+            registrationId,
+            requester
+        );
 
         res.json(successResponse(registration));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getRegistrationQRCode = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const registrationId = parsePositiveInt(req.params.id, 'id');
+        const requester = getAuthenticatedUser(req);
+
+        const qrPayload = await registrationsService.getRegistrationQRCodeWithAccess(
+            registrationId,
+            requester
+        );
+
+        res.json(successResponse(qrPayload));
     } catch (error) {
         next(error);
     }

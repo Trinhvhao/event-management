@@ -174,7 +174,7 @@ describe('Notifications Module Tests', () => {
                 .put('/api/notifications/99999/read')
                 .set('Authorization', `Bearer ${studentToken}`);
 
-            expect(response.status).toBe(500);
+            expect(response.status).toBe(404);
         });
 
         it('should fail without authentication', async () => {
@@ -227,7 +227,7 @@ describe('Notifications Module Tests', () => {
                 .delete('/api/notifications/99999')
                 .set('Authorization', `Bearer ${studentToken}`);
 
-            expect(response.status).toBe(500);
+            expect(response.status).toBe(404);
         });
     });
 });

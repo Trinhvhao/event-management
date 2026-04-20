@@ -26,11 +26,13 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "express-list-endpoints": "^7.1.1",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
@@ -39,6 +41,7 @@
     "nodemailer": "^7.0.12",
     "pg": "^8.17.1",
     "qrcode": "^1.5.4",
+    "swagger-ui-express": "^5.0.1",
     "zod": "^4.3.5"
   },
   "devDependencies": {

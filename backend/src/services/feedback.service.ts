@@ -19,6 +19,10 @@ export const submitFeedback = async (userId: number, data: SubmitFeedbackData) =
         throw new NotFoundError('Sự kiện không tồn tại');
     }
 
+    if (event.status !== 'completed') {
+        throw new ForbiddenError('Chỉ có thể đánh giá sự kiện đã hoàn thành');
+    }
+
     // Check if user attended the event
     const attendance = await prisma.attendance.findFirst({
         where: {

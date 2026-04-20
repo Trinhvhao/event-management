@@ -2,89 +2,179 @@ import prisma from '../config/database';
 import QRCode from 'qrcode';
 import { sendEmail } from './email.service';
 import * as notificationsService from './notifications.service';
+import {
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+} from '../middleware/errorHandler';
+import { RegistrationStatus, UserRole } from '@prisma/client';
 
-export const registerForEvent = async (userId: number, eventId: number) => {
-    // Check if event exists and is upcoming
-    const event = await prisma.event.findUnique({
-        where: { id: eventId },
-        include: {
-            _count: {
-                select: { registrations: true }
-            }
-        }
-    });
+type RequesterContext = {
+    id: number;
+    role: UserRole;
+};
 
-    if (!event) {
-        throw new Error('Sự kiện không tồn tại');
+const parseRegistrationStatus = (status?: string): RegistrationStatus | undefined => {
+    if (!status) {
+        return undefined;
     }
 
-    if (event.status !== 'upcoming') {
-        throw new Error('Chỉ có thể đăng ký sự kiện sắp diễn ra');
+    if (status === 'registered' || status === 'cancelled') {
+        return status;
     }
 
-    // Check capacity
-    if (event._count.registrations >= event.capacity) {
-        throw new Error('Sự kiện đã đầy');
-    }
+    throw new ValidationError('Trạng thái đăng ký không hợp lệ');
+};
 
-    // Check if already registered
-    const existingRegistration = await prisma.registration.findFirst({
-        where: {
-            user_id: userId,
-            event_id: eventId,
-            status: 'registered'
-        }
-    });
-
-    if (existingRegistration) {
-        throw new Error('Bạn đã đăng ký sự kiện này rồi');
-    }
-
-    // Generate QR code data
+const generateRegistrationQrCode = async (params: {
+    registrationId: number;
+    eventId: number;
+    userId: number;
+    eventEndTime: Date;
+}) => {
     const qrData = {
-        registration_id: Date.now(), // Temporary, will update after creation
-        event_id: eventId,
-        user_id: userId,
+        registration_id: params.registrationId,
+        event_id: params.eventId,
+        user_id: params.userId,
         issued_at: new Date().toISOString(),
-        expires_at: event.end_time.toISOString()
+        expires_at: params.eventEndTime.toISOString(),
     };
 
-    // Create registration
-    const registration = await prisma.registration.create({
-        data: {
-            user_id: userId,
+    return QRCode.toDataURL(JSON.stringify(qrData));
+};
+
+export const registerForEvent = async (userId: number, eventId: number) => {
+    const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: {
+            id: true,
+            title: true,
+            status: true,
+            start_time: true,
+            end_time: true,
+            location: true,
+            capacity: true,
+            training_points: true,
+            registration_deadline: true,
+            deleted_at: true,
+        },
+    });
+
+    if (!event || event.deleted_at) {
+        throw new NotFoundError('Sự kiện không tồn tại');
+    }
+
+    const now = new Date();
+
+    if (event.status !== 'upcoming' && event.status !== 'approved') {
+        throw new ValidationError('Chỉ có thể đăng ký sự kiện sắp diễn ra');
+    }
+
+    if (event.end_time <= now) {
+        throw new ValidationError('Sự kiện đã kết thúc');
+    }
+
+    if (event.start_time <= now) {
+        throw new ValidationError('Sự kiện đã bắt đầu, không thể đăng ký');
+    }
+
+    if (event.registration_deadline && now > event.registration_deadline) {
+        throw new ValidationError('Đã quá hạn đăng ký sự kiện');
+    }
+
+    const activeRegistrations = await prisma.registration.count({
+        where: {
             event_id: eventId,
             status: 'registered',
-            qr_code: '' // Will update after generating QR
         },
-        include: {
-            event: true,
-            user: true
-        }
     });
 
-    // Update QR data with actual registration ID
-    qrData.registration_id = registration.id;
-    const qrCodeString = await QRCode.toDataURL(JSON.stringify(qrData));
+    // Capacity should only count active registrations.
+    if (activeRegistrations >= event.capacity) {
+        throw new ConflictError('Sự kiện đã đầy');
+    }
 
-    // Update registration with QR code
-    const updatedRegistration = await prisma.registration.update({
-        where: { id: registration.id },
-        data: { qr_code: qrCodeString },
-        include: {
-            event: true,
-            user: true
-        }
+    const existingRegistration = await prisma.registration.findUnique({
+        where: {
+            user_id_event_id: {
+                user_id: userId,
+                event_id: eventId,
+            },
+        },
+        select: {
+            id: true,
+            status: true,
+        },
     });
+
+    if (existingRegistration?.status === 'registered') {
+        throw new ConflictError('Bạn đã đăng ký sự kiện này rồi');
+    }
+
+    let updatedRegistration;
+
+    if (existingRegistration?.status === 'cancelled') {
+        const qrCodeString = await generateRegistrationQrCode({
+            registrationId: existingRegistration.id,
+            eventId,
+            userId,
+            eventEndTime: event.end_time,
+        });
+
+        updatedRegistration = await prisma.registration.update({
+            where: { id: existingRegistration.id },
+            data: {
+                status: 'registered',
+                registered_at: now,
+                qr_code: qrCodeString,
+            },
+            include: {
+                event: true,
+                user: true,
+            },
+        });
+    } else {
+        // Create registration with a temporary QR placeholder, then replace with final payload.
+        const registration = await prisma.registration.create({
+            data: {
+                user_id: userId,
+                event_id: eventId,
+                status: 'registered',
+                qr_code: `pending-${Date.now()}-${userId}-${eventId}`,
+            },
+            include: {
+                event: true,
+                user: true,
+            },
+        });
+
+        const qrCodeString = await generateRegistrationQrCode({
+            registrationId: registration.id,
+            eventId,
+            userId,
+            eventEndTime: event.end_time,
+        });
+
+        updatedRegistration = await prisma.registration.update({
+            where: { id: registration.id },
+            data: { qr_code: qrCodeString },
+            include: {
+                event: true,
+                user: true,
+            },
+        });
+    }
 
     // Send confirmation email
     try {
+        const qrCodeString = updatedRegistration.qr_code;
         await sendEmail({
-            to: registration.user.email,
+            to: updatedRegistration.user.email,
             subject: `Xác nhận đăng ký: ${event.title}`,
             html: `
         <h2>Đăng ký thành công!</h2>
-        <p>Xin chào ${registration.user.full_name},</p>
+        <p>Xin chào ${updatedRegistration.user.full_name},</p>
         <p>Bạn đã đăng ký thành công sự kiện: <strong>${event.title}</strong></p>
         <p><strong>Thời gian:</strong> ${event.start_time.toLocaleString('vi-VN')}</p>
         <p><strong>Địa điểm:</strong> ${event.location}</p>
@@ -114,9 +204,10 @@ export const registerForEvent = async (userId: number, eventId: number) => {
 
 export const getMyRegistrations = async (userId: number, status?: string) => {
     const where: any = { user_id: userId };
+    const parsedStatus = parseRegistrationStatus(status);
 
-    if (status) {
-        where.status = status;
+    if (parsedStatus) {
+        where.status = parsedStatus;
     }
 
     const registrations = await prisma.registration.findMany({
@@ -145,26 +236,37 @@ export const getMyRegistrations = async (userId: number, status?: string) => {
 export const cancelRegistration = async (userId: number, registrationId: number) => {
     const registration = await prisma.registration.findUnique({
         where: { id: registrationId },
-        include: { event: true }
+        include: { event: true },
     });
 
     if (!registration) {
-        throw new Error('Đăng ký không tồn tại');
+        throw new NotFoundError('Registration');
     }
 
     if (registration.user_id !== userId) {
-        throw new Error('Bạn không có quyền hủy đăng ký này');
+        throw new ForbiddenError('Bạn không có quyền hủy đăng ký này');
     }
 
     if (registration.status === 'cancelled') {
-        throw new Error('Đăng ký đã bị hủy trước đó');
+        throw new ConflictError('Đăng ký đã bị hủy trước đó');
+    }
+
+    const now = new Date();
+
+    if (registration.event.status === 'cancelled' || registration.event.status === 'completed') {
+        throw new ConflictError('Không thể hủy đăng ký của sự kiện đã kết thúc hoặc đã bị hủy');
+    }
+
+    if (registration.event.start_time <= now) {
+        throw new ConflictError('Không thể hủy đăng ký sau khi sự kiện đã bắt đầu');
     }
 
     // Check if can cancel (24 hours before event)
-    const hoursUntilEvent = (registration.event.start_time.getTime() - Date.now()) / (1000 * 60 * 60);
+    const hoursUntilEvent =
+        (registration.event.start_time.getTime() - now.getTime()) / (1000 * 60 * 60);
 
     if (hoursUntilEvent < 24) {
-        throw new Error('Không thể hủy đăng ký trong vòng 24 giờ trước sự kiện');
+        throw new ConflictError('Không thể hủy đăng ký trong vòng 24 giờ trước sự kiện');
     }
 
     // Update status to cancelled
@@ -176,11 +278,33 @@ export const cancelRegistration = async (userId: number, registrationId: number)
     return true;
 };
 
-export const getEventRegistrations = async (eventId: number, status?: string) => {
-    const where: any = { event_id: eventId };
+export const getEventRegistrations = async (
+    eventId: number,
+    status: string | undefined,
+    requester: RequesterContext
+) => {
+    const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: {
+            id: true,
+            organizer_id: true,
+            deleted_at: true,
+        },
+    });
 
-    if (status) {
-        where.status = status;
+    if (!event || event.deleted_at) {
+        throw new NotFoundError('Sự kiện không tồn tại');
+    }
+
+    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+        throw new ForbiddenError('Bạn không có quyền xem danh sách đăng ký của sự kiện này');
+    }
+
+    const where: any = { event_id: eventId };
+    const parsedStatus = parseRegistrationStatus(status);
+
+    if (parsedStatus) {
+        where.status = parsedStatus;
     }
 
     const registrations = await prisma.registration.findMany({
@@ -221,9 +345,48 @@ export const getRegistrationById = async (registrationId: number) => {
     });
 
     if (!registration) {
-        throw new Error('Đăng ký không tồn tại');
+        throw new NotFoundError('Registration');
     }
 
     return registration;
+};
+
+export const getRegistrationByIdWithAccess = async (
+    registrationId: number,
+    requester: RequesterContext
+) => {
+    const registration = await getRegistrationById(registrationId);
+
+    if (requester.role === 'student' && registration.user_id !== requester.id) {
+        throw new ForbiddenError('Bạn không có quyền xem đăng ký này');
+    }
+
+    if (
+        requester.role === 'organizer' &&
+        registration.event.organizer_id !== requester.id
+    ) {
+        throw new ForbiddenError('Bạn không có quyền xem đăng ký này');
+    }
+
+    return registration;
+};
+
+export const getRegistrationQRCodeWithAccess = async (
+    registrationId: number,
+    requester: RequesterContext
+) => {
+    const registration = await getRegistrationByIdWithAccess(registrationId, requester);
+
+    if (registration.status !== 'registered') {
+        throw new ConflictError('Đăng ký đã hủy, không thể lấy QR code');
+    }
+
+    return {
+        registration_id: registration.id,
+        event_id: registration.event_id,
+        status: registration.status,
+        registered_at: registration.registered_at,
+        qr_code: registration.qr_code,
+    };
 };
 

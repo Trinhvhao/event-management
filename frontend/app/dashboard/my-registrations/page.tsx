@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -30,11 +30,7 @@ export default function MyRegistrationsPage() {
     const [loading, setLoading] = useState(true);
     const [qrModal, setQrModal] = useState<Registration | null>(null);
 
-    useEffect(() => {
-        loadRegistrations();
-    }, []);
-
-    const loadRegistrations = async () => {
+    const loadRegistrations = useCallback(async () => {
         try {
             setLoading(true);
             const data = await registrationService.getMyRegistrations();
@@ -44,13 +40,26 @@ export default function MyRegistrationsPage() {
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    useEffect(() => {
+        loadRegistrations();
+    }, [loadRegistrations]);
+
+    const handleOpenQR = async (registration: Registration) => {
+        try {
+            const qrData = await registrationService.getRegistrationQRCode(registration.id);
+            setQrModal({ ...registration, qr_code: qrData.qr_code });
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Không thể tải mã QR'));
+        }
     };
 
     const handleCancel = async (regId: number) => {
         try {
             await registrationService.cancel(regId);
             toast.success('Đã hủy đăng ký');
-            loadRegistrations();
+            await loadRegistrations();
         } catch (err: unknown) {
             toast.error(getErrorMessage(err, 'Hủy đăng ký thất bại'));
         }
@@ -88,7 +97,7 @@ export default function MyRegistrationsPage() {
                     {/* Đang tham gia */}
                     {activeRegs.length > 0 && (
                         <div className="mb-8">
-                            <h2 className="text-lg font-semibold text-[var(--dash-text-primary)] mb-4">
+                            <h2 className="text-lg font-semibold text-(--dash-text-primary) mb-4">
                                 Đang tham gia ({activeRegs.length})
                             </h2>
                             <div className="space-y-3">
@@ -97,8 +106,8 @@ export default function MyRegistrationsPage() {
                                         <div className="flex items-start gap-4">
                                             {/* QR Preview */}
                                             <button
-                                                onClick={() => setQrModal(reg)}
-                                                className="w-16 h-16 rounded-xl bg-white border border-[var(--dash-border)] flex items-center justify-center flex-shrink-0 hover:scale-105 transition-transform cursor-pointer"
+                                                onClick={() => handleOpenQR(reg)}
+                                                className="w-16 h-16 rounded-xl bg-white border border-(--dash-border) flex items-center justify-center shrink-0 hover:scale-105 transition-transform cursor-pointer"
                                                 title="Xem mã QR"
                                             >
                                                 <QRCodeSVG value={reg.qr_code} size={48} level="L" />
@@ -106,11 +115,11 @@ export default function MyRegistrationsPage() {
 
                                             <div className="flex-1 min-w-0">
                                                 <Link href={`/dashboard/events/${reg.event_id}`}>
-                                                    <h3 className="text-sm font-semibold text-[var(--dash-text-primary)] hover:text-[var(--dash-accent)] truncate">
+                                                    <h3 className="text-sm font-semibold text-(--dash-text-primary) hover:text-(--dash-accent) truncate">
                                                         {reg.event?.title || `Sự kiện #${reg.event_id}`}
                                                     </h3>
                                                 </Link>
-                                                <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-[var(--dash-text-muted)]">
+                                                <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-(--dash-text-muted)">
                                                     {reg.event?.start_time && (
                                                         <span className="flex items-center gap-1"><Clock size={12} />{formatDate(reg.event.start_time)}</span>
                                                     )}
@@ -122,8 +131,8 @@ export default function MyRegistrationsPage() {
                                                     ) : null}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                <Button variant="outline" size="sm" onClick={() => setQrModal(reg)} icon={<QrCode size={14} />}>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <Button variant="outline" size="sm" onClick={() => handleOpenQR(reg)} icon={<QrCode size={14} />}>
                                                     QR
                                                 </Button>
                                                 <Button variant="ghost" size="sm" onClick={() => handleCancel(reg.id)}>
@@ -140,18 +149,18 @@ export default function MyRegistrationsPage() {
                     {/* Đã hủy */}
                     {cancelledRegs.length > 0 && (
                         <div>
-                            <h2 className="text-lg font-semibold text-[var(--dash-text-muted)] mb-4">
+                            <h2 className="text-lg font-semibold text-(--dash-text-muted) mb-4">
                                 Đã hủy ({cancelledRegs.length})
                             </h2>
                             <div className="space-y-3 opacity-60">
                                 {cancelledRegs.map(reg => (
                                     <Card key={reg.id} variant="glass" padding="md">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                            <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
                                                 <Calendar size={22} className="text-gray-400" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="text-sm font-medium text-[var(--dash-text-muted)] truncate line-through">
+                                                <h3 className="text-sm font-medium text-(--dash-text-muted) truncate line-through">
                                                     {reg.event?.title || `Sự kiện #${reg.event_id}`}
                                                 </h3>
                                             </div>
@@ -172,14 +181,14 @@ export default function MyRegistrationsPage() {
                         <div className="inline-block p-4 bg-white rounded-2xl shadow-sm border">
                             <QRCodeSVG value={qrModal.qr_code} size={200} level="M" />
                         </div>
-                        <h3 className="text-base font-semibold mt-4 text-[var(--dash-text-primary)]">
+                        <h3 className="text-base font-semibold mt-4 text-(--dash-text-primary)">
                             {qrModal.event?.title}
                         </h3>
-                        <p className="text-sm text-[var(--dash-text-muted)] mt-1">
+                        <p className="text-sm text-(--dash-text-muted) mt-1">
                             Đưa mã QR này cho ban tổ chức để check-in
                         </p>
                         {qrModal.event?.start_time && (
-                            <p className="text-xs text-[var(--dash-text-muted)] mt-2">
+                            <p className="text-xs text-(--dash-text-muted) mt-2">
                                 <Clock size={12} className="inline mr-1" />
                                 {formatDate(qrModal.event.start_time)}
                             </p>

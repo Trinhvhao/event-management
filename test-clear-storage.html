@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Storage & Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🧹 Clear Storage & Test Session</h1>
+
+    <div class="section">
+        <h2>Step 1: Clear All Storage</h2>
+        <p>Xóa tất cả dữ liệu localStorage để test lại từ đầu</p>
+        <button class="btn-danger" onclick="clearStorage()">🗑️ Clear All Storage</button>
+        <div id="clearResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 2: Check Current Storage</h2>
+        <button class="btn-primary" onclick="checkStorage()">🔍 Check Storage</button>
+        <div id="storageResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 3: Go to Login</h2>
+        <p>Sau khi clear storage, đăng nhập lại để test</p>
+        <button class="btn-success" onclick="goToLogin()">➡️ Go to Login Page</button>
+    </div>
+
+    <div class="section">
+        <h2>Test Instructions:</h2>
+        <ol>
+            <li>Click "Clear All Storage" để xóa dữ liệu cũ</li>
+            <li>Click "Go to Login Page"</li>
+            <li>Đăng nhập với tài khoản admin hoặc student</li>
+            <li>Vào dashboard</li>
+            <li>Reload trang (F5) - Kiểm tra: Không bị đẩy về login ✅</li>
+            <li>Vào /dashboard/notifications - Kiểm tra: Không reload liên tục ✅</li>
+        </ol>
+    </div>
+
+    <script>
+        function clearStorage() {
+            const resultDiv = document.getElementById('clearResult');
+            try {
+                // Get all keys before clearing
+                const keys = Object.keys(localStorage);
+
+                // Clear everything
+                localStorage.clear();
+
+                resultDiv.innerHTML = `
+                    <p class="success">✓ Đã xóa ${keys.length} items từ localStorage</p>
+                    <p>Các keys đã xóa:</p>
+                    <pre>${keys.join('\n')}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Error: ${error.message}</p>`;
+            }
+        }
+
+        function checkStorage() {
+            const resultDiv = document.getElementById('storageResult');
+            const keys = Object.keys(localStorage);
+
+            if (keys.length === 0) {
+                resultDiv.innerHTML = '<p class="success">✓ localStorage is empty</p>';
+                return;
+            }
+
+            let html = `<p>Found ${keys.length} items in localStorage:</p><ul>`;
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                const preview = value.length > 100 ? value.substring(0, 100) + '...' : value;
+                html += `<li><strong>${key}:</strong> ${preview}</li>`;
+            });
+            html += '</ul>';
+
+            resultDiv.innerHTML = html;
+        }
+
+        function goToLogin() {
+            window.location.href = 'http://localhost:7777/login';
+        }
+
+        // Auto check storage on load
+        window.addEventListener('load', checkStorage);
+    </script>
+</body>
+
+</html>

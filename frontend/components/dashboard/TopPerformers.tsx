@@ -1,122 +1,90 @@
 'use client';
 
-import { Trophy, TrendingUp } from 'lucide-react';
-import Image from 'next/image';
-
-interface Performer {
-    id: number;
-    name: string;
-    department: string;
-    points: number;
-    eventsAttended: number;
-    avatar?: string;
-    rank: number;
-}
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Star, TrendingUp, MessageSquare } from 'lucide-react';
+import { feedbackService, TopRatedEvent } from '@/services/feedbackService';
+import { toast } from 'sonner';
 
 export default function TopPerformers() {
-    const performers: Performer[] = [
-        {
-            id: 1,
-            name: 'Nguyễn Văn A',
-            department: 'CNTT',
-            points: 156,
-            eventsAttended: 78,
-            rank: 1
-        },
-        {
-            id: 2,
-            name: 'Trần Thị B',
-            department: 'Kinh tế',
-            points: 142,
-            eventsAttended: 71,
-            rank: 2
-        },
-        {
-            id: 3,
-            name: 'Lê Văn C',
-            department: 'Ngoại ngữ',
-            points: 138,
-            eventsAttended: 69,
-            rank: 3
-        },
-        {
-            id: 4,
-            name: 'Phạm Thị D',
-            department: 'CNTT',
-            points: 125,
-            eventsAttended: 62,
-            rank: 4
-        },
-        {
-            id: 5,
-            name: 'Hoàng Văn E',
-            department: 'Cơ khí',
-            points: 118,
-            eventsAttended: 59,
-            rank: 5
-        }
-    ];
+    const [events, setEvents] = useState<TopRatedEvent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const getRankBadge = (rank: number) => {
-        const badges = {
-            1: { bg: 'bg-gradient-to-br from-yellow-400 to-yellow-600', icon: '🥇' },
-            2: { bg: 'bg-gradient-to-br from-gray-300 to-gray-500', icon: '🥈' },
-            3: { bg: 'bg-gradient-to-br from-orange-400 to-orange-600', icon: '🥉' }
+    useEffect(() => {
+        const loadTopRated = async () => {
+            try {
+                setIsLoading(true);
+                const data = await feedbackService.getTopRatedEvents(5);
+                setEvents(data);
+            } catch {
+                toast.error('Không thể tải danh sách sự kiện được đánh giá cao');
+            } finally {
+                setIsLoading(false);
+            }
         };
-        return badges[rank as keyof typeof badges] || { bg: 'bg-gray-200', icon: `#${rank}` };
-    };
+
+        loadTopRated();
+    }, []);
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Top Performers</h3>
-                    <p className="text-sm text-gray-500 mt-1">Sinh viên tích cực nhất</p>
+                    <h3 className="text-lg font-semibold text-gray-900">Top Rated Events</h3>
+                    <p className="text-sm text-gray-500 mt-1">Sự kiện có phản hồi tích cực nhất</p>
                 </div>
                 <div className="bg-yellow-100 p-3 rounded-lg">
-                    <Trophy className="w-5 h-5 text-yellow-600" />
+                    <Star className="w-5 h-5 text-yellow-600" />
                 </div>
             </div>
 
-            <div className="space-y-4">
-                {performers.map((performer) => {
-                    const badge = getRankBadge(performer.rank);
-                    return (
-                        <div
-                            key={performer.id}
+            {isLoading ? (
+                <p className="text-sm text-gray-500">Đang tải dữ liệu...</p>
+            ) : (
+                <div className="space-y-3">
+                    {events.map((event, index) => (
+                        <Link
+                            key={event.id}
+                            href={`/dashboard/events/${event.id}`}
                             className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                            {/* Rank Badge */}
-                            <div className={`w-10 h-10 rounded-full ${badge.bg} flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-md`}>
-                                {badge.icon}
+                            <div className="w-8 h-8 rounded-full bg-brandBlue text-white flex items-center justify-center text-xs font-semibold">
+                                #{index + 1}
                             </div>
 
-                            {/* User Info */}
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {performer.name}
+                                <p className="text-sm font-semibold text-gray-900 truncate">{event.title}</p>
+                                <p className="text-xs text-gray-500">
+                                    {new Date(event.start_time).toLocaleDateString('vi-VN')}
                                 </p>
-                                <p className="text-xs text-gray-500">{performer.department}</p>
                             </div>
 
-                            {/* Stats */}
                             <div className="text-right">
-                                <div className="flex items-center gap-1 text-sm font-bold text-blue-600">
-                                    <Trophy className="w-4 h-4" />
-                                    {performer.points}
+                                <div className="flex items-center justify-end gap-1 text-sm font-bold text-amber-600">
+                                    <Star className="w-4 h-4 fill-amber-500" />
+                                    {event.average_rating.toFixed(1)}
                                 </div>
-                                <p className="text-xs text-gray-500">{performer.eventsAttended} sự kiện</p>
+                                <p className="text-xs text-gray-500 inline-flex items-center gap-1 justify-end">
+                                    <MessageSquare className="w-3 h-3" />
+                                    {event.feedback_count} phản hồi
+                                </p>
                             </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        </Link>
+                    ))}
+                    {events.length === 0 && (
+                        <p className="text-sm text-gray-500">Chưa có dữ liệu đánh giá sự kiện.</p>
+                    )}
+                </div>
+            )}
 
             <div className="mt-6 pt-4 border-t border-gray-200">
-                <button className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center justify-center gap-2">
-                    Xem bảng xếp hạng đầy đủ
+                <Link
+                    href="/dashboard/events"
+                    className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center justify-center gap-2"
+                >
+                    Xem danh sách sự kiện
                     <TrendingUp className="w-4 h-4" />
-                </button>
+                </Link>
             </div>
         </div>
     );

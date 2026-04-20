@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { getAuthenticatedUser } from '../utils/request.util';
 
 export const globalSearch = async (req: Request, res: Response) => {
     try {
         const { q } = req.query;
         const query = q as string;
+        const currentUser = getAuthenticatedUser(req);
 
         if (!query || query.length < 2) {
             return res.status(400).json({
@@ -16,6 +18,7 @@ export const globalSearch = async (req: Request, res: Response) => {
         // Search events
         const events = await prisma.event.findMany({
             where: {
+                deleted_at: null,
                 OR: [
                     { title: { contains: query, mode: 'insensitive' } },
                     { description: { contains: query, mode: 'insensitive' } },
@@ -31,25 +34,28 @@ export const globalSearch = async (req: Request, res: Response) => {
             take: 5
         });
 
-        // Search users (students)
-        const users = await prisma.user.findMany({
-            where: {
-                OR: [
-                    { full_name: { contains: query, mode: 'insensitive' } },
-                    { student_id: { contains: query, mode: 'insensitive' } },
-                    { email: { contains: query, mode: 'insensitive' } }
-                ],
-                is_active: true
-            },
-            select: {
-                id: true,
-                full_name: true,
-                student_id: true,
-                email: true,
-                role: true
-            },
-            take: 5
-        });
+        const canSearchUsers = currentUser.role === 'admin' || currentUser.role === 'organizer';
+        const users = canSearchUsers
+            ? await prisma.user.findMany({
+                where: {
+                    OR: [
+                        { full_name: { contains: query, mode: 'insensitive' } },
+                        { student_id: { contains: query, mode: 'insensitive' } },
+                        { email: { contains: query, mode: 'insensitive' } }
+                    ],
+                    is_active: true,
+                    ...(currentUser.role === 'organizer' ? { role: 'student' } : {}),
+                },
+                select: {
+                    id: true,
+                    full_name: true,
+                    student_id: true,
+                    email: true,
+                    role: true
+                },
+                take: 5
+            })
+            : [];
 
         const results = [
             ...events.map(event => ({

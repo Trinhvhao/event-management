@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuthStore } from '@/store/authStore';
@@ -17,8 +17,8 @@ import RecentEvents from '@/components/dashboard/RecentEvents';
 import SystemStats from '@/components/dashboard/SystemStats';
 import EventsChart from '@/components/dashboard/EventsChart';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
-import RecentEventsTable from '@/components/dashboard/RecentEventsTable';
-import ActivityLog from '@/components/dashboard/ActivityLog';
+import RecentEventsTable from '../../components/dashboard/RecentEventsTable';
+import ActivityLog from '../../components/dashboard/ActivityLog';
 import TopPerformers from '@/components/dashboard/TopPerformers';
 import UpcomingEvents from '@/components/dashboard/UpcomingEvents';
 import ConversionFunnel from '@/components/dashboard/ConversionFunnel';
@@ -71,19 +71,11 @@ interface DashboardStats {
 
 export default function DashboardPage() {
     const router = useRouter();
-    const { user, isAuthenticated } = useAuthStore();
+    const { user, isAuthenticated, isHydrated } = useAuthStore();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<DashboardStats | null>(null);
 
-    useEffect(() => {
-        if (!isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-        fetchDashboardData();
-    }, [isAuthenticated, router]);
-
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -169,17 +161,16 @@ export default function DashboardPage() {
                     usersByRole: [],
                 });
             } else {
-                const [eventsRes, myRegistrationsRes, myPointsRes, notifRes] = await Promise.all([
+                const [eventsRes, myRegistrationsRes, myPointsRes, unreadNotifs] = await Promise.all([
                     axios.get('/events?status=upcoming&limit=5'),
                     axios.get('/registrations/my'),
                     trainingPointsService.getMyPoints().catch(() => ({ grand_total: 0, semesters: [] })),
-                    notificationService.getAll({ limit: 1 }).catch(() => ({ notifications: [], total: 0, limit: 1, offset: 0, has_more: false, message: '' })),
+                    notificationService.getUnreadCount().catch(() => 0),
                 ]);
 
                 const events: Event[] = eventsRes.data?.data?.items || [];
                 const myRegistrations: StudentRegistration[] = myRegistrationsRes.data?.data || [];
                 const trainingTotal = myPointsRes.grand_total || 0;
-                const unreadNotifs = (notifRes.notifications || []).filter((n) => !n.is_read).length;
 
                 setStats({
                     totalEvents: events.length,
@@ -207,9 +198,23 @@ export default function DashboardPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
 
-    if (loading) {
+    useEffect(() => {
+        // Wait for store to hydrate before checking authentication
+        if (!isHydrated) {
+            return;
+        }
+
+        if (!isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+
+        fetchDashboardData();
+    }, [isAuthenticated, isHydrated, router, fetchDashboardData]);
+
+    if (!isHydrated || loading) {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-64">
@@ -289,7 +294,7 @@ export default function DashboardPage() {
                             value={stats?.totalAttendances ? stats.totalAttendances * 2 : 0}
                             subtitle="Đã cấp phát"
                             color="bg-[#8b5cf6]"
-                            href="/dashboard/training-points"
+                            href="/dashboard/admin/training-points"
                             index={3}
                             trend={{ value: 20, isPositive: true }}
                             sparklineData={[15, 25, 20, 35, 30, 40, 38]}

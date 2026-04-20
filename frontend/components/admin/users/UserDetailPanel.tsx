@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { X, User as UserIcon, Mail, Building, Calendar, Shield } from 'lucide-react';
 import { AuditLogViewer } from '../shared/AuditLogViewer';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
@@ -50,31 +50,80 @@ interface AuditLogEntry {
     };
 }
 
+interface AuditPagination {
+    page: number;
+    limit: number;
+    total: number;
+}
+
+const AUDIT_ACTION_OPTIONS = [
+    { value: '', label: 'All actions' },
+    { value: 'role_changed', label: 'Role Changed' },
+    { value: 'user_locked', label: 'User Locked' },
+    { value: 'user_unlocked', label: 'User Unlocked' },
+    { value: 'organizer_granted', label: 'Organizer Granted' },
+    { value: 'organizer_revoked', label: 'Organizer Revoked' },
+    { value: 'category_created', label: 'Category Created' },
+    { value: 'category_updated', label: 'Category Updated' },
+    { value: 'category_deleted', label: 'Category Deleted' },
+    { value: 'department_created', label: 'Department Created' },
+    { value: 'department_updated', label: 'Department Updated' },
+    { value: 'department_deleted', label: 'Department Deleted' },
+];
+
 export function UserDetailPanel({ user, isOpen, onClose, onRoleChange }: UserDetailPanelProps) {
     const [activeTab, setActiveTab] = useState<'info' | 'audit'>('info');
     const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
     const [auditLoading, setAuditLoading] = useState(false);
+    const [auditActionType, setAuditActionType] = useState('');
+    const [auditPagination, setAuditPagination] = useState<AuditPagination>({
+        page: 1,
+        limit: 20,
+        total: 0,
+    });
     const [showRoleDialog, setShowRoleDialog] = useState(false);
     const [selectedRole, setSelectedRole] = useState('');
 
-    useEffect(() => {
-        if (user && activeTab === 'audit') {
-            fetchAuditLogs();
-        }
-    }, [user, activeTab]);
-
-    const fetchAuditLogs = async () => {
+    const fetchAuditLogs = useCallback(async () => {
         if (!user) return;
         setAuditLoading(true);
         try {
-            const response = await adminService.getUserAuditLogs(user.id);
-            setAuditLogs(response.data);
+            const response = await adminService.getUserAuditLogs(user.id, {
+                page: auditPagination.page,
+                limit: auditPagination.limit,
+                actionType: auditActionType || undefined,
+            });
+
+            setAuditLogs(response.data || []);
+            setAuditPagination((prev) => ({
+                ...prev,
+                page: response.pagination?.page || prev.page,
+                limit: response.pagination?.limit || prev.limit,
+                total: response.pagination?.total || 0,
+            }));
         } catch (error) {
             console.error('Failed to fetch audit logs:', error);
         } finally {
             setAuditLoading(false);
         }
-    };
+    }, [user, auditPagination.page, auditPagination.limit, auditActionType]);
+
+    useEffect(() => {
+        setAuditLogs([]);
+        setAuditActionType('');
+        setAuditPagination({
+            page: 1,
+            limit: 20,
+            total: 0,
+        });
+        setActiveTab('info');
+    }, [user?.id, isOpen]);
+
+    useEffect(() => {
+        if (user && activeTab === 'audit') {
+            fetchAuditLogs();
+        }
+    }, [user, activeTab, fetchAuditLogs]);
 
     const handleRoleChangeClick = (role: string) => {
         setSelectedRole(role);
@@ -217,7 +266,44 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange }: UserDet
                             )}
 
                             {activeTab === 'audit' && (
-                                <AuditLogViewer logs={auditLogs} loading={auditLoading} />
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-sm text-gray-600">Action</label>
+                                            <select
+                                                value={auditActionType}
+                                                onChange={(e) => {
+                                                    setAuditActionType(e.target.value);
+                                                    setAuditPagination((prev) => ({ ...prev, page: 1 }));
+                                                }}
+                                                className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                                            >
+                                                {AUDIT_ACTION_OPTIONS.map((option) => (
+                                                    <option key={option.value || 'all'} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <button
+                                            onClick={() => fetchAuditLogs()}
+                                            className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            Refresh
+                                        </button>
+                                    </div>
+
+                                    <AuditLogViewer
+                                        logs={auditLogs}
+                                        loading={auditLoading}
+                                        pagination={auditPagination}
+                                        onPageChange={(page) => {
+                                            if (page < 1) return;
+                                            setAuditPagination((prev) => ({ ...prev, page }));
+                                        }}
+                                    />
+                                </div>
                             )}
                         </div>
                     </div>

@@ -2,6 +2,10 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/authorize';
 import * as trainingPointsController from '../controllers/training-points.controller';
+import {
+    validateAwardPoints,
+    validateExportPointsQuery,
+} from '../validators/training-points.validator';
 
 const router = Router();
 
@@ -15,6 +19,23 @@ router.get(
 
 // Public route
 router.get('/current-semester', trainingPointsController.getCurrentSemester);
+
+// Organizer/Admin routes
+router.post(
+    '/award',
+    authenticate,
+    authorize('organizer', 'admin'),
+    validateAwardPoints,
+    trainingPointsController.awardPoints
+);
+
+router.get(
+    '/export',
+    authenticate,
+    authorize('organizer', 'admin'),
+    validateExportPointsQuery,
+    trainingPointsController.exportPoints
+);
 
 // Admin routes
 router.get(

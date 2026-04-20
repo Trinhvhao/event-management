@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     Calendar,
     Home,
-    Bell,
     User,
     LogOut,
     Menu,
@@ -15,20 +14,19 @@ import {
     QrCode,
     BarChart3,
     Users,
-    Search,
     Plus,
     CheckSquare,
     ChevronLeft,
     ChevronRight,
-    Settings,
     FileText,
     Shield
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
-import NotificationBell from '@/components/dashboard/NotificationBell';
+import { authService } from '@/services/authService';
+import NotificationBell from '../dashboard/NotificationBell';
 import GlobalSearch from '@/components/dashboard/GlobalSearch';
-import UserProfileMenu from '@/components/dashboard/UserProfileMenu';
+import UserProfileMenu from '../dashboard/UserProfileMenu';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -37,22 +35,29 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout } = useAuthStore();
+    const { user, logout, isHydrated, isAuthenticated } = useAuthStore();
 
-    const handleLogout = () => {
+    // Wait for hydration and check authentication
+    React.useEffect(() => {
+        if (!isHydrated) return;
+
+        if (!isAuthenticated) {
+            router.push('/login');
+        }
+    }, [isHydrated, isAuthenticated, router]);
+
+    const handleLogout = async () => {
+        try {
+            await authService.logout();
+        } catch {
+            // Always clear client auth state even if server-side logout fails.
+        }
+
         logout();
         toast.success('Đăng xuất thành công');
         router.push('/login');
-    };
-
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (searchQuery.trim()) {
-            router.push(`/dashboard/search?q=${encodeURIComponent(searchQuery)}`);
-        }
     };
 
     // Simplified navigation items based on role
@@ -72,10 +77,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     label: 'Người dùng',
                     items: [
                         { href: '/dashboard/admin/users', icon: Users, label: 'Quản lý người dùng' },
-                        { href: '/dashboard/admin/organizers', icon: User, label: 'Ban tổ chức' }
+                        { href: '/dashboard/admin/organizers', icon: User, label: 'Ban tổ chức' },
+                        { href: '/dashboard/admin/statistics', icon: BarChart3, label: 'Thống kê quản trị' }
                     ]
                 },
-                { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
+                { href: '/dashboard/admin/training-points', icon: Award, label: 'Điểm rèn luyện' },
                 { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
                 {
                     label: 'Cài đặt hệ thống',
@@ -93,6 +99,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 { href: '/dashboard/my-events', icon: Calendar, label: 'Sự kiện của tôi' },
                 { href: '/dashboard/events', icon: QrCode, label: 'Tất cả sự kiện' },
                 { href: '/dashboard/checkin', icon: CheckSquare, label: 'Check-in' },
+                { href: '/dashboard/admin/training-points', icon: Award, label: 'Điểm rèn luyện' },
                 { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
             ];
         }
@@ -107,15 +114,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     };
 
     const navItems = getNavItems();
-
-    const getRoleBadge = () => {
-        const roleMap = {
-            admin: { label: 'Quản trị viên', color: 'bg-red-100 text-red-700' },
-            organizer: { label: 'Ban tổ chức', color: 'bg-blue-100 text-blue-700' },
-            student: { label: 'Sinh viên', color: 'bg-green-100 text-green-700' },
-        };
-        return roleMap[user?.role || 'student'];
-    };
 
     return (
         <div className="min-h-screen bg-offWhite">

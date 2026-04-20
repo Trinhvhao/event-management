@@ -46,6 +46,8 @@ export function DataTable<TData>({
     manualPagination = false,
     manualSorting = false,
 }: DataTableProps<TData>) {
+    // TanStack's table instance intentionally returns mutable helpers; React Compiler warns here by design.
+    // eslint-disable-next-line react-hooks/incompatible-library
     const table = useReactTable({
         data,
         columns,

@@ -7,9 +7,14 @@ interface QRCodeData {
     registration_id: number;
     event_id: number;
     user_id: number;
-    issued_at: string;
-    expires_at: string;
+    issued_at?: string;
+    expires_at?: string;
 }
+
+type RequesterContext = {
+    id: number;
+    role: UserRole;
+};
 
 interface RegistrationWithRelations {
     id: number;
@@ -24,6 +29,9 @@ interface RegistrationWithRelations {
         start_time: Date;
         end_time: Date;
         training_points: number;
+        status: 'pending' | 'approved' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+        organizer_id: number;
+        deleted_at: Date | null;
     };
     user: {
         id: number;
@@ -34,7 +42,18 @@ interface RegistrationWithRelations {
 }
 
 const buildRegistrationInclude = () => ({
-    event: true,
+    event: {
+        select: {
+            id: true,
+            title: true,
+            start_time: true,
+            end_time: true,
+            training_points: true,
+            status: true,
+            organizer_id: true,
+            deleted_at: true,
+        },
+    },
     user: {
         select: {
             id: true,
@@ -45,12 +64,9 @@ const buildRegistrationInclude = () => ({
     },
 });
 
-const decodeQrPayload = (qrCode: string): QRCodeData | null => {
+const tryParseQrPayload = (rawPayload: string): QRCodeData | null => {
     try {
-        // Supports raw base64 JSON or data URL-like payloads.
-        const encodedPayload = qrCode.split(',')[1] || qrCode;
-        const decoded = Buffer.from(encodedPayload, 'base64').toString();
-        const parsed = JSON.parse(decoded) as QRCodeData;
+        const parsed = JSON.parse(rawPayload) as QRCodeData;
 
         if (!parsed.registration_id || !parsed.event_id || !parsed.user_id) {
             return null;
@@ -62,95 +78,66 @@ const decodeQrPayload = (qrCode: string): QRCodeData | null => {
     }
 };
 
-export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole: UserRole) => {
-    let qrData = decodeQrPayload(qrCode);
-    let registration: RegistrationWithRelations | null = null;
-
-    if (qrData) {
-        registration = (await prisma.registration.findUnique({
-            where: { id: qrData.registration_id },
-            include: buildRegistrationInclude(),
-        })) as RegistrationWithRelations | null;
-
-        if (!registration) {
-            throw new NotFoundError('Đăng ký không tồn tại');
-        }
-
-        // Validate registration matches QR payload
-        if (
-            registration.event_id !== qrData.event_id ||
-            registration.user_id !== qrData.user_id
-        ) {
-            throw new ValidationError('QR code không khớp với đăng ký');
-        }
-
-        const now = new Date();
-        const expiresAt = new Date(qrData.expires_at);
-        if (now > expiresAt) {
-            throw new ValidationError('QR code đã hết hạn');
-        }
-    } else {
-        // Backward-compatible path: some flows persist the QR string directly.
-        registration = (await prisma.registration.findFirst({
-            where: { qr_code: qrCode },
-            include: buildRegistrationInclude(),
-        })) as RegistrationWithRelations | null;
-
-        if (!registration) {
-            throw new ValidationError('QR code không hợp lệ');
-        }
-
-        qrData = {
-            registration_id: registration.id,
-            event_id: registration.event_id,
-            user_id: registration.user_id,
-            issued_at: registration.registered_at.toISOString(),
-            expires_at: registration.event.end_time.toISOString(),
-        };
+const decodeQrPayload = (qrCode: string): QRCodeData | null => {
+    const normalized = qrCode.trim();
+    if (!normalized) {
+        return null;
     }
 
-    const now = new Date();
-
-    if (!registration) {
-        throw new ValidationError('QR code không hợp lệ');
+    if (normalized.startsWith('{')) {
+        return tryParseQrPayload(normalized);
     }
 
-    // Security: Students can only check-in with their own QR code
-    // Organizers and admins can check-in anyone
-    if (userRole === 'student' && registration.user_id !== checkedBy) {
-        throw new ForbiddenError('Bạn chỉ có thể check-in với QR code của chính mình');
+    const encodedPayload = normalized.split(',')[1] || normalized;
+    try {
+        const decoded = Buffer.from(encodedPayload, 'base64').toString('utf8');
+        return tryParseQrPayload(decoded);
+    } catch {
+        return null;
+    }
+};
+
+const assertRequesterCanManageEvent = (
+    registration: RegistrationWithRelations,
+    checkedBy: number,
+    userRole: UserRole
+) => {
+    if (registration.event.deleted_at) {
+        throw new NotFoundError('Event');
     }
 
-    // Check registration status
-    if (registration.status === 'cancelled') {
-        throw new ValidationError('Đăng ký đã bị hủy');
+    if (userRole === 'organizer' && registration.event.organizer_id !== checkedBy) {
+        throw new ForbiddenError('Bạn không có quyền check-in cho sự kiện này');
+    }
+};
+
+const assertEventCanCheckin = (registration: RegistrationWithRelations, now: Date) => {
+    if (registration.event.status !== 'ongoing') {
+        throw new ValidationError('Sự kiện chưa ở trạng thái đang diễn ra');
     }
 
-    // Check time window
-    const eventStartTime = registration.event.start_time;
-    const eventEndTime = registration.event.end_time;
-
-    if (now < eventStartTime) {
+    if (now < registration.event.start_time) {
         throw new ValidationError('Chưa đến giờ check-in');
     }
 
-    if (now > eventEndTime) {
+    if (now > registration.event.end_time) {
         throw new ValidationError('Đã quá giờ check-in');
     }
+};
 
-    // Check if already checked in
-    const existingAttendance = await prisma.attendance.findFirst({
-        where: { registration_id: registration.id },
-    });
+const completeCheckin = async (registration: RegistrationWithRelations, checkedBy: number) => {
+    const now = new Date();
 
-    if (existingAttendance) {
-        throw new ConflictError('Đã check-in rồi');
-    }
+    const attendance = await prisma.$transaction(async (tx) => {
+        const existingAttendance = await tx.attendance.findUnique({
+            where: { registration_id: registration.id },
+        });
 
-    // Create attendance record and award training points in transaction
-    const result = await prisma.$transaction(async (tx) => {
-        // Create attendance
-        const attendance = await tx.attendance.create({
+        if (existingAttendance) {
+            throw new ConflictError('Đã check-in rồi');
+        }
+
+        const createdAttendance = await tx.attendance.create({
             data: {
                 registration_id: registration.id,
                 checked_in_at: now,
@@ -158,37 +145,34 @@ export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole:
             },
             include: {
                 registration: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                full_name: true,
-                                email: true,
-                                student_id: true,
-                            },
-                        },
-                        event: true,
-                    },
+                    include: buildRegistrationInclude(),
                 },
             },
         });
 
-        // Award training points
         const currentSemester = getCurrentSemester();
-        await tx.trainingPoint.create({
-            data: {
+        await tx.trainingPoint.upsert({
+            where: {
+                user_id_event_id: {
+                    user_id: registration.user_id,
+                    event_id: registration.event_id,
+                },
+            },
+            create: {
                 user_id: registration.user_id,
                 event_id: registration.event_id,
                 points: registration.event.training_points,
                 semester: currentSemester,
                 earned_at: now,
             },
+            update: {
+                points: registration.event.training_points,
+            },
         });
 
-        return attendance;
+        return createdAttendance;
     });
 
-    // Create notification for successful check-in
     try {
         await notificationsService.notifyCheckinSuccess(
             registration.user_id,
@@ -200,10 +184,142 @@ export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole:
         console.error('Failed to create notification:', notifError);
     }
 
-    return result;
+    return attendance;
 };
 
-export const getAttendanceByEvent = async (eventId: number) => {
+const processCheckinForRegistration = async (
+    registration: RegistrationWithRelations,
+    checkedBy: number,
+    userRole: UserRole
+) => {
+    assertRequesterCanManageEvent(registration, checkedBy, userRole);
+
+    if (registration.status !== 'registered') {
+        throw new ValidationError('Đăng ký đã bị hủy');
+    }
+
+    assertEventCanCheckin(registration, new Date());
+
+    return completeCheckin(registration, checkedBy);
+};
+
+export const checkinWithQR = async (qrCode: string, checkedBy: number, userRole: UserRole) => {
+    const normalizedQrCode = qrCode.trim();
+    if (!normalizedQrCode) {
+        throw new ValidationError('QR code không được để trống');
+    }
+
+    const qrData = decodeQrPayload(normalizedQrCode);
+    let registration: RegistrationWithRelations | null = null;
+
+    if (qrData) {
+        registration = (await prisma.registration.findUnique({
+            where: { id: qrData.registration_id },
+            include: buildRegistrationInclude(),
+        })) as RegistrationWithRelations | null;
+
+        if (!registration) {
+            throw new NotFoundError('Registration');
+        }
+
+        if (registration.event_id !== qrData.event_id || registration.user_id !== qrData.user_id) {
+            throw new ValidationError('QR code không khớp với đăng ký');
+        }
+    } else {
+        registration = (await prisma.registration.findFirst({
+            where: { qr_code: normalizedQrCode },
+            include: buildRegistrationInclude(),
+        })) as RegistrationWithRelations | null;
+    }
+
+    if (!registration) {
+        throw new ValidationError('QR code không hợp lệ');
+    }
+
+    return processCheckinForRegistration(registration, checkedBy, userRole);
+};
+
+export const checkinManual = async (
+    params: {
+        eventId: number;
+        registrationId?: number;
+        studentId?: string;
+    },
+    checkedBy: number,
+    userRole: UserRole
+) => {
+    const { eventId, registrationId, studentId } = params;
+
+    if (!registrationId && !studentId) {
+        throw new ValidationError('Cần cung cấp registration_id hoặc student_id');
+    }
+
+    let registration: RegistrationWithRelations | null = null;
+
+    if (registrationId) {
+        registration = (await prisma.registration.findUnique({
+            where: { id: registrationId },
+            include: buildRegistrationInclude(),
+        })) as RegistrationWithRelations | null;
+
+        if (!registration) {
+            throw new NotFoundError('Registration');
+        }
+
+        if (registration.event_id !== eventId) {
+            throw new ValidationError('registration_id không thuộc event_id đã chọn');
+        }
+    } else {
+        const student = await prisma.user.findFirst({
+            where: {
+                student_id: studentId,
+                role: 'student',
+            },
+            select: { id: true },
+        });
+
+        if (!student) {
+            throw new NotFoundError('User');
+        }
+
+        registration = (await prisma.registration.findFirst({
+            where: {
+                event_id: eventId,
+                user_id: student.id,
+            },
+            include: buildRegistrationInclude(),
+        })) as RegistrationWithRelations | null;
+
+        if (!registration) {
+            throw new NotFoundError('Registration');
+        }
+    }
+
+    return processCheckinForRegistration(registration, checkedBy, userRole);
+};
+
+const assertEventAttendanceAccess = async (eventId: number, requester: RequesterContext) => {
+    const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: {
+            id: true,
+            organizer_id: true,
+            deleted_at: true,
+        },
+    });
+
+    if (!event || event.deleted_at) {
+        throw new NotFoundError('Event');
+    }
+
+    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+        throw new ForbiddenError('Bạn không có quyền xem điểm danh của sự kiện này');
+    }
+};
+
+export const getAttendanceByEvent = async (eventId: number, requester: RequesterContext) => {
+    await assertEventAttendanceAccess(eventId, requester);
+
     const attendances = await prisma.attendance.findMany({
         where: {
             registration: {
@@ -232,7 +348,9 @@ export const getAttendanceByEvent = async (eventId: number) => {
     return attendances;
 };
 
-export const getAttendanceStats = async (eventId: number) => {
+export const getAttendanceStats = async (eventId: number, requester: RequesterContext) => {
+    await assertEventAttendanceAccess(eventId, requester);
+
     const [totalRegistrations, totalAttendances] = await Promise.all([
         prisma.registration.count({
             where: {

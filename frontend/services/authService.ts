@@ -39,8 +39,8 @@ export const authService = {
     await axios.get(`/auth/verify-email?token=${token}`);
   },
 
-  async refreshToken(refreshToken: string): Promise<{ token: string }> {
-    const response = await axios.post<ApiResponse<{ token: string }>>(
+  async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken?: string }> {
+    const response = await axios.post<ApiResponse<{ token: string; refreshToken?: string }>>(
       '/auth/refresh-token',
       { refreshToken }
     );

@@ -8,7 +8,7 @@ import prisma from './config/database';
 import cron from 'node-cron';
 import { eventService } from './services/events.service';
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 7776;
 
 // Test database connection
 async function testDatabaseConnection() {

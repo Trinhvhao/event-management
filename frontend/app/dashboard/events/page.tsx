@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuthStore } from '@/store/authStore';
 import { Calendar, MapPin, Users, Award, Search, Filter, X } from 'lucide-react';
@@ -41,15 +42,7 @@ export default function EventsPage() {
     const [selectedStatus, setSelectedStatus] = useState<string>('upcoming');
     const [showFilters, setShowFilters] = useState(false);
 
-    useEffect(() => {
-        if (!isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-        fetchData();
-    }, [isAuthenticated, router, selectedCategory, selectedDepartment, selectedStatus, searchQuery]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -82,7 +75,15 @@ export default function EventsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedStatus, searchQuery, selectedCategory, selectedDepartment, categories.length, departments.length]);
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+        fetchData();
+    }, [isAuthenticated, router, fetchData]);
 
     const clearFilters = () => {
         setSearchQuery('');
@@ -258,10 +259,12 @@ export default function EventsPage() {
                                 <div className="relative h-56 bg-brandBlue overflow-hidden">
                                     {event.image_url ? (
                                         <>
-                                            <img
+                                            <Image
                                                 src={event.image_url}
                                                 alt={event.title}
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out opacity-80 group-hover:opacity-100"
+                                                fill
+                                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out opacity-80 group-hover:opacity-100"
                                             />
                                             <div className="absolute inset-0 bg-linear-to-t from-slate-900/80 via-transparent to-transparent opacity-80"></div>
                                         </>

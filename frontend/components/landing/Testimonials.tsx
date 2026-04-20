@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Quote } from 'lucide-react';
+import Image from 'next/image';
 
 const Testimonials: React.FC = () => {
   const partners = [
@@ -58,7 +59,9 @@ const Testimonials: React.FC = () => {
                 &ldquo;{review.content}&rdquo;
               </p>
               <div className="flex items-center gap-4">
-                <img src={review.avatar} alt={review.author} className="w-12 h-12 rounded-full border-2 border-secondary" />
+                <div className="relative w-12 h-12 rounded-full border-2 border-secondary overflow-hidden">
+                  <Image src={review.avatar} alt={review.author} fill sizes="48px" className="object-cover" unoptimized />
+                </div>
                 <div>
                   <h4 className="font-bold text-white">{review.author}</h4>
                   <p className="text-sm text-brandLightBlue/60">{review.role}</p>

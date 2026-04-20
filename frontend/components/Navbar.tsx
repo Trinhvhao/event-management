@@ -1,9 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, CalendarCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import Button from './landing/Button';
 
+const isJwtTokenValid = (token: string | null): boolean => {
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const payloadSegment = token.split('.')[1];
+    if (!payloadSegment) {
+      return false;
+    }
+
+    const payloadJson = atob(payloadSegment.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(payloadJson) as { exp?: number };
+
+    if (!payload.exp) {
+      return true;
+    }
+
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
 const Navbar: React.FC = () => {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -36,6 +62,26 @@ const Navbar: React.FC = () => {
       });
       setIsMobileMenuOpen(false);
     }
+  };
+
+  const handleSystemAccess = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const hasValidToken = isJwtTokenValid(token);
+
+    if (hasValidToken) {
+      router.push('/dashboard');
+      return;
+    }
+
+    // Clear stale auth artifacts to avoid false positive "already logged in" state.
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+
+    router.push('/login');
   };
 
   return (
@@ -86,7 +132,12 @@ const Navbar: React.FC = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Button variant={isScrolled ? "primary" : "white"} size="sm" className={isScrolled ? "bg-brandBlue hover:opacity-90 shadow-md rounded-lg text-white" : "text-brandBlue font-bold shadow-md rounded-lg"}>
+            <Button
+              variant={isScrolled ? "primary" : "white"}
+              size="sm"
+              className={isScrolled ? "bg-brandBlue hover:opacity-90 shadow-md rounded-lg text-white" : "text-brandBlue font-bold shadow-md rounded-lg"}
+              onClick={handleSystemAccess}
+            >
               Truy cập hệ thống
             </Button>
           </div>
@@ -124,7 +175,14 @@ const Navbar: React.FC = () => {
                 </a>
               ))}
               <div className="mt-4">
-                <Button variant="primary" fullWidth className="bg-brandBlue rounded-lg font-bold">Đăng nhập / Đăng ký</Button>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  className="bg-brandBlue rounded-lg font-bold"
+                  onClick={handleSystemAccess}
+                >
+                  Truy cập hệ thống
+                </Button>
               </div>
             </div>
           </motion.div>

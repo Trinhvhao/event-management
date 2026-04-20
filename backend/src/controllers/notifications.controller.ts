@@ -35,7 +35,15 @@ export const getUnreadCount = async (
 
         const count = await notificationsService.getUnreadCount(userId);
 
-        res.json(successResponse({ count }, 'Lấy số thông báo chưa đọc thành công'));
+        res.json(
+            successResponse(
+                {
+                    count,
+                    unread_count: count,
+                },
+                'Lấy số thông báo chưa đọc thành công'
+            )
+        );
     } catch (error) {
         next(error);
     }

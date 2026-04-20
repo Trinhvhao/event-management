@@ -17,18 +17,85 @@ interface SendEmailOptions {
     html: string;
 }
 
+const MAX_EMAIL_RETRIES = 2;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getFrontendBaseUrl = () =>
+    process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3000';
+
+const isEmailDeliveryDisabled = () =>
+    process.env.NODE_ENV === 'test' || process.env.DISABLE_EMAIL_SENDING === 'true';
+
 export const sendEmail = async (options: SendEmailOptions): Promise<void> => {
-    try {
-        await transporter.sendMail({
-            from: process.env.EMAIL_FROM || 'Event Management <noreply@university.edu.vn>',
-            to: options.to,
-            subject: options.subject,
-            html: options.html,
-        });
-    } catch (error) {
-        console.error('Error sending email:', error);
-        throw new Error('Failed to send email');
+    if (isEmailDeliveryDisabled()) {
+        return;
     }
+
+    for (let attempt = 0; attempt <= MAX_EMAIL_RETRIES; attempt++) {
+        try {
+            await transporter.sendMail({
+                from: process.env.EMAIL_FROM || 'Event Management <noreply@university.edu.vn>',
+                to: options.to,
+                subject: options.subject,
+                html: options.html,
+            });
+            return;
+        } catch (error) {
+            const isLastAttempt = attempt === MAX_EMAIL_RETRIES;
+
+            if (isLastAttempt) {
+                console.error('Error sending email:', error);
+                throw new Error('Failed to send email');
+            }
+
+            await wait((attempt + 1) * 500);
+        }
+    }
+};
+
+export const sendVerificationEmail = async (
+    email: string,
+    fullName: string,
+    verificationToken: string
+): Promise<void> => {
+    const verificationUrl = `${getFrontendBaseUrl()}/verify-email?token=${verificationToken}`;
+
+    const html = `
+        <h2>Xac thuc email tai khoan</h2>
+        <p>Xin chao ${fullName},</p>
+        <p>Vui long xac thuc email de kich hoat tai khoan cua ban.</p>
+        <p><a href="${verificationUrl}">Xac thuc email</a></p>
+        <p>Link se het han sau 24 gio.</p>
+    `;
+
+    await sendEmail({
+        to: email,
+        subject: 'Xac thuc email tai khoan',
+        html,
+    });
+};
+
+export const sendPasswordResetEmail = async (
+    email: string,
+    fullName: string,
+    resetToken: string
+): Promise<void> => {
+    const resetUrl = `${getFrontendBaseUrl()}/reset-password?token=${resetToken}`;
+
+    const html = `
+        <h2>Dat lai mat khau</h2>
+        <p>Xin chao ${fullName},</p>
+        <p>Ban vua yeu cau dat lai mat khau cho tai khoan Event Management.</p>
+        <p><a href="${resetUrl}">Dat lai mat khau</a></p>
+        <p>Link se het han sau 1 gio. Neu ban khong thuc hien yeu cau nay, vui long bo qua email.</p>
+    `;
+
+    await sendEmail({
+        to: email,
+        subject: 'Yeu cau dat lai mat khau',
+        html,
+    });
 };
 
 export const sendRegistrationConfirmation = async (

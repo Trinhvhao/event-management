@@ -1,7 +1,11 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Medal, Crown, Star, TrendingUp, Flame, Users, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import Button from './Button';
+import { feedbackService, TopRatedEvent } from '@/services/feedbackService';
 
 const TopStudentRow: React.FC<{ 
     rank: number; 
@@ -51,7 +55,9 @@ const TopStudentRow: React.FC<{
             </div>
             <div className="relative">
                 <div className={`w-12 h-12 rounded-full border-2 p-0.5 ${rank <= 3 ? rankColor : 'border-slate-100'}`}>
-                    <img src={avatar} alt={name} className="w-full h-full rounded-full object-cover" />
+                    <div className="relative w-full h-full rounded-full overflow-hidden">
+                        <Image src={avatar} alt={name} fill sizes="48px" className="object-cover" unoptimized />
+                    </div>
                 </div>
                 {rank === 1 && (
                     <motion.div 
@@ -70,12 +76,14 @@ const TopStudentRow: React.FC<{
             <div className="text-right">
                 <div className="font-bold text-brandBlue text-lg">{points}</div>
                 <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Điểm</div>
+                <div className="text-[10px] text-slate-400">{events} SK</div>
             </div>
         </motion.div>
     );
 };
 
 const TrendingEventCard: React.FC<{
+    id: number;
     rank: number;
     title: string;
     rating: number;
@@ -91,7 +99,7 @@ const TrendingEventCard: React.FC<{
         className="group relative bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 flex"
     >
         <div className="w-32 h-full relative flex-shrink-0">
-             <img src={image} alt={title} className="w-full h-full object-cover absolute inset-0 transform group-hover:scale-110 transition-transform duration-700" />
+                 <Image src={image} alt={title} fill sizes="128px" className="object-cover absolute inset-0 transform group-hover:scale-110 transition-transform duration-700" unoptimized />
              <div className="absolute top-2 left-2 bg-black/60 backdrop-blur text-white text-xs font-bold px-2 py-0.5 rounded-md">
                 #{rank}
              </div>
@@ -128,6 +136,21 @@ const TrendingEventCard: React.FC<{
 );
 
 const Leaderboard: React.FC = () => {
+  const [topRatedEvents, setTopRatedEvents] = useState<TopRatedEvent[]>([]);
+
+  useEffect(() => {
+      const loadTopRatedEvents = async () => {
+          try {
+              const data = await feedbackService.getTopRatedEvents(4);
+              setTopRatedEvents(data);
+          } catch {
+              setTopRatedEvents([]);
+          }
+      };
+
+      loadTopRatedEvents();
+  }, []);
+
   const students = [
       { rank: 1, name: "Trần Minh Tâm", faculty: "Khoa CNTT", points: 2450, events: 45, avatar: "https://i.pravatar.cc/100?img=33" },
       { rank: 2, name: "Nguyễn Thảo Ly", faculty: "Khoa Kinh Tế", points: 2100, events: 38, avatar: "https://i.pravatar.cc/100?img=5" },
@@ -136,12 +159,24 @@ const Leaderboard: React.FC = () => {
       { rank: 5, name: "Vũ Tuấn Anh", faculty: "Khoa Cơ Khí", points: 1750, events: 25, avatar: "https://i.pravatar.cc/100?img=59" },
   ];
 
-  const trendingEvents = [
-      { rank: 1, title: "Đêm nhạc hội Unplugged 2024", category: "Giải trí", rating: 4.9, participants: 5000, image: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&q=80&w=400" },
-      { rank: 2, title: "Tech Talk: AI Revolution", category: "Học thuật", rating: 4.8, participants: 1200, image: "https://images.unsplash.com/photo-1544531696-6057a701f568?auto=format&fit=crop&q=80&w=400" },
-      { rank: 3, title: "Ngày hội hiến máu nhân đạo", category: "Tình nguyện", rating: 5.0, participants: 800, image: "https://images.unsplash.com/photo-1615461166324-cd1f91f9b9b0?auto=format&fit=crop&q=80&w=400" },
-      { rank: 4, title: "Giải bóng rổ sinh viên mở rộng", category: "Thể thao", rating: 4.7, participants: 300, image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&q=80&w=400" },
+  const fallbackTrendingEvents = [
+      { id: 1, rank: 1, title: "Đêm nhạc hội Unplugged 2024", category: "Giải trí", rating: 4.9, participants: 5000, image: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&q=80&w=400" },
+      { id: 2, rank: 2, title: "Tech Talk: AI Revolution", category: "Học thuật", rating: 4.8, participants: 1200, image: "https://images.unsplash.com/photo-1544531696-6057a701f568?auto=format&fit=crop&q=80&w=400" },
+      { id: 3, rank: 3, title: "Ngày hội hiến máu nhân đạo", category: "Tình nguyện", rating: 5.0, participants: 800, image: "https://images.unsplash.com/photo-1615461166324-cd1f91f9b9b0?auto=format&fit=crop&q=80&w=400" },
+      { id: 4, rank: 4, title: "Giải bóng rổ sinh viên mở rộng", category: "Thể thao", rating: 4.7, participants: 300, image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&q=80&w=400" },
   ];
+
+  const trendingEvents = topRatedEvents.length > 0
+      ? topRatedEvents.map((event, index) => ({
+          id: event.id,
+          rank: index + 1,
+          title: event.title,
+          category: 'Đánh giá nổi bật',
+          rating: Number(event.average_rating.toFixed(1)),
+          participants: event.feedback_count,
+          image: fallbackTrendingEvents[index % fallbackTrendingEvents.length].image,
+      }))
+      : fallbackTrendingEvents;
 
   return (
     <section className="py-24 bg-slate-50 relative overflow-hidden">
@@ -212,7 +247,7 @@ const Leaderboard: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                         {trendingEvents.map((event) => (
-                            <TrendingEventCard key={event.rank} {...event} />
+                            <TrendingEventCard key={`${event.id}-${event.rank}`} {...event} />
                         ))}
                         
                         {/* Call to action card */}

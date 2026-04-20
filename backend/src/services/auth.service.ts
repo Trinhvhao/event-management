@@ -4,8 +4,11 @@ import prisma from '../config/database';
 import { jwtConfig } from '../config/jwt';
 import { UnauthorizedError, ConflictError } from '../middleware/errorHandler';
 import { UserRole } from '@prisma/client';
+import { sendPasswordResetEmail, sendVerificationEmail } from './email.service';
 
 const refreshTokenExpiresIn = '7d';
+const getFrontendBaseUrl = () =>
+  process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3000';
 
 export const authService = {
   /**
@@ -71,9 +74,13 @@ export const authService = {
       { expiresIn: '24h' } as jwt.SignOptions
     );
 
-    // TODO: Send verification email via SMTP
-    // For now, log to console for development
-    console.log(`📧 Verification link for ${user.email}: /verify-email?token=${verificationToken}`);
+    try {
+      await sendVerificationEmail(user.email, user.full_name, verificationToken);
+    } catch (error) {
+      const verificationUrl = `${getFrontendBaseUrl()}/verify-email?token=${verificationToken}`;
+      console.error('Failed to send verification email:', error);
+      console.log(`Verification link for ${user.email}: ${verificationUrl}`);
+    }
 
     return {
       user,
@@ -174,9 +181,13 @@ export const authService = {
       { expiresIn: '1h' } as jwt.SignOptions
     );
 
-    // TODO: Send reset email via SMTP
-    // For now, log to console for development
-    console.log(`🔑 Password reset link for ${user.email}: /reset-password?token=${resetToken}`);
+    try {
+      await sendPasswordResetEmail(user.email, user.full_name, resetToken);
+    } catch (error) {
+      const resetUrl = `${getFrontendBaseUrl()}/reset-password?token=${resetToken}`;
+      console.error('Failed to send reset email:', error);
+      console.log(`Password reset link for ${user.email}: ${resetUrl}`);
+    }
 
     return;
   },

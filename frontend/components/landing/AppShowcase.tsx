@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, QrCode, Calendar, CheckCircle2, MapPin, Clock } from 'lucide-react';
+import Image from 'next/image';
 
 const FEATURES = [
   {
@@ -141,24 +142,24 @@ const AppShowcase: React.FC = () => {
     const [activeIndex, setActiveIndex] = useState(0);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    function stopTimer() {
+    const stopTimer = useCallback(() => {
         if (timerRef.current) {
             clearInterval(timerRef.current);
         }
-    }
+    }, []);
 
-    function startTimer() {
+    const startTimer = useCallback(() => {
         stopTimer();
         timerRef.current = setInterval(() => {
             setActiveIndex((prev) => (prev + 1) % FEATURES.length);
         }, 10000);
-    }
+    }, [stopTimer]);
 
     // Auto rotate every 10 seconds
     useEffect(() => {
         startTimer();
         return () => stopTimer();
-    }, []);
+    }, [startTimer, stopTimer]);
 
     const handleFeatureClick = (index: number) => {
         setActiveIndex(index);
@@ -181,8 +182,8 @@ const AppShowcase: React.FC = () => {
                                  <div className="bg-brandBlue h-36 p-6 pt-14 text-white rounded-b-[2.5rem] relative z-10 shadow-lg flex-shrink-0">
                                      <div className="flex justify-between items-center mb-4">
                                          <div className="flex gap-3 items-center">
-                                            <div className="w-10 h-10 rounded-full bg-white/20 border-2 border-white/30 overflow-hidden">
-                                                <img src="https://i.pravatar.cc/100?img=12" alt="User" className="w-full h-full object-cover" />
+                                            <div className="relative w-10 h-10 rounded-full bg-white/20 border-2 border-white/30 overflow-hidden">
+                                                <Image src="https://i.pravatar.cc/100?img=12" alt="User" fill sizes="40px" className="object-cover" unoptimized />
                                             </div>
                                             <div>
                                                 <div className="text-xs opacity-70">Xin chào,</div>

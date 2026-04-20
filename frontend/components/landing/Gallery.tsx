@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Camera, Sparkles, Heart } from 'lucide-react';
+import Image from 'next/image';
 import Button from './Button';
 
 interface GalleryItemProps {
@@ -62,10 +63,13 @@ const GalleryItem: React.FC<GalleryItemProps> = ({ type, title, desc, action, sr
         <div className="absolute inset-0 bg-gradient-to-t from-brandBlue/90 via-brandBlue/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10 duration-500"></div>
         
         {/* Image */}
-        <img 
-            src={src} 
-            alt={category} 
-            className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
+        <Image
+            src={src || ''}
+            alt={category || 'Gallery image'}
+            fill
+            sizes="(max-width: 768px) 100vw, 25vw"
+            className="object-cover transform group-hover:scale-105 transition-transform duration-700"
+            unoptimized
         />
         
         {/* Floating Category Badge */}
