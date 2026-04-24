@@ -13,7 +13,9 @@ const baseEventSchema = z.object({
   department_id: z.number().int().positive('Invalid department ID'),
   capacity: z.number().int().positive('Capacity must be positive'),
   training_points: z.number().int().min(0, 'Training points cannot be negative'),
-  image_url: z.string().url().optional()
+  event_cost: z.number().min(0, 'Event cost cannot be negative').default(0),
+  image_url: z.string().url().optional(),
+  registration_deadline: z.string().datetime('Invalid datetime format').optional().nullable(),
 });
 
 // Create Event Schema (with refinements)

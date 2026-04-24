@@ -37,6 +37,8 @@ const editEventSchema = z.object({
     department_id: z.string().min(1, 'Vui lòng chọn khoa'),
     capacity: z.string().min(1, 'Vui lòng nhập số lượng'),
     training_points: z.string().optional(),
+    event_cost: z.string().optional(),
+    registration_deadline: z.string().optional(),
     image_url: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
 });
 
@@ -77,6 +79,8 @@ export default function EditEventPage() {
             setValue('department_id', String(event.department_id));
             setValue('capacity', String(event.capacity));
             setValue('training_points', String(event.training_points));
+            setValue('event_cost', String(event.event_cost || 0));
+            setValue('registration_deadline', event.registration_deadline ? toDatetimeLocal(event.registration_deadline) : '');
             setValue('image_url', event.image_url || '');
             setFormReady(true);
         }
@@ -100,7 +104,11 @@ export default function EditEventPage() {
                 department_id: Number(data.department_id),
                 capacity: Number(data.capacity),
                 training_points: Number(data.training_points || 0),
+                event_cost: Number(data.event_cost || 0),
                 image_url: data.image_url || undefined,
+                registration_deadline: data.registration_deadline
+                    ? new Date(data.registration_deadline).toISOString()
+                    : undefined,
             };
 
             await eventService.update(eventId, payload);
@@ -187,6 +195,10 @@ export default function EditEventPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input label="Số lượng tối đa *" type="number" error={errors.capacity?.message} iconLeft={<Users size={16} />} {...register('capacity')} />
                         <Input label="Điểm rèn luyện" type="number" helperText="Cộng khi check-in thành công" iconLeft={<Award size={16} />} {...register('training_points')} />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Input label="Phí tham gia (VNĐ)" type="number" placeholder="0" helperText="0 = miễn phí" {...register('event_cost')} />
+                        <Input label="Hạn đăng ký" type="datetime-local" helperText="Để trống = không giới hạn" error={errors.registration_deadline?.message} {...register('registration_deadline')} />
                     </div>
 
                     <Input label="URL hình ảnh" type="url" placeholder="https://..." helperText="URL ảnh bìa sự kiện" iconLeft={<ImageIcon size={16} />} error={errors.image_url?.message} {...register('image_url')} />

@@ -17,6 +17,7 @@ router.put('/users/:id/role', adminController.changeUserRole);
 router.post('/users/bulk-lock', adminController.bulkLock);
 router.post('/users/bulk-unlock', adminController.bulkUnlock);
 router.get('/users/:id/audit-logs', adminController.getUserAuditLogs);
+router.get('/audit-logs', adminController.getAllAuditLogs);
 
 // Organizer Management Routes
 router.get('/organizers', adminController.getOrganizers);

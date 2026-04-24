@@ -1,12 +1,16 @@
-import crypto from 'crypto';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const QRCode = require('qrcode');
 
-// Helper function to generate QR code
-export function generateQRCode(userId: number, eventId: number): string {
-    const data = `${userId}-${eventId}-${Date.now()}`;
-    return crypto.createHash('sha256').update(data).digest('hex').substring(0, 32);
+export async function generateQRCode(userId: number, eventId: number): Promise<string> {
+    const qrData = {
+        registration_id: 0,
+        event_id: eventId,
+        user_id: userId,
+        issued_at: new Date().toISOString(),
+    };
+    return await QRCode.toDataURL(JSON.stringify(qrData));
 }
 
-// Helper function to calculate semester
 export function calculateSemester(date: Date): string {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;

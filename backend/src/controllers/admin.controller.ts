@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { UserRole } from '@prisma/client';
 import { adminService } from '../services/admin.service';
-import { getUserAuditLogs } from '../services/audit.service';
+import { getUserAuditLogs, getAuditLogs } from '../services/audit.service';
 import { categoryService } from '../services/category.service';
 import { adminStatisticsService } from '../services/admin-statistics.service';
 import {
@@ -291,6 +291,39 @@ export const adminController = {
             });
         } catch (error) {
             console.error('Get user audit logs error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch audit logs',
+                error: (error as Error).message,
+            });
+        }
+    },
+
+    /**
+     * GET /api/admin/audit-logs
+     * Get all audit logs with filters
+     */
+    async getAllAuditLogs(req: Request, res: Response): Promise<void> {
+        try {
+            const { page, limit, adminId, userId, actionType, entityType, dateFrom, dateTo } = req.query;
+
+            const result = await getAuditLogs({
+                page: parseQueryInt(page, 1, 'page', { min: 1 }),
+                limit: parseQueryInt(limit, 20, 'limit', { min: 1, max: 100 }),
+                adminId: parseOptionalPositiveInt(adminId, 'adminId'),
+                userId: parseOptionalPositiveInt(userId, 'userId'),
+                actionType: getQueryString(actionType),
+                entityType: getQueryString(entityType),
+                dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+                dateTo: dateTo ? new Date(dateTo as string) : undefined,
+            });
+
+            res.json({
+                success: true,
+                ...result,
+            });
+        } catch (error) {
+            console.error('Get all audit logs error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Failed to fetch audit logs',

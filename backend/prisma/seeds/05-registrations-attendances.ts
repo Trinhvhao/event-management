@@ -14,12 +14,13 @@ export async function seedRegistrationsAndAttendances(
 
     // Completed Event 1 - All students registered
     for (let i = 0; i < students.length; i++) {
+        const qr = await generateQRCode(students[i].id, completedEvent.id);
         const reg = await prisma.registration.create({
             data: {
                 user_id: students[i].id,
                 event_id: completedEvent.id,
-                qr_code: generateQRCode(students[i].id, completedEvent.id),
-                status: 'registered',
+                qr_code: qr,
+                status: 'attended',
             },
         });
         registrations.push(reg);
@@ -27,12 +28,13 @@ export async function seedRegistrationsAndAttendances(
 
     // Completed Event 2 - 3 students registered
     for (let i = 0; i < 3; i++) {
+        const qr = await generateQRCode(students[i].id, completedEvent2.id);
         const reg = await prisma.registration.create({
             data: {
                 user_id: students[i].id,
                 event_id: completedEvent2.id,
-                qr_code: generateQRCode(students[i].id, completedEvent2.id),
-                status: 'registered',
+                qr_code: qr,
+                status: 'attended',
             },
         });
         registrations.push(reg);
@@ -40,11 +42,12 @@ export async function seedRegistrationsAndAttendances(
 
     // Ongoing Event - 4 students registered
     for (let i = 0; i < 4; i++) {
+        const qr = await generateQRCode(students[i].id, ongoingEvent.id);
         const reg = await prisma.registration.create({
             data: {
                 user_id: students[i].id,
                 event_id: ongoingEvent.id,
-                qr_code: generateQRCode(students[i].id, ongoingEvent.id),
+                qr_code: qr,
                 status: 'registered',
             },
         });
@@ -53,11 +56,12 @@ export async function seedRegistrationsAndAttendances(
 
     // Upcoming Event 1 - 2 students registered
     for (let i = 0; i < 2; i++) {
+        const qr = await generateQRCode(students[i].id, upcomingEvent1.id);
         const reg = await prisma.registration.create({
             data: {
                 user_id: students[i].id,
                 event_id: upcomingEvent1.id,
-                qr_code: generateQRCode(students[i].id, upcomingEvent1.id),
+                qr_code: qr,
                 status: 'registered',
             },
         });
@@ -76,6 +80,7 @@ export async function seedRegistrationsAndAttendances(
                 registration_id: registrations[i].id,
                 checked_by: organizers[0].id,
                 checked_in_at: new Date(completedEvent.start_time.getTime() + 10 * 60000),
+                status: 'checked_in',
             },
         });
         attendances.push(attendance);
@@ -88,6 +93,7 @@ export async function seedRegistrationsAndAttendances(
                 registration_id: registrations[i].id,
                 checked_by: organizers[1].id,
                 checked_in_at: new Date(completedEvent2.start_time.getTime() + 5 * 60000),
+                status: 'checked_in',
             },
         });
         attendances.push(attendance);
@@ -100,6 +106,7 @@ export async function seedRegistrationsAndAttendances(
                 registration_id: registrations[i].id,
                 checked_by: organizers[0].id,
                 checked_in_at: new Date(ongoingEvent.start_time.getTime() + 15 * 60000),
+                status: 'checked_in',
             },
         });
         attendances.push(attendance);

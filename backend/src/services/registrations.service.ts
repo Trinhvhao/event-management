@@ -377,8 +377,8 @@ export const getRegistrationQRCodeWithAccess = async (
 ) => {
     const registration = await getRegistrationByIdWithAccess(registrationId, requester);
 
-    if (registration.status !== 'registered') {
-        throw new ConflictError('Đăng ký đã hủy, không thể lấy QR code');
+    if (registration.status === 'cancelled') {
+        throw new ConflictError('Đăng ký đã bị hủy, không thể lấy QR code');
     }
 
     return {

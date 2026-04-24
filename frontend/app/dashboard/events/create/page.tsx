@@ -35,6 +35,8 @@ const createEventSchema = z.object({
     department_id: z.string().min(1, 'Vui lòng chọn khoa'),
     capacity: z.string().min(1, 'Vui lòng nhập số lượng'),
     training_points: z.string().optional(),
+    event_cost: z.string().optional(),
+    registration_deadline: z.string().optional(),
     image_url: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
 });
 
@@ -56,7 +58,7 @@ export default function CreateEventPage() {
 
     const { register, handleSubmit, formState: { errors }, watch, trigger, setValue } = useForm<CreateEventForm>({
         resolver: zodResolver(createEventSchema),
-        defaultValues: { training_points: '0' },
+        defaultValues: { training_points: '0', event_cost: '0' },
     });
 
     const watchAll = watch();
@@ -87,7 +89,11 @@ export default function CreateEventPage() {
                 department_id: Number(data.department_id),
                 capacity: Number(data.capacity),
                 training_points: Number(data.training_points || 0),
+                event_cost: Number(data.event_cost || 0),
                 image_url: data.image_url || undefined,
+                registration_deadline: data.registration_deadline
+                    ? new Date(data.registration_deadline).toISOString()
+                    : undefined,
             };
             await eventService.createEvent(payload);
             toast.success('Tạo sự kiện thành công!');
@@ -174,6 +180,10 @@ export default function CreateEventPage() {
                                     <Input label="Số lượng tối đa *" type="number" placeholder="100" error={errors.capacity?.message} iconLeft={<Users size={16} />} {...register('capacity')} />
                                     <Input label="Điểm rèn luyện" type="number" placeholder="0" helperText="Số điểm RL cộng khi check-in" iconLeft={<Award size={16} />} {...register('training_points')} />
                                 </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <Input label="Phí tham gia (VNĐ)" type="number" placeholder="0" helperText="0 = miễn phí" {...register('event_cost')} />
+                                    <Input label="Hạn đăng ký" type="datetime-local" helperText="Để trống = không giới hạn" error={errors.registration_deadline?.message} {...register('registration_deadline')} />
+                                </div>
                                 <Input label="URL hình ảnh" type="url" placeholder="https://example.com/image.jpg" helperText="URL hình ảnh bìa sự kiện" iconLeft={<ImageIcon size={16} />} error={errors.image_url?.message} {...register('image_url')} />
                             </motion.div>
                         )}
@@ -192,6 +202,8 @@ export default function CreateEventPage() {
                                         { label: 'Địa điểm', value: watchAll.location },
                                         { label: 'Sức chứa', value: `${watchAll.capacity} người` },
                                         { label: 'Điểm RL', value: `+${watchAll.training_points || 0}` },
+                                        { label: 'Phí tham gia', value: Number(watchAll.event_cost || 0) > 0 ? `${Number(watchAll.event_cost).toLocaleString('vi-VN')} VNĐ` : 'Miễn phí' },
+                                        { label: 'Hạn đăng ký', value: watchAll.registration_deadline ? new Date(watchAll.registration_deadline).toLocaleString('vi-VN') : 'Không giới hạn' },
                                     ].map(item => (
                                         <div key={item.label} className="flex justify-between py-2 border-b border-[var(--dash-border-light)] last:border-0">
                                             <span className="text-[var(--dash-text-muted)]">{item.label}</span>

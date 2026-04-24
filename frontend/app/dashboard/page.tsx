@@ -2,372 +2,555 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuthStore } from '@/store/authStore';
 import {
-    Calendar, Award, Bell, Users,
-    CheckCircle, Clock, UserCheck, FileCheck, Download, AlertCircle
+  Calendar,
+  Award,
+  Bell,
+  Users,
+  CheckCircle,
+  Clock,
+  UserCheck,
+  TrendingUp,
+  ArrowUpRight,
+  MapPin,
 } from 'lucide-react';
-import axios from '@/lib/axios';
-import { toast } from 'sonner';
-
-import WelcomeBanner from '@/components/dashboard/WelcomeBanner';
-import StatCard from '@/components/dashboard/StatCard';
-import RecentEvents from '@/components/dashboard/RecentEvents';
-import SystemStats from '@/components/dashboard/SystemStats';
-import EventsChart from '@/components/dashboard/EventsChart';
-import DashboardCharts from '@/components/dashboard/DashboardCharts';
-import RecentEventsTable from '../../components/dashboard/RecentEventsTable';
-import ActivityLog from '../../components/dashboard/ActivityLog';
-import TopPerformers from '@/components/dashboard/TopPerformers';
-import UpcomingEvents from '@/components/dashboard/UpcomingEvents';
-import ConversionFunnel from '@/components/dashboard/ConversionFunnel';
-import { trainingPointsService } from '@/services/trainingPointsService';
+import { eventService } from '@/services/eventService';
+import { statisticsService } from '@/services/statisticsService';
 import { notificationService } from '@/services/notificationService';
-import type { Event, Registration } from '@/types';
-
-interface StatusCount {
-    status: string;
-    count: number;
-}
-
-interface RoleCount {
-    role: string;
-    count: number;
-}
-
-interface StudentRegistration extends Registration {
-    attendance?: boolean;
-}
+import { trainingPointsService } from '@/services/trainingPointsService';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { Event } from '@/types';
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
-    if (error && typeof error === 'object' && 'response' in error) {
-        const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
-        return response?.data?.error?.message || fallback;
-    }
-    return fallback;
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+    return response?.data?.error?.message || fallback;
+  }
+  return fallback;
 };
 
+const STATUS_BADGE: Record<string, string> = {
+  upcoming: 'bg-blue-50 text-blue-700 border-blue-200',
+  ongoing: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  completed: 'bg-slate-100 text-slate-600 border-slate-300',
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  approved: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  cancelled: 'bg-red-50 text-red-600 border-red-200',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  upcoming: 'Sắp diễn ra',
+  ongoing: 'Đang diễn ra',
+  completed: 'Đã kết thúc',
+  cancelled: 'Đã hủy',
+  pending: 'Chờ duyệt',
+  approved: 'Đã duyệt',
+};
 
 interface DashboardStats {
-    totalEvents: number;
-    upcomingEvents: number;
-    ongoingEvents: number;
-    completedEvents: number;
-    totalUsers: number;
-    totalStudents: number;
-    totalOrganizers: number;
-    totalRegistrations: number;
-    totalAttendances: number;
-    totalDepartments: number;
-    pendingEvents: number;
-    recentEvents: Event[];
-    recentRegistrations: StudentRegistration[];
-    eventsByStatus: StatusCount[];
-    usersByRole: RoleCount[];
-    trainingPoints?: number;
-    unreadNotifications?: number;
+  totalEvents: number;
+  upcomingEvents: number;
+  ongoingEvents: number;
+  completedEvents: number;
+  totalUsers: number;
+  totalStudents: number;
+  totalOrganizers: number;
+  totalRegistrations: number;
+  totalAttendances: number;
+  totalDepartments: number;
+  pendingEvents: number;
+  recentEvents: Event[];
+  trainingPoints?: number;
+  unreadNotifications?: number;
+}
+
+function StatBox({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-[var(--border-default)] p-5 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl" style={{ background: color }} />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-1.5">{label}</p>
+          <p className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-none">{value}</p>
+        </div>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0" style={{ background: `${color}18` }}>
+          <div style={{ color }}>{icon}</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
-    const router = useRouter();
-    const { user, isAuthenticated, isHydrated } = useAuthStore();
-    const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState<DashboardStats | null>(null);
+  const router = useRouter();
+  const { user, isAuthenticated, isHydrated } = useAuthStore();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
 
-    const fetchDashboardData = useCallback(async () => {
-        try {
-            setLoading(true);
+  const fetchDashboardData = useCallback(async () => {
+    if (!user) return;
 
-            if (user?.role === 'admin') {
-                const [eventsRes, statsRes, pendingRes] = await Promise.all([
-                    axios.get('/events?limit=5'),
-                    axios.get('/statistics/dashboard'),
-                    axios.get('/events/pending?limit=1'),
-                ]);
+    try {
+      setLoading(true);
 
-                const events: Event[] = eventsRes.data?.data?.items || [];
-                const dashboardStats = (statsRes.data?.data || {}) as {
-                    totalEvents?: number;
-                    totalUsers?: number;
-                    totalRegistrations?: number;
-                    totalAttendances?: number;
-                    eventsByStatus?: StatusCount[];
-                    usersByRole?: RoleCount[];
-                };
-                const pendingEvents = pendingRes.data?.data?.pagination?.total || 0;
+      if (user.role === 'admin') {
+        const [eventsRes, statsRes] = await Promise.all([
+          eventService.getAll({ limit: 5 }),
+          statisticsService.getDashboard(),
+        ]);
 
-                // Parse eventsByStatus array to get counts
-                const eventsByStatus = dashboardStats.eventsByStatus || [];
-                const upcomingCount = eventsByStatus.find((e) => e.status === 'upcoming')?.count || 0;
-                const ongoingCount = eventsByStatus.find((e) => e.status === 'ongoing')?.count || 0;
-                const completedCount = eventsByStatus.find((e) => e.status === 'completed')?.count || 0;
+        const events: Event[] = eventsRes.data?.items || eventsRes.data || [];
+        const dashboardStats = statsRes || {};
+        const eventsByStatus = dashboardStats.events_by_status || {};
+        const usersByRole = dashboardStats.users_by_role || [];
 
-                // Parse usersByRole array to get counts
-                const usersByRole = dashboardStats.usersByRole || [];
-                const studentCount = usersByRole.find((u) => u.role === 'student')?.count || 0;
-                const organizerCount = usersByRole.find((u) => u.role === 'organizer')?.count || 0;
+        const findRoleCount = (role: string) => {
+          return Array.isArray(usersByRole)
+            ? usersByRole.find((u: { role: string; count: number }) => u.role === role)?.count || 0
+            : 0;
+        };
 
-                setStats({
-                    totalEvents: dashboardStats.totalEvents || 0,
-                    upcomingEvents: upcomingCount,
-                    ongoingEvents: ongoingCount,
-                    completedEvents: completedCount,
-                    totalUsers: dashboardStats.totalUsers || 0,
-                    totalStudents: studentCount,
-                    totalOrganizers: organizerCount,
-                    totalRegistrations: dashboardStats.totalRegistrations || 0,
-                    totalAttendances: dashboardStats.totalAttendances || 0,
-                    totalDepartments: 5,
-                    pendingEvents,
-                    recentEvents: events.slice(0, 5),
-                    recentRegistrations: [],
-                    eventsByStatus: dashboardStats.eventsByStatus || [],
-                    usersByRole: dashboardStats.usersByRole || [],
-                });
-            } else if (user?.role === 'organizer') {
-                const [myEventsRes, statsRes] = await Promise.all([
-                    axios.get('/events/my'),
-                    axios.get('/statistics/my'),
-                ]);
+        setStats({
+          totalEvents: dashboardStats.total_events || events.length,
+          upcomingEvents: eventsByStatus.upcoming || 0,
+          ongoingEvents: eventsByStatus.ongoing || 0,
+          completedEvents: eventsByStatus.completed || 0,
+          totalUsers: dashboardStats.total_users || 0,
+          totalStudents: findRoleCount('student'),
+          totalOrganizers: findRoleCount('organizer'),
+          totalRegistrations: dashboardStats.total_registrations || 0,
+          totalAttendances: dashboardStats.total_attendances || 0,
+          totalDepartments: 0,
+          pendingEvents: 0,
+          recentEvents: events.slice(0, 5),
+          trainingPoints: dashboardStats.total_training_points_awarded || 0,
+          unreadNotifications: 0,
+        });
+      } else if (user.role === 'organizer') {
+        const [myEventsRes, statsRes] = await Promise.all([
+          eventService.getMyEvents(),
+          statisticsService.getOrganizerStats(),
+        ]);
 
-                const myEvents: Event[] = myEventsRes.data?.data || [];
-                const organizerStats = (statsRes.data?.data || {}) as {
-                    totalEvents?: number;
-                    totalRegistrations?: number;
-                    totalAttendances?: number;
-                    eventsByStatus?: { upcoming?: number; ongoing?: number; completed?: number };
-                };
+        const myEvents: Event[] = myEventsRes.data || myEventsRes || [];
+        const organizerStats = statsRes || {};
 
-                setStats({
-                    totalEvents: organizerStats.totalEvents || myEvents.length,
-                    upcomingEvents: organizerStats.eventsByStatus?.upcoming || 0,
-                    ongoingEvents: organizerStats.eventsByStatus?.ongoing || 0,
-                    completedEvents: organizerStats.eventsByStatus?.completed || 0,
-                    totalUsers: 0,
-                    totalStudents: 0,
-                    totalOrganizers: 0,
-                    totalRegistrations: organizerStats.totalRegistrations || 0,
-                    totalAttendances: organizerStats.totalAttendances || 0,
-                    totalDepartments: 0,
-                    pendingEvents: 0,
-                    recentEvents: myEvents.slice(0, 5),
-                    recentRegistrations: [],
-                    eventsByStatus: [
-                        { status: 'upcoming', count: organizerStats.eventsByStatus?.upcoming || 0 },
-                        { status: 'ongoing', count: organizerStats.eventsByStatus?.ongoing || 0 },
-                        { status: 'completed', count: organizerStats.eventsByStatus?.completed || 0 },
-                    ],
-                    usersByRole: [],
-                });
-            } else {
-                const [eventsRes, myRegistrationsRes, myPointsRes, unreadNotifs] = await Promise.all([
-                    axios.get('/events?status=upcoming&limit=5'),
-                    axios.get('/registrations/my'),
-                    trainingPointsService.getMyPoints().catch(() => ({ grand_total: 0, semesters: [] })),
-                    notificationService.getUnreadCount().catch(() => 0),
-                ]);
+        setStats({
+          totalEvents: organizerStats.total_events || myEvents.length,
+          upcomingEvents: organizerStats.events_by_status?.upcoming || myEvents.filter((e) => e.status === 'upcoming').length,
+          ongoingEvents: organizerStats.events_by_status?.ongoing || myEvents.filter((e) => e.status === 'ongoing').length,
+          completedEvents: organizerStats.events_by_status?.completed || myEvents.filter((e) => e.status === 'completed').length,
+          totalUsers: 0,
+          totalStudents: 0,
+          totalOrganizers: 0,
+          totalRegistrations: organizerStats.total_registrations || 0,
+          totalAttendances: organizerStats.total_attendances || 0,
+          totalDepartments: 0,
+          pendingEvents: 0,
+          recentEvents: myEvents.slice(0, 5),
+          trainingPoints: 0,
+          unreadNotifications: 0,
+        });
+      } else {
+        const [eventsRes, myPointsRes, unreadNotifs] = await Promise.all([
+          eventService.getAll({ status: 'upcoming', limit: 5 }),
+          trainingPointsService.getMyPoints().catch(() => ({ grand_total: 0 })),
+          notificationService.getUnreadCount().catch(() => 0),
+        ]);
 
-                const events: Event[] = eventsRes.data?.data?.items || [];
-                const myRegistrations: StudentRegistration[] = myRegistrationsRes.data?.data || [];
-                const trainingTotal = myPointsRes.grand_total || 0;
-
-                setStats({
-                    totalEvents: events.length,
-                    upcomingEvents: events.length,
-                    ongoingEvents: 0,
-                    completedEvents: myRegistrations.filter((r) => r.event?.status === 'completed').length,
-                    totalUsers: 0,
-                    totalStudents: 0,
-                    totalOrganizers: 0,
-                    totalRegistrations: myRegistrations.length,
-                    totalAttendances: myRegistrations.filter((r) => Boolean(r.attendance)).length,
-                    totalDepartments: 0,
-                    pendingEvents: 0,
-                    recentEvents: events,
-                    recentRegistrations: myRegistrations.slice(0, 5),
-                    eventsByStatus: [],
-                    usersByRole: [],
-                    trainingPoints: trainingTotal,
-                    unreadNotifications: unreadNotifs,
-                });
-            }
-        } catch (error: unknown) {
-            console.error('Error fetching dashboard data:', error);
-            toast.error(getErrorMessage(error, 'Không thể tải dữ liệu dashboard'));
-        } finally {
-            setLoading(false);
-        }
-    }, [user]);
-
-    useEffect(() => {
-        // Wait for store to hydrate before checking authentication
-        if (!isHydrated) {
-            return;
-        }
-
-        if (!isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
-        fetchDashboardData();
-    }, [isAuthenticated, isHydrated, router, fetchDashboardData]);
-
-    if (!isHydrated || loading) {
-        return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brandBlue"></div>
-                </div>
-            </DashboardLayout>
-        );
+        const events: Event[] = eventsRes.data?.items || eventsRes.data || [];
+        setStats({
+          totalEvents: events.length,
+          upcomingEvents: events.length,
+          ongoingEvents: 0,
+          completedEvents: 0,
+          totalUsers: 0,
+          totalStudents: 0,
+          totalOrganizers: 0,
+          totalRegistrations: 0,
+          totalAttendances: 0,
+          totalDepartments: 0,
+          pendingEvents: 0,
+          recentEvents: events,
+          trainingPoints: myPointsRes.grand_total || 0,
+          unreadNotifications: unreadNotifs,
+        });
+      }
+    } catch (error: unknown) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error(getErrorMessage(error, 'Không thể tải dữ liệu dashboard'));
+    } finally {
+      setLoading(false);
     }
+  }, [user]);
 
-    // Admin Dashboard
-    if (user?.role === 'admin') {
-        const adminQuickLinks = [
-            {
-                icon: <FileCheck className="w-4 h-4" />,
-                text:
-                    (stats?.pendingEvents || 0) > 0
-                        ? `Có ${stats?.pendingEvents || 0} sự kiện đang chờ duyệt`
-                        : 'Không có sự kiện chờ duyệt',
-                href: '/dashboard/events/pending',
-                badge: (stats?.pendingEvents || 0) > 0 ? stats?.pendingEvents : undefined,
-            },
-            {
-                icon: <Download className="w-4 h-4" />,
-                text: 'Xuất báo cáo điểm rèn luyện tháng này',
-                href: '/dashboard/training-points/export',
-            },
-            {
-                icon: <AlertCircle className="w-4 h-4" />,
-                text: 'Xem thông báo hệ thống',
-                href: '/dashboard/notifications',
-            },
-        ];
-
-        return (
-            <DashboardLayout>
-                <div className="space-y-6">
-                    <WelcomeBanner userName={user.full_name} role={user.role} quickLinks={adminQuickLinks} />
-
-                    {/* Main Stats with Trends */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard
-                            icon={Calendar}
-                            label="Tổng sự kiện"
-                            value={stats?.totalEvents || 0}
-                            subtitle="Đang diễn ra"
-                            color="bg-brandBlue"
-                            href="/dashboard/events"
-                            index={0}
-                            trend={{ value: 15, isPositive: true }}
-                            sparklineData={[20, 35, 25, 45, 30, 50, 40]}
-                        />
-                        <StatCard
-                            icon={UserCheck}
-                            label="Lượt đăng ký / Check-in"
-                            value={`${stats?.totalRegistrations || 0} / ${stats?.totalAttendances || 0}`}
-                            subtitle="Tổng lượt tham gia"
-                            color="bg-secondary"
-                            href="/dashboard/statistics"
-                            index={1}
-                            trend={{ value: 8, isPositive: true }}
-                            sparklineData={[30, 40, 35, 50, 45, 60, 55]}
-                        />
-                        <StatCard
-                            icon={Users}
-                            label="Sinh viên tham gia"
-                            value={stats?.totalStudents || 0}
-                            subtitle="Unique users"
-                            color="bg-[#22c55e]"
-                            href="/dashboard/admin/users"
-                            index={2}
-                            trend={{ value: 12, isPositive: true }}
-                            sparklineData={[25, 30, 28, 40, 35, 45, 42]}
-                        />
-                        <StatCard
-                            icon={Award}
-                            label="Điểm rèn luyện"
-                            value={stats?.totalAttendances ? stats.totalAttendances * 2 : 0}
-                            subtitle="Đã cấp phát"
-                            color="bg-[#8b5cf6]"
-                            href="/dashboard/admin/training-points"
-                            index={3}
-                            trend={{ value: 20, isPositive: true }}
-                            sparklineData={[15, 25, 20, 35, 30, 40, 38]}
-                        />
-                    </div>
-
-                    {/* Charts Section */}
-                    <DashboardCharts />
-
-                    {/* Recent Events Table */}
-                    <RecentEventsTable />
-
-                    {/* Middle Section - Conversion Funnel & Upcoming Events */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <ConversionFunnel />
-                        <UpcomingEvents />
-                    </div>
-
-                    {/* Bottom Section - 3 columns */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <ActivityLog />
-                        <SystemStats
-                            totalStudents={stats?.totalStudents || 0}
-                            totalOrganizers={stats?.totalOrganizers || 0}
-                            totalDepartments={stats?.totalDepartments || 5}
-                        />
-                        <TopPerformers />
-                    </div>
-                </div>
-            </DashboardLayout>
-        );
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
     }
+    void fetchDashboardData();
+  }, [isAuthenticated, isHydrated, router, fetchDashboardData]);
 
-    // Organizer Dashboard
-    if (user?.role === 'organizer') {
-        return (
-            <DashboardLayout>
-                <div className="space-y-6">
-                    <WelcomeBanner userName={user.full_name} role={user.role} />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard icon={Calendar} label="Sự kiện của tôi" value={stats?.totalEvents || 0} color="bg-brandBlue" href="/dashboard/my-events" index={0} />
-                        <StatCard icon={Clock} label="Sắp diễn ra" value={stats?.upcomingEvents || 0} color="bg-blue-500" href="/dashboard/my-events" index={1} />
-                        <StatCard icon={UserCheck} label="Tổng đăng ký" value={stats?.totalRegistrations || 0} color="bg-[#22c55e]" href="/dashboard/statistics" index={2} />
-                        <StatCard icon={CheckCircle} label="Đã hoàn thành" value={stats?.completedEvents || 0} color="bg-gray-500" href="/dashboard/my-events" index={3} />
-                    </div>
-
-                    {/* Charts Section */}
-                    {stats?.eventsByStatus && stats.eventsByStatus.length > 0 && (
-                        <EventsChart data={stats.eventsByStatus} />
-                    )}
-
-                    <RecentEvents events={stats?.recentEvents || []} />
-                </div>
-            </DashboardLayout>
-        );
-    }
-
-    // Student Dashboard
+  if (!isHydrated || loading) {
     return (
-        <DashboardLayout>
-            <div className="space-y-6">
-                <WelcomeBanner userName={user?.full_name || 'Bạn'} role={user?.role || 'student'} />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard icon={Calendar} label="Sự kiện sắp tới" value={stats?.upcomingEvents || 0} color="bg-brandBlue" href="/dashboard/events" index={0} />
-                    <StatCard icon={CheckCircle} label="Đã đăng ký" value={stats?.totalRegistrations || 0} color="bg-secondary" href="/dashboard/my-registrations" index={1} />
-                    <StatCard icon={Award} label="Điểm rèn luyện" value={stats?.trainingPoints || 0} color="bg-[#22c55e]" href="/dashboard/training-points" index={2} />
-                    <StatCard icon={Bell} label="Thông báo" value={stats?.unreadNotifications || 0} color="bg-brandRed" href="/dashboard/notifications" index={3} />
-                </div>
-
-                <RecentEvents events={stats?.recentEvents || []} />
-            </div>
-        </DashboardLayout>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-12 h-12 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
+        </div>
+      </DashboardLayout>
     );
+  }
+
+  if (user?.role === 'admin') {
+    return (
+      <DashboardLayout>
+        <div className="space-y-5 max-w-screen-2xl mx-auto">
+
+          {/* Welcome Banner */}
+          <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+            <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-[var(--color-brand-navy)] opacity-[0.03] pointer-events-none" />
+            <div className="px-6 pt-6 pb-5">
+              <div className="flex items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Dashboard</p>
+                    <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
+                      Chào mừng, {user.full_name}!
+                    </h1>
+                    <p className="text-sm text-[var(--text-muted)]">Hệ thống quản lý sự kiện DaiNam</p>
+                  </div>
+                </div>
+                <div className="hidden lg:flex items-center gap-3">
+                  <Link
+                    href="/dashboard/events/pending"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--border-default)] bg-white hover:bg-[var(--bg-muted)] transition-colors text-sm font-semibold text-[var(--text-secondary)] shadow-sm"
+                  >
+                    <Bell className="w-4 h-4" />
+                    <span>Kiểm duyệt sự kiện</span>
+                    {(stats?.pendingEvents || 0) > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-[var(--color-brand-red)] text-white text-[10px] font-bold flex items-center justify-center">
+                        {stats?.pendingEvents}
+                      </span>
+                    )}
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatBox label="Tổng sự kiện" value={stats?.totalEvents || 0} icon={<Calendar size={20} />} color="#00358F" />
+            <StatBox label="Sinh viên" value={stats?.totalStudents || 0} icon={<Users size={20} />} color="#00A651" />
+            <StatBox label="Lượt Check-in" value={stats?.totalAttendances || 0} icon={<CheckCircle size={20} />} color="#F26600" />
+            <StatBox label="Điểm RL đã cấp" value={stats?.trainingPoints || 0} icon={<Award size={20} />} color="#8b5cf6" />
+          </div>
+
+          {/* Events + Status distribution */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Status distribution */}
+            <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Phân bổ sự kiện</h3>
+                <Link href="/dashboard/events" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                  Xem tất cả <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { label: 'Sắp diễn ra', value: stats?.upcomingEvents || 0, color: 'bg-blue-500', total: stats?.totalEvents || 1 },
+                  { label: 'Đang diễn ra', value: stats?.ongoingEvents || 0, color: 'bg-emerald-500', total: stats?.totalEvents || 1 },
+                  { label: 'Đã kết thúc', value: stats?.completedEvents || 0, color: 'bg-slate-400', total: stats?.totalEvents || 1 },
+                ].map(({ label, value, color, total }) => {
+                  const pct = Math.max(Math.round((value / total) * 100), 3);
+                  return (
+                    <div key={label} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-[var(--text-secondary)]">{label}</span>
+                        <span className="font-bold text-[var(--text-primary)]">{value}</span>
+                      </div>
+                      <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${color} transition-all duration-700`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Recent Events */}
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Sự kiện gần đây</h3>
+                <Link href="/dashboard/events" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                  Xem tất cả <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              {stats?.recentEvents && stats.recentEvents.length > 0 ? (
+                <div className="space-y-3">
+                  {stats.recentEvents.slice(0, 5).map((event) => (
+                    <div
+                      key={event.id}
+                      onClick={() => router.push(`/dashboard/events/${event.id}`)}
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--bg-muted)] cursor-pointer transition-colors group"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                        <Calendar className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--color-brand-navy)] transition-colors truncate">
+                          {event.title}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)]">
+                          {format(new Date(event.start_time), 'dd/MM/yyyy • HH:mm', { locale: vi })}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${STATUS_BADGE[event.status] || STATUS_BADGE.upcoming}`}>
+                        {STATUS_LABELS[event.status] || event.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 gap-2">
+                  <Calendar className="w-8 h-8 text-[var(--text-muted)]" />
+                  <p className="text-sm text-[var(--text-muted)]">Chưa có sự kiện nào</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatBox label="Tổng Đăng ký" value={stats?.totalRegistrations || 0} icon={<UserCheck size={20} />} color="#00358F" />
+            <StatBox
+              label="Tỷ lệ Check-in"
+              value={stats?.totalRegistrations ? `${Math.round((stats.totalAttendances / stats.totalRegistrations) * 100)}%` : '0%'}
+              icon={<CheckCircle size={20} />}
+              color="#00A651"
+            />
+            <StatBox label="Người dùng" value={stats?.totalUsers || 0} icon={<Users size={20} />} color="#F26600" />
+            <StatBox label="Ban tổ chức" value={stats?.totalOrganizers || 0} icon={<UserCheck size={20} />} color="#8b5cf6" />
+          </div>
+
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (user?.role === 'organizer') {
+    return (
+      <DashboardLayout>
+        <div className="space-y-5 max-w-screen-2xl mx-auto">
+
+          {/* Welcome Banner */}
+          <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+            <div className="px-6 pt-6 pb-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Dashboard</p>
+                  <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
+                    Chào mừng, {user.full_name}!
+                  </h1>
+                  <p className="text-sm text-[var(--text-muted)]">Quản lý sự kiện của bạn</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatBox label="Sự kiện của tôi" value={stats?.totalEvents || 0} icon={<Calendar size={20} />} color="#00358F" />
+            <StatBox label="Sắp diễn ra" value={stats?.upcomingEvents || 0} icon={<Clock size={20} />} color="#F26600" />
+            <StatBox label="Tổng đăng ký" value={stats?.totalRegistrations || 0} icon={<UserCheck size={20} />} color="#00A651" />
+            <StatBox label="Đã hoàn thành" value={stats?.completedEvents || 0} icon={<CheckCircle size={20} />} color="#8b5cf6" />
+          </div>
+
+          {/* My Events */}
+          <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Sự kiện của tôi</h3>
+              <Link href="/dashboard/my-events" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                Xem tất cả <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            {stats?.recentEvents && stats.recentEvents.length > 0 ? (
+              <div className="space-y-3">
+                {stats.recentEvents.slice(0, 5).map((event) => (
+                  <div
+                    key={event.id}
+                    onClick={() => router.push(`/dashboard/events/${event.id}`)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--bg-muted)] cursor-pointer transition-colors group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                      <Calendar className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--color-brand-navy)] transition-colors truncate">
+                        {event.title}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        {format(new Date(event.start_time), 'dd/MM/yyyy • HH:mm', { locale: vi })}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${STATUS_BADGE[event.status] || STATUS_BADGE.upcoming}`}>
+                      {STATUS_LABELS[event.status] || event.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <Calendar className="w-8 h-8 text-[var(--text-muted)]" />
+                <p className="text-sm text-[var(--text-muted)]">Chưa có sự kiện nào</p>
+                <Link href="/dashboard/events/create" className="mt-2 text-sm font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)]">
+                  Tạo sự kiện mới
+                </Link>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-5 max-w-screen-2xl mx-auto">
+
+        {/* Welcome Banner */}
+        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+          <div className="px-6 pt-6 pb-5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Dashboard</p>
+                <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
+                  Chào mừng, {user?.full_name}!
+                </h1>
+                <p className="text-sm text-[var(--text-muted)]">Khám phá sự kiện và theo dõi điểm rèn luyện</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatBox label="Sự kiện sắp tới" value={stats?.upcomingEvents || 0} icon={<Calendar size={20} />} color="#00358F" />
+          <StatBox label="Đã đăng ký" value={stats?.totalRegistrations || 0} icon={<CheckCircle size={20} />} color="#F26600" />
+          <StatBox label="Điểm rèn luyện" value={stats?.trainingPoints || 0} icon={<Award size={20} />} color="#00A651" />
+          <StatBox label="Thông báo" value={stats?.unreadNotifications || 0} icon={<Bell size={20} />} color="#FF4000" />
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { icon: <Calendar className="w-5 h-5" />, label: 'Đăng ký sự kiện', href: '/dashboard/events', color: '#00358F' },
+            { icon: <CheckCircle className="w-5 h-5" />, label: 'Sự kiện đã đăng ký', href: '/dashboard/my-registrations', color: '#F26600' },
+            { icon: <Award className="w-5 h-5" />, label: 'Xem điểm RL', href: '/dashboard/training-points', color: '#00A651' },
+            { icon: <Bell className="w-5 h-5" />, label: 'Thông báo', href: '/dashboard/notifications', color: '#FF4000' },
+          ].map(({ icon, label, href, color }) => (
+            <Link
+              key={label}
+              href={href}
+              className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 transition-all group"
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-[var(--shadow-brand)]"
+                style={{ background: color }}
+              >
+                {icon}
+              </div>
+              <span className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--color-brand-navy)] transition-colors">
+                {label}
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Upcoming Events */}
+        <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">Sự kiện dành cho bạn</h3>
+            <Link href="/dashboard/events" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+              Khám phá thêm <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {stats?.recentEvents && stats.recentEvents.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {stats.recentEvents.slice(0, 4).map((event) => (
+                <div
+                  key={event.id}
+                  onClick={() => router.push(`/dashboard/events/${event.id}`)}
+                  className="p-4 rounded-xl border border-[var(--border-default)] hover:border-[var(--color-brand-navy)] hover:shadow-[var(--shadow-card-hover)] cursor-pointer transition-all group"
+                >
+                  <div className="mb-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_BADGE[event.status] || STATUS_BADGE.upcoming}`}>
+                      {STATUS_LABELS[event.status] || event.status}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--color-brand-navy)] transition-colors line-clamp-2 mb-2">
+                    {event.title}
+                  </h4>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] mb-1">
+                    <Calendar className="w-3.5 h-3.5 shrink-0" />
+                    <span>{format(new Date(event.start_time), 'dd/MM/yyyy', { locale: vi })}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] mb-1">
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{event.location}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-brand-gold)] font-bold">
+                    <Award className="w-3.5 h-3.5 shrink-0" />
+                    <span>+{event.training_points} ĐRL</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <Calendar className="w-8 h-8 text-[var(--text-muted)]" />
+              <p className="text-sm text-[var(--text-muted)]">Chưa có sự kiện nào</p>
+              <Link href="/dashboard/events" className="mt-2 text-sm font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)]">
+                Khám phá sự kiện
+              </Link>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </DashboardLayout>
+  );
 }

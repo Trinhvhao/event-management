@@ -54,6 +54,7 @@ export interface Event {
   capacity: number;
   current_registrations: number;
   training_points: number;
+  event_cost: number;
   status: EventStatus;
   image_url?: string;
   is_featured: boolean;
@@ -73,6 +74,7 @@ export interface CreateEventData {
   department_id: number;
   capacity: number;
   training_points: number;
+  event_cost: number;
   image_url?: string;
   registration_deadline?: string;
 }

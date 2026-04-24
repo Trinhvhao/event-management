@@ -361,6 +361,32 @@ export default function EventDetailPage() {
                                     <p className="text-2xl font-bold text-green-600">{event.training_points}</p>
                                 </div>
                             </div>
+
+                            {event.event_cost > 0 && (
+                                <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                                    <div className="flex-shrink-0 mt-0.5">
+                                        <span className="text-amber-600 font-bold">₫</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-amber-700 mb-1">Phí tham gia</p>
+                                        <p className="font-bold text-amber-700">
+                                            {event.event_cost.toLocaleString('vi-VN')} VNĐ
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {event.registration_deadline && (
+                                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                                    <Clock className="w-5 h-5 text-brandBlue flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs text-gray-600 mb-1">Hạn đăng ký</p>
+                                        <p className="font-semibold text-primary">
+                                            {format(new Date(event.registration_deadline), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Description */}
