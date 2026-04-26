@@ -3,6 +3,7 @@ import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '.
 import { EventStatus, UserRole, Prisma } from '@prisma/client';
 import { createNotification } from './notifications.service';
 import { transformEvents, transformEvent } from '../utils/event.util';
+import { getVietnamDateRange } from '../utils/date.util';
 
 export const eventService = {
   /**
@@ -16,10 +17,11 @@ export const eventService = {
     status?: string;
     search?: string;
     is_free?: boolean;
+    date_range?: string; // 'today' | 'this_week' | 'this_month' | undefined
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }) {
-    const { page, limit, category, department, status, search, is_free, sortBy, sortOrder } = filters;
+    const { page, limit, category, department, status, search, is_free, date_range, sortBy, sortOrder } = filters;
 
     // Build where clause
     const where: Prisma.EventWhereInput = {};
@@ -41,6 +43,14 @@ export const eventService = {
     }
 
     where.deleted_at = null;
+
+    // Date range filter
+    if (date_range) {
+      if (date_range === 'today' || date_range === 'this_week' || date_range === 'this_month') {
+        const { start, end } = getVietnamDateRange(date_range);
+        where.start_time = { gte: start, lte: end };
+      }
+    }
 
     if (is_free === true) {
       where.event_cost = 0;

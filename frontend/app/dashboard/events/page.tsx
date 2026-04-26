@@ -56,6 +56,13 @@ const PRICE_OPTIONS = [
     { value: false, label: 'Có phí' },
 ];
 
+const DATE_RANGE_OPTIONS = [
+    { value: '', label: 'Tất cả thời gian' },
+    { value: 'today', label: 'Hôm nay' },
+    { value: 'this_week', label: 'Tuần này' },
+    { value: 'this_month', label: 'Tháng này' },
+];
+
 const SORT_OPTIONS = [
     { value: 'start_time|asc', label: 'Ngày bắt đầu ↑' },
     { value: 'start_time|desc', label: 'Ngày bắt đầu ↓' },
@@ -138,6 +145,7 @@ export default function EventsPage() {
     const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
     const [selectedStatus, setSelectedStatus] = useState('upcoming');
     const [selectedPrice, setSelectedPrice] = useState<boolean | undefined>(undefined);
+    const [dateRange, setDateRange] = useState('');
     const [sortBy, setSortBy] = useState('start_time|desc');
     const [showFilters, setShowFilters] = useState(false);
     const [page, setPage] = useState(1);
@@ -156,6 +164,7 @@ export default function EventsPage() {
                 limit: PAGE_SIZE,
                 page: resetPage ? 1 : page,
                 is_free: selectedPrice,
+                date_range: dateRange || undefined,
             };
 
             if (searchQuery) params.search = searchQuery;
@@ -165,40 +174,13 @@ export default function EventsPage() {
             if (sortDir) params.sortOrder = sortDir;
 
             const eventsRes = await eventService.getAll(params);
-            // Handle different response shapes from backend
-            const resData = (eventsRes as any);
-            let items: Event[] = [];
-            let total = 0;
-            let currentPage = resetPage ? 1 : page;
-            let pageSize = PAGE_SIZE;
-            let totalPages = 1;
-
-            if (resData.data?.items) {
-                // Standard paginated response: { success, data: { items, pagination } }
-                items = resData.data.items || [];
-                total = resData.data.pagination?.total ?? items.length;
-                currentPage = resData.data.pagination?.page ?? currentPage;
-                pageSize = resData.data.pagination?.pageSize ?? pageSize;
-                totalPages = resData.data.pagination?.totalPages ?? 1;
-            } else if (resData.items) {
-                // Alternative: { success, items, pagination }
-                items = resData.items || [];
-                total = resData.pagination?.total ?? items.length;
-                currentPage = resData.pagination?.page ?? currentPage;
-                pageSize = resData.pagination?.pageSize ?? pageSize;
-                totalPages = resData.pagination?.totalPages ?? 1;
-            } else if (Array.isArray(resData)) {
-                // Raw array response
-                items = resData;
-                total = resData.length;
-            } else {
-                items = [];
-            }
+            // New service returns: { items: Event[], pagination: {...} }
+            const items: Event[] = Array.isArray(eventsRes.items) ? eventsRes.items : [];
 
             setEvents(items);
-            setTotalItems(total);
-            setTotalPages(totalPages);
-            setPage(currentPage);
+            setTotalItems(eventsRes.pagination.total);
+            setTotalPages(eventsRes.pagination.totalPages);
+            setPage(eventsRes.pagination.page);
 
             if (categories.length === 0) {
                 const catRes = await eventService.getCategories();
@@ -214,7 +196,7 @@ export default function EventsPage() {
         } finally {
             setLoading(false);
         }
-    }, [selectedStatus, searchQuery, selectedCategory, selectedDepartment, sortBy, page, categories.length, departments.length]);
+    }, [selectedStatus, selectedPrice, searchQuery, selectedCategory, selectedDepartment, sortBy, page, dateRange, categories.length, departments.length]);
 
     useEffect(() => {
         if (!isHydrated) return;
@@ -228,7 +210,7 @@ export default function EventsPage() {
         if (isHydrated && isAuthenticated) {
             fetchData(true);
         }
-    }, [isAuthenticated, isHydrated, selectedStatus, selectedPrice, selectedCategory, selectedDepartment, sortBy, fetchData]);
+    }, [isAuthenticated, isHydrated, selectedStatus, selectedPrice, selectedCategory, selectedDepartment, sortBy, dateRange, fetchData]);
 
     useEffect(() => {
         if (!isHydrated || !isAuthenticated) return;
@@ -246,12 +228,13 @@ export default function EventsPage() {
         setSelectedDepartment(null);
         setSelectedStatus('upcoming');
         setSelectedPrice(undefined);
+        setDateRange('');
         setSortBy('start_time|desc');
     };
 
     const hasFilters = useMemo(() =>
-        searchQuery || selectedCategory || selectedDepartment || selectedStatus !== 'upcoming' || selectedPrice !== undefined || sortBy !== 'start_time|desc',
-        [searchQuery, selectedCategory, selectedDepartment, selectedStatus, selectedPrice, sortBy]
+        searchQuery || selectedCategory || selectedDepartment || selectedStatus !== 'upcoming' || selectedPrice !== undefined || dateRange !== '' || sortBy !== 'start_time|desc',
+        [searchQuery, selectedCategory, selectedDepartment, selectedStatus, selectedPrice, dateRange, sortBy]
     );
 
     const kanbanGroups = useMemo(() => {
@@ -392,6 +375,40 @@ export default function EventsPage() {
                                 ))}
                             </div>
 
+                            {/* Quick price filter */}
+                            <div className="flex items-center gap-1 p-1 bg-[var(--bg-muted)] rounded-xl shrink-0">
+                                <button
+                                    onClick={() => setSelectedPrice(undefined)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                                        selectedPrice === undefined
+                                            ? 'bg-white text-emerald-600 shadow-[var(--shadow-xs)]'
+                                            : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                                    }`}
+                                >
+                                    💰 Tất cả
+                                </button>
+                                <button
+                                    onClick={() => setSelectedPrice(true)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                                        selectedPrice === true
+                                            ? 'bg-white text-emerald-600 shadow-[var(--shadow-xs)]'
+                                            : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                                    }`}
+                                >
+                                    ✓ Miễn phí
+                                </button>
+                                <button
+                                    onClick={() => setSelectedPrice(false)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                                        selectedPrice === false
+                                            ? 'bg-white text-[var(--color-brand-orange)] shadow-[var(--shadow-xs)]'
+                                            : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                                    }`}
+                                >
+                                    💵 Có phí
+                                </button>
+                            </div>
+
                             {/* Filter toggle */}
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
@@ -405,7 +422,7 @@ export default function EventsPage() {
                                 <span className="hidden sm:inline">Bộ lọc</span>
                                 {hasFilters && (
                                     <span className="w-5 h-5 rounded-full bg-[var(--color-brand-orange)] text-white text-xs font-bold flex items-center justify-center">
-                                        {(Number(!!selectedCategory) + Number(!!selectedDepartment) + Number(!!searchQuery) + (sortBy !== 'start_time|desc' ? 1 : 0) + Number(selectedPrice !== undefined))}
+                                        {(Number(!!selectedCategory) + Number(!!selectedDepartment) + Number(!!searchQuery) + (sortBy !== 'start_time|desc' ? 1 : 0) + Number(selectedPrice !== undefined) + Number(dateRange !== ''))}
                                     </span>
                                 )}
                             </button>
@@ -455,15 +472,15 @@ export default function EventsPage() {
                                     </div>
 
                                     <div>
-                                        <label className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1.5">Phí tham dự</label>
+                                        <label className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1.5">Thời gian</label>
                                         <div className="relative">
                                             <select
-                                                value={selectedPrice === undefined ? '' : String(selectedPrice)}
-                                                onChange={(e) => setSelectedPrice(e.target.value === '' ? undefined : e.target.value === 'true')}
+                                                value={dateRange}
+                                                onChange={(e) => setDateRange(e.target.value)}
                                                 className="w-full h-11 rounded-xl border-2 border-[var(--border-default)] bg-white px-4 pr-10 text-sm font-medium text-[var(--text-primary)] focus:outline-none focus:border-[var(--color-brand-navy)] transition-colors appearance-none cursor-pointer shadow-[var(--shadow-xs)]"
                                             >
-                                                {PRICE_OPTIONS.map((opt) => (
-                                                    <option key={String(opt.value)} value={String(opt.value)}>{opt.label}</option>
+                                                {DATE_RANGE_OPTIONS.map((opt) => (
+                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                 ))}
                                             </select>
                                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
@@ -508,6 +525,11 @@ export default function EventsPage() {
                                         {selectedPrice !== undefined && (
                                             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 rounded-lg text-xs font-medium text-emerald-700">
                                                 {selectedPrice ? 'Miễn phí' : 'Có phí'}
+                                            </span>
+                                        )}
+                                        {dateRange && (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-violet-50 rounded-lg text-xs font-medium text-violet-700">
+                                                {DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label}
                                             </span>
                                         )}
                                         {selectedStatus !== 'upcoming' && (
@@ -676,9 +698,16 @@ export default function EventsPage() {
                                                                 <Users className="w-3.5 h-3.5" />
                                                                 <span>{event.current_registrations || 0}/{event.capacity}</span>
                                                             </div>
-                                                            <span className={`font-bold text-xs ${getRegPercent(event) >= 90 ? 'text-[var(--color-brand-red)]' : 'text-[var(--text-muted)]'}`}>
-                                                                {getRegPercent(event)}% đầy
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                {getRegPercent(event) >= 90 && (
+                                                                    <span className="px-2 py-0.5 bg-red-50 text-red-600 text-xs font-bold rounded-full animate-pulse">
+                                                                        🔥 Sắp hết chỗ
+                                                                    </span>
+                                                                )}
+                                                                <span className={`font-bold text-xs ${getRegPercent(event) >= 90 ? 'text-[var(--color-brand-red)]' : 'text-[var(--text-muted)]'}`}>
+                                                                    {getRegPercent(event)}% đầy
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                         <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                                                             <div
@@ -853,20 +882,27 @@ export default function EventsPage() {
 
                                                         {/* Capacity */}
                                                         <td className="px-4 py-3.5">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-16 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
-                                                                    <div
-                                                                        className={`h-full rounded-full ${
-                                                                            getRegPercent(event) >= 90 ? 'bg-[var(--color-brand-red)]'
-                                                                            : getRegPercent(event) >= 70 ? 'bg-[var(--color-brand-orange)]'
-                                                                            : 'bg-[var(--color-brand-navy)]'
-                                                                        }`}
-                                                                        style={{ width: `${getRegPercent(event)}%` }}
-                                                                    />
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-16 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className={`h-full rounded-full ${
+                                                                                getRegPercent(event) >= 90 ? 'bg-[var(--color-brand-red)]'
+                                                                                : getRegPercent(event) >= 70 ? 'bg-[var(--color-brand-orange)]'
+                                                                                : 'bg-[var(--color-brand-navy)]'
+                                                                            }`}
+                                                                            style={{ width: `${getRegPercent(event)}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className="text-xs font-medium text-[var(--text-muted)] whitespace-nowrap">
+                                                                        {event.current_registrations || 0}/{event.capacity}
+                                                                    </span>
                                                                 </div>
-                                                                <span className="text-xs font-medium text-[var(--text-muted)] whitespace-nowrap">
-                                                                    {event.current_registrations || 0}/{event.capacity}
-                                                                </span>
+                                                                {getRegPercent(event) >= 90 && (
+                                                                    <span className="px-2 py-0.5 bg-red-50 text-red-600 text-xs font-bold rounded-full w-fit">
+                                                                        🔥 Sắp hết chỗ
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </td>
 

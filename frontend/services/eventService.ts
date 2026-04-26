@@ -28,8 +28,11 @@ export const eventService = {
     sortBy?: string;
     sortOrder?: string;
     is_free?: boolean;
-  }): Promise<PaginatedResponse<Event>> {
-    // Map FE params to BE params, strip unsupported fields to avoid 400 errors
+    date_range?: string;
+  }): Promise<{
+    items: Event[];
+    pagination: { total: number; page: number; pageSize: number; totalPages: number };
+  }> {
     const {
       category_id,
       department_id,
@@ -49,10 +52,46 @@ export const eventService = {
       apiParams.is_free = String(is_free);
     }
 
-    const response = await axios.get<PaginatedResponse<Event>>('/events', {
+    const response = await axios.get('/events', {
       params: apiParams,
     });
-    return response.data;
+
+    // Parse response — BE returns: { success, data: { items, pagination } }
+    const payload = response.data as any;
+
+    // Normalize to: { items: Event[], pagination: {...} }
+    if (payload?.data?.items) {
+      return {
+        items: payload.data.items as Event[],
+        pagination: {
+          total: payload.data.pagination?.total ?? 0,
+          page: payload.data.pagination?.page ?? 1,
+          pageSize: payload.data.pagination?.pageSize ?? 20,
+          totalPages: payload.data.pagination?.totalPages ?? 1,
+        },
+      };
+    }
+
+    if (payload?.items) {
+      return {
+        items: Array.isArray(payload.items) ? payload.items as Event[] : [],
+        pagination: {
+          total: payload.pagination?.total ?? 0,
+          page: payload.pagination?.page ?? 1,
+          pageSize: payload.pagination?.pageSize ?? 20,
+          totalPages: payload.pagination?.totalPages ?? 1,
+        },
+      };
+    }
+
+    if (Array.isArray(payload)) {
+      return {
+        items: payload as Event[],
+        pagination: { total: payload.length, page: 1, pageSize: 20, totalPages: 1 },
+      };
+    }
+
+    return { items: [], pagination: { total: 0, page: 1, pageSize: 20, totalPages: 1 } };
   },
 
   async getById(id: number): Promise<Event> {

@@ -23,6 +23,7 @@ export const eventController = {
         status,
         search,
         is_free,
+        date_range,
         sortBy,
         sortOrder,
       } = req.query;
@@ -37,6 +38,7 @@ export const eventController = {
         status: status as string,
         search: search as string,
         is_free: parsedIsFree,
+        date_range: (date_range as string) || undefined,
         sortBy: sortBy as string | undefined,
         sortOrder: (sortOrder as 'asc' | 'desc') || 'desc',
       });

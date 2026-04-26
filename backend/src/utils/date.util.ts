@@ -59,3 +59,54 @@ export const isWithinTimeWindow = (startTime: Date, endTime: Date): boolean => {
 export const toISOString = (date: Date): string => {
   return date.toISOString();
 };
+
+const VN_UTC_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const getVietnamDateParts = (date: Date) => {
+  const vnDate = new Date(date.getTime() + VN_UTC_OFFSET_MS);
+
+  return {
+    year: vnDate.getUTCFullYear(),
+    month: vnDate.getUTCMonth(),
+    day: vnDate.getUTCDate(),
+    dayOfWeek: vnDate.getUTCDay(),
+  };
+};
+
+const createVietnamBoundary = (year: number, month: number, day: number): Date => {
+  return new Date(Date.UTC(year, month, day) - VN_UTC_OFFSET_MS);
+};
+
+export const getVietnamDateRange = (
+  range: 'today' | 'this_week' | 'this_month',
+  now: Date = new Date()
+): { start: Date; end: Date } => {
+  const { year, month, day, dayOfWeek } = getVietnamDateParts(now);
+  const startOfToday = createVietnamBoundary(year, month, day);
+
+  if (range === 'today') {
+    return {
+      start: startOfToday,
+      end: new Date(startOfToday.getTime() + DAY_MS - 1),
+    };
+  }
+
+  if (range === 'this_week') {
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const startOfWeek = new Date(startOfToday.getTime() + mondayOffset * DAY_MS);
+
+    return {
+      start: startOfWeek,
+      end: new Date(startOfWeek.getTime() + 7 * DAY_MS - 1),
+    };
+  }
+
+  const startOfMonth = createVietnamBoundary(year, month, 1);
+  const startOfNextMonth = createVietnamBoundary(year, month + 1, 1);
+
+  return {
+    start: startOfMonth,
+    end: new Date(startOfNextMonth.getTime() - 1),
+  };
+};
