@@ -14,7 +14,7 @@ const STATUS_CONFIG: Record<EventStatus, { label: string; bgClass: string; textC
     approved:  { label: 'Đã duyệt',     bgClass: 'bg-[color-mix(in_srgb,#00358F_12%,transparent)]', textClass: 'text-[#00358F]', dotClass: 'bg-[#00358F]' },
     upcoming:  { label: 'Sắp diễn ra', bgClass: 'bg-[color-mix(in_srgb,#00358F_10%,transparent)]', textClass: 'text-[#00358F]', dotClass: 'bg-[#00358F]' },
     ongoing:   { label: 'Đang diễn ra', bgClass: 'bg-[color-mix(in_srgb,#00A651_12%,transparent)]', textClass: 'text-[#00A651]', dotClass: 'bg-[#00A651]' },
-    completed: { label: 'Đã kết thúc', bgClass: 'bg-[var(--bg-muted)]',                         textClass: 'text-[var(--text-muted)]', dotClass: 'bg-[var(--text-muted)]' },
+    completed: { label: 'Đã kết thúc', bgClass: 'bg-(--bg-muted)',                         textClass: 'text-(--text-muted)', dotClass: 'bg-(--text-muted)' },
     cancelled: { label: 'Đã hủy',      bgClass: 'bg-[color-mix(in_srgb,#FF4000_12%,transparent)]', textClass: 'text-[#FF4000]', dotClass: 'bg-[#FF4000]' },
 };
 
@@ -45,7 +45,7 @@ export default function RecentEventsTable() {
                 return;
             }
             const response = await eventService.getAll({ page: 1, limit: 5 });
-            setEvents(response.data.items || []);
+            setEvents(response.items || []);
         } catch (error) {
             console.error('Failed to load recent events:', error);
             setEvents([]);
@@ -104,24 +104,24 @@ export default function RecentEventsTable() {
         }
     };
 
-    const tableHeaderClass = 'px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]';
+    const tableHeaderClass = 'px-5 py-3 text-left text-xs font-bold uppercase tracking-widest text-(--text-muted)';
 
     return (
-        <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden">
+        <div className="bg-white rounded-2xl border border-(--border-default) shadow-card overflow-hidden">
             {/* Card header */}
-            <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--border-default)] bg-gradient-to-r from-[var(--bg-muted)]/50 to-transparent">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-(--border-default) bg-linear-to-r from-(--bg-muted)/50 to-transparent">
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] flex items-center justify-center">
-                        <FileText className="w-4.5 h-4.5 text-[var(--color-brand-navy)]" />
+                        <FileText className="w-4.5 h-4.5 text-(--color-brand-navy)" />
                     </div>
                     <div>
-                        <h3 className="text-base font-bold text-[var(--text-primary)]">Sự kiện gần đây</h3>
-                        <p className="text-xs text-[var(--text-muted)]">{events.length} sự kiện được cập nhật</p>
+                        <h3 className="text-base font-bold text-(--text-primary)">Sự kiện gần đây</h3>
+                        <p className="text-xs text-(--text-muted)">{events.length} sự kiện được cập nhật</p>
                     </div>
                 </div>
                 <Link
                     href="/dashboard/events"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-[var(--color-brand-navy)] bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_14%,transparent)] transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-(--color-brand-navy) bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_14%,transparent)] transition-colors"
                 >
                     Xem tất cả
                     <span className="text-[var(--color-brand-orange)]">→</span>
@@ -131,7 +131,7 @@ export default function RecentEventsTable() {
             {/* Table */}
             <div className="overflow-x-auto">
                 <table className="w-full">
-                    <thead className="bg-[var(--bg-muted)]">
+                    <thead className="bg-(--bg-muted)">
                         <tr>
                             <th className={tableHeaderClass}>Tên sự kiện</th>
                             <th className={`${tableHeaderClass} hidden md:table-cell`}>Đơn vị</th>
@@ -141,13 +141,13 @@ export default function RecentEventsTable() {
                             <th className={`${tableHeaderClass} text-right`}>Thao tác</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--border-light)]">
+                    <tbody className="divide-y divide-(--border-light)">
                         {loading ? (
                             <tr>
                                 <td colSpan={6} className="px-5 py-10 text-center">
                                     <div className="flex items-center justify-center gap-3">
-                                        <div className="w-6 h-6 rounded-full border-2 border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
-                                        <span className="text-sm text-[var(--text-muted)] font-medium">Đang tải dữ liệu sự kiện...</span>
+                                        <div className="w-6 h-6 rounded-full border-2 border-(--color-brand-light) border-t-(--color-brand-navy) animate-spin" />
+                                        <span className="text-sm text-(--text-muted) font-medium">Đang tải dữ liệu sự kiện...</span>
                                     </div>
                                 </td>
                             </tr>
@@ -155,11 +155,11 @@ export default function RecentEventsTable() {
                             <tr>
                                 <td colSpan={6} className="px-5 py-10 text-center">
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-12 h-12 rounded-2xl bg-[var(--bg-muted)] flex items-center justify-center">
-                                            <Calendar className="w-6 h-6 text-[var(--text-muted)]" />
+                                        <div className="w-12 h-12 rounded-2xl bg-(--bg-muted) flex items-center justify-center">
+                                            <Calendar className="w-6 h-6 text-(--text-muted)" />
                                         </div>
-                                        <p className="text-sm font-semibold text-[var(--text-secondary)]">Chưa có sự kiện nào</p>
-                                        <p className="text-xs text-[var(--text-muted)]">Hãy tạo sự kiện đầu tiên.</p>
+                                        <p className="text-sm font-semibold text-(--text-secondary)">Chưa có sự kiện nào</p>
+                                        <p className="text-xs text-(--text-muted)">Hãy tạo sự kiện đầu tiên.</p>
                                     </div>
                                 </td>
                             </tr>
@@ -180,7 +180,7 @@ export default function RecentEventsTable() {
                                                 >
                                                     {event.title.charAt(0).toUpperCase()}
                                                 </div>
-                                                <span className="text-sm font-semibold text-[var(--text-primary)] line-clamp-1 max-w-[160px]">
+                                                <span className="text-sm font-semibold text-(--text-primary) line-clamp-1 max-w-[160px]">
                                                     {event.title}
                                                 </span>
                                             </div>
@@ -188,14 +188,14 @@ export default function RecentEventsTable() {
 
                                         {/* Organizer */}
                                         <td className="px-5 py-4 hidden md:table-cell">
-                                            <span className="text-sm text-[var(--text-secondary)]">
+                                            <span className="text-sm text-(--text-secondary)">
                                                 {event.organizer?.full_name || event.department?.name || '—'}
                                             </span>
                                         </td>
 
                                         {/* Time */}
                                         <td className="px-5 py-4">
-                                            <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                                            <div className="flex items-center gap-1.5 text-xs text-(--text-muted)">
                                                 <Clock className="w-3.5 h-3.5 flex-shrink-0" />
                                                 <span>{formatDate(event.start_time)}</span>
                                             </div>
@@ -205,10 +205,10 @@ export default function RecentEventsTable() {
                                         <td className="px-5 py-4">
                                             <div className="space-y-1.5 min-w-[100px]">
                                                 <div className="flex items-center justify-between text-xs">
-                                                    <span className="font-semibold text-[var(--text-secondary)]">{currentReg}/{capacity}</span>
-                                                    <span className="text-[var(--text-muted)]">{progress.toFixed(0)}%</span>
+                                                    <span className="font-semibold text-(--text-secondary)">{currentReg}/{capacity}</span>
+                                                    <span className="text-(--text-muted)">{progress.toFixed(0)}%</span>
                                                 </div>
-                                                <div className="h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                                                <div className="h-1.5 bg-(--bg-muted) rounded-full overflow-hidden">
                                                     <div
                                                         className={`h-full rounded-full transition-all duration-500 ${getProgressColor(progress)}`}
                                                         style={{ width: `${progress}%` }}
@@ -227,25 +227,25 @@ export default function RecentEventsTable() {
                                             <div className="relative" ref={menuRef}>
                                                 <button
                                                     onClick={() => setOpenMenuId((prev) => prev === event.id ? null : event.id)}
-                                                    className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                    className="p-2 rounded-lg text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-muted) transition-colors"
                                                     aria-label="Mở menu thao tác"
                                                 >
                                                     <MoreVertical className="w-4.5 h-4.5" />
                                                 </button>
 
                                                 {openMenuId === event.id && (
-                                                    <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-[var(--shadow-xl)] border border-[var(--border-default)] z-20 py-1 overflow-hidden">
+                                                    <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-[var(--shadow-xl)] border border-(--border-default) z-20 py-1 overflow-hidden">
                                                         <Link
                                                             href={`/dashboard/events/${event.id}`}
-                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-(--text-secondary) hover:bg-(--bg-muted) transition-colors"
                                                             onClick={() => setOpenMenuId(null)}
                                                         >
-                                                            <Eye className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                            <Eye className="w-4 h-4 text-(--color-brand-navy)" />
                                                             Xem chi tiết
                                                         </Link>
                                                         <Link
                                                             href={`/dashboard/events/${event.id}/edit`}
-                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-(--text-secondary) hover:bg-(--bg-muted) transition-colors"
                                                             onClick={() => setOpenMenuId(null)}
                                                         >
                                                             <Edit className="w-4 h-4 text-[var(--color-brand-orange)]" />
@@ -261,13 +261,13 @@ export default function RecentEventsTable() {
                                                                 {approvingId === event.id ? 'Đang phê duyệt...' : 'Phê duyệt'}
                                                             </button>
                                                         )}
-                                                        <div className="border-t border-[var(--border-light)] my-1" />
+                                                        <div className="border-t border-(--border-light) my-1" />
                                                         <Link
                                                             href={`/dashboard/checkin?eventId=${event.id}`}
-                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-colors"
+                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-(--text-secondary) hover:bg-(--bg-muted) transition-colors"
                                                             onClick={() => setOpenMenuId(null)}
                                                         >
-                                                            <LinkIcon className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                            <LinkIcon className="w-4 h-4 text-(--color-brand-navy)" />
                                                             Đi đến check-in
                                                         </Link>
                                                     </div>

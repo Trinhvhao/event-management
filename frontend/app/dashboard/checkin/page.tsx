@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     QrCode, Camera, CheckCircle, Award, Users, AlertCircle,
-    BarChart3, Download, Search, X, RotateCcw, LogOut, ScanLine, RefreshCw,
+    Download, Search, X, RotateCcw, LogOut, ScanLine, RefreshCw,
     WifiOff, Wifi, Cloud, Eye, Clock3
 } from 'lucide-react';
 import { checkinService, CheckinResult, AttendanceRecord, AttendanceStats, AttendanceDetail } from '@/services/checkinService';
@@ -58,9 +57,9 @@ function SectionHeader({ label, title, subtitle, action }: {
     return (
         <div className="flex items-center justify-between gap-4">
             <div>
-                {label && <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-brand-orange)] mb-0.5">{label}</p>}
-                <h2 className="text-base font-extrabold text-[var(--text-primary)]">{title}</h2>
-                {subtitle && <p className="text-xs text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
+                {label && <p className="text-xs font-bold uppercase tracking-[0.18em] text-(--color-brand-orange) mb-0.5">{label}</p>}
+                <h2 className="text-base font-extrabold text-(--text-primary)">{title}</h2>
+                {subtitle && <p className="text-xs text-(--text-muted) mt-0.5">{subtitle}</p>}
             </div>
             {action && <div>{action}</div>}
         </div>
@@ -68,7 +67,6 @@ function SectionHeader({ label, title, subtitle, action }: {
 }
 
 export default function CheckinPage() {
-    const router = useRouter();
     const { user } = useAuthStore();
 
     // ── Offline check-in hook ────────────────────────────────────────────
@@ -127,7 +125,7 @@ export default function CheckinPage() {
             const rawEvents =
                 user?.role === 'organizer'
                     ? await eventService.getMyEvents()
-                    : (await eventService.getAll({ limit: 100 })).data.items || [];
+                    : (await eventService.getAll({ limit: 100 })).items || [];
             const relevant = (rawEvents as Event[]).filter(
                 (e: Event) => e.status === 'ongoing' || e.status === 'upcoming' || e.status === 'approved'
             );
@@ -402,16 +400,16 @@ export default function CheckinPage() {
                     {!isOnline && (
                         <motion.div
                             initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
-                            className="relative overflow-hidden rounded-2xl border-2 border-[var(--color-brand-orange)]/40 bg-[var(--color-brand-orange)]/5 px-5 py-3.5"
+                            className="relative overflow-hidden rounded-2xl border-2 border-(--color-brand-orange)/40 bg-(--color-brand-orange)/5 px-5 py-3.5"
                         >
-                            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.gold.hex }} />
+                            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: ACCENT.gold.hex }} />
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[var(--color-brand-orange)]/10">
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-(--color-brand-orange)/10">
                                     <WifiOff className="w-5 h-5" style={{ color: ACCENT.gold.hex }} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-[var(--text-primary)]">Bạn đang offline</p>
-                                    <p className="text-xs text-[var(--text-secondary)]">Check-in được lưu cục bộ và sẽ đồng bộ khi có mạng.</p>
+                                    <p className="text-sm font-bold text-(--text-primary)">Bạn đang offline</p>
+                                    <p className="text-xs text-(--text-secondary)">Check-in được lưu cục bộ và sẽ đồng bộ khi có mạng.</p>
                                 </div>
                                 {pendingCount > 0 && (
                                     <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: ACCENT.gold.tint, color: ACCENT.gold.text }}>
@@ -425,25 +423,25 @@ export default function CheckinPage() {
                 </AnimatePresence>
 
                 {/* ─── PAGE HEADER ─── */}
-                <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
-                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
-                    <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-[var(--color-brand-navy)] opacity-[0.03] pointer-events-none" />
+                <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
+                    <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-(--color-brand-navy) via-(--color-brand-orange) to-brand-gold" />
+                    <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-(--color-brand-navy) opacity-[0.03] pointer-events-none" />
                     <div className="px-6 pt-6 pb-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)] shrink-0">
+                                <div className="w-12 h-12 rounded-xl bg-linear-to-br from-(--color-brand-navy) to-[#1a5fc8] flex items-center justify-center shadow-brand shrink-0">
                                     <QrCode className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Check-in</p>
-                                    <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">Điểm danh sự kiện</h1>
-                                    <p className="text-sm text-[var(--text-muted)]">Quét QR hoặc nhập MSSV để check-in / check-out sinh viên</p>
+                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-(--color-brand-orange)">Check-in</p>
+                                    <h1 className="text-2xl font-extrabold text-(--text-primary) tracking-tight leading-tight">Điểm danh sự kiện</h1>
+                                    <p className="text-sm text-(--text-muted)">Quét QR hoặc nhập MSSV để check-in / check-out sinh viên</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                                 {/* Online indicator */}
-                                <span className={`inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-xs font-semibold border border-[var(--border-default)] ${
-                                    isOnline ? 'text-[#00A651] bg-[rgba(0,166,81,0.06)]' : 'text-[var(--color-brand-orange)] bg-[rgba(242,102,0,0.06)]'
+                                <span className={`inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-xs font-semibold border border-(--border-default) ${
+                                    isOnline ? 'text-[#00A651] bg-[rgba(0,166,81,0.06)]' : 'text-(--color-brand-orange) bg-[rgba(242,102,0,0.06)]'
                                 }`}>
                                     {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
                                     {isOnline ? 'Online' : 'Offline'}
@@ -454,7 +452,7 @@ export default function CheckinPage() {
                                         onClick={() => void handleSync()}
                                         disabled={isSyncing || !isOnline}
                                         title="Đồng bộ check-in đang chờ"
-                                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-[var(--color-brand-navy)] bg-[var(--color-brand-navy)] text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-(--color-brand-navy) bg-(--color-brand-navy) text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                                     >
                                         {isSyncing ? (
                                             <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -463,13 +461,13 @@ export default function CheckinPage() {
                                             </svg>
                                         ) : <Cloud className="w-4 h-4" />}
                                         Đồng bộ
-                                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-white/20 text-xs font-bold">
+                                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-white/20 text-xs font-bold">
                                             {pendingCount}
                                         </span>
                                     </button>
                                 )}
                                 <button onClick={() => void loadAttendanceData()} disabled={!selectedEventId || loadingAttendances}
-                                    className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-[var(--border-default)] bg-white text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all disabled:opacity-50 active:scale-95">
+                                    className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-(--border-default) bg-white text-sm font-semibold text-(--text-secondary) hover:border-(--color-brand-navy) hover:text-(--color-brand-navy) transition-all disabled:opacity-50 active:scale-95">
                                     <RefreshCw className={`w-4 h-4 ${loadingAttendances ? 'animate-spin' : ''}`} />
                                     Làm mới
                                 </button>
@@ -479,15 +477,15 @@ export default function CheckinPage() {
                 </div>
 
                 {/* ─── EVENT SELECTOR ─── */}
-                <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+                <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
                     <div className="px-5 py-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex-1 min-w-0">
-                                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] block mb-1.5">Sự kiện đang điểm danh</label>
+                                <label className="text-xs font-bold uppercase tracking-[0.12em] text-(--text-muted) block mb-1.5">Sự kiện đang điểm danh</label>
                                 <select
                                     value={selectedEventId || ''}
                                     onChange={e => setSelectedEventId(Number(e.target.value) || null)}
-                                    className="w-full sm:max-w-md h-11 rounded-xl border-2 border-[var(--border-default)] bg-white px-4 text-sm font-semibold text-[var(--text-primary)] focus:border-[var(--color-brand-navy)] focus:outline-none transition-colors cursor-pointer shadow-[var(--shadow-xs)]"
+                                    className="w-full sm:max-w-md h-11 rounded-xl border-2 border-(--border-default) bg-white px-4 text-sm font-semibold text-(--text-primary) focus:border-(--color-brand-navy) focus:outline-none transition-colors cursor-pointer shadow-xs"
                                 >
                                     <option value="">-- Chọn sự kiện --</option>
                                     {events.map(ev => (
@@ -503,11 +501,11 @@ export default function CheckinPage() {
                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
                                         selectedEvent.status === 'ongoing' ? 'bg-[rgba(0,166,81,0.08)] text-[#007a3d]' :
                                         selectedEvent.status === 'upcoming' ? 'bg-[rgba(0,53,143,0.08)] text-[#00358F]' :
-                                        'bg-[var(--bg-muted)] text-[var(--text-muted)]'
+                                        'bg-(--bg-muted) text-(--text-muted)'
                                     }`}>
                                         <span className={`w-2 h-2 rounded-full ${
                                             selectedEvent.status === 'ongoing' ? 'bg-[#00A651] animate-pulse' :
-                                            selectedEvent.status === 'upcoming' ? 'bg-[#00358F]' : 'bg-[var(--text-muted)]'
+                                            selectedEvent.status === 'upcoming' ? 'bg-[#00358F]' : 'bg-(--text-muted)'
                                         }`} />
                                         {selectedEvent.status === 'ongoing' ? 'Đang diễn ra' : selectedEvent.status === 'upcoming' ? 'Sắp tới' : selectedEvent.status}
                                     </span>
@@ -526,12 +524,12 @@ export default function CheckinPage() {
                             { label: 'Đang check-in', value: stats.active_checkins, icon: <ScanLine className="w-5 h-5" />, accent: ACCENT.gold },
                             { label: 'Đã check-out', value: stats.total_checkouts, icon: <LogOut className="w-5 h-5" />, accent: ACCENT.grey },
                         ].map(({ label, value, icon, accent }) => (
-                            <div key={label} className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white p-4 shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] transition-all duration-300">
+                            <div key={label} className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white p-4 shadow-card hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-300">
                                 <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{ background: `linear-gradient(135deg, ${accent.tint} 0%, transparent 60%)` }} />
                                 <div className="relative flex items-start justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
-                                        <p className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-none">{value}</p>
+                                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-(--text-muted) mb-1.5">{label}</p>
+                                        <p className="text-2xl font-extrabold text-(--text-primary) tracking-tight leading-none">{value}</p>
                                     </div>
                                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: accent.tint, color: accent.hex }}>
                                         {icon}
@@ -548,9 +546,9 @@ export default function CheckinPage() {
                     {/* LEFT: Scanner panel */}
                     <div className="xl:col-span-2 space-y-4">
                         {/* Mode tabs */}
-                        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
-                            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.navy.hex }} />
-                            <div className="px-5 pt-5 pb-4 border-b border-[var(--border-light)]">
+                        <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
+                            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: ACCENT.navy.hex }} />
+                            <div className="px-5 pt-5 pb-4 border-b border-(--border-light)">
                                 <SectionHeader label="Scanner" title="Quét mã QR" subtitle="Chọn sự kiện bên trên để bắt đầu" />
                             </div>
                             <div className="p-5 space-y-4">
@@ -559,16 +557,16 @@ export default function CheckinPage() {
                                     <button onClick={() => setMode('manual')}
                                         className={`flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
                                             mode === 'manual'
-                                                ? 'bg-[var(--color-brand-navy)] text-white shadow-[var(--shadow-brand)]'
-                                                : 'border-2 border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] bg-white'
+                                                ? 'bg-(--color-brand-navy) text-white shadow-brand'
+                                                : 'border-2 border-(--border-default) text-(--text-secondary) hover:border-(--color-brand-navy) hover:text-(--color-brand-navy) bg-white'
                                         }`}>
                                         <QrCode className="w-4 h-4" /> Nhập mã
                                     </button>
                                     <button onClick={() => setMode('camera')}
                                         className={`flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
                                             mode === 'camera'
-                                                ? 'bg-[var(--color-brand-navy)] text-white shadow-[var(--shadow-brand)]'
-                                                : 'border-2 border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] bg-white'
+                                                ? 'bg-(--color-brand-navy) text-white shadow-brand'
+                                                : 'border-2 border-(--border-default) text-(--text-secondary) hover:border-(--color-brand-navy) hover:text-(--color-brand-navy) bg-white'
                                         }`}>
                                         <Camera className="w-4 h-4" /> Quét camera
                                     </button>
@@ -578,19 +576,19 @@ export default function CheckinPage() {
                                 {mode === 'manual' && (
                                     <div className="space-y-3">
                                         <div>
-                                            <label className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1.5">Dán nội dung mã QR</label>
+                                            <label className="text-xs font-bold uppercase tracking-widest text-(--text-muted) block mb-1.5">Dán nội dung mã QR</label>
                                             <textarea
                                                 value={qrInput}
                                                 onChange={e => setQrInput(e.target.value)}
                                                 rows={4}
                                                 placeholder="Dán nội dung mã QR vào đây..."
-                                                className="w-full p-3 rounded-xl border-2 border-[var(--border-default)] bg-white text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-brand-navy)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all resize-none shadow-[var(--shadow-xs)]"
+                                                className="w-full p-3 rounded-xl border-2 border-(--border-default) bg-white text-sm text-(--text-primary) placeholder:text-(--text-muted) focus:border-(--color-brand-navy) focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all resize-none shadow-xs"
                                             />
                                         </div>
                                         <button
                                             onClick={() => void doCheckin(qrInput)}
                                             disabled={!qrInput.trim() || processing || !selectedEventId}
-                                            className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-bold shadow-[var(--shadow-brand)] hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-(--color-brand-navy) text-white text-sm font-bold shadow-brand hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {processing ? (
                                                 <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
@@ -598,22 +596,22 @@ export default function CheckinPage() {
                                             Check-in bằng QR
                                         </button>
 
-                                        <div className="border-t border-[var(--border-light)] pt-4 space-y-3">
-                                            <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Hoặc check-in thủ công</p>
+                                        <div className="border-t border-(--border-light) pt-4 space-y-3">
+                                            <p className="text-xs font-bold uppercase tracking-widest text-(--text-muted)">Hoặc check-in thủ công</p>
                                             <div className="grid grid-cols-2 gap-2">
                                                 <input type="text" value={manualStudentId}
                                                     onChange={e => setManualStudentId(e.target.value)}
                                                     placeholder="MSSV (VD: B22DCCN001)"
-                                                    className="h-10 rounded-xl border-2 border-[var(--border-default)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-brand-navy)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all" />
+                                                    className="h-10 rounded-xl border-2 border-(--border-default) px-3 text-sm text-(--text-primary) placeholder:text-(--text-muted) focus:border-(--color-brand-navy) focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all" />
                                                 <input type="text" value={manualRegistrationId}
                                                     onChange={e => setManualRegistrationId(e.target.value)}
                                                     placeholder="Registration ID"
-                                                    className="h-10 rounded-xl border-2 border-[var(--border-default)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-brand-navy)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all" />
+                                                    className="h-10 rounded-xl border-2 border-(--border-default) px-3 text-sm text-(--text-primary) placeholder:text-(--text-muted) focus:border-(--color-brand-navy) focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all" />
                                             </div>
                                             <button
                                                 onClick={() => void handleManualCheckin()}
                                                 disabled={processing || !selectedEventId}
-                                                className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[var(--border-default)] text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                                className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-(--border-default) text-sm font-semibold text-(--text-secondary) hover:border-(--color-brand-navy) hover:text-(--color-brand-navy) transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                                             >
                                                 <Users className="w-4 h-4" /> Check-in thủ công
                                             </button>
@@ -624,7 +622,7 @@ export default function CheckinPage() {
                                 {/* Camera view */}
                                 {mode === 'camera' && (
                                     <div className="space-y-3">
-                                        <div className="relative overflow-hidden rounded-2xl border-2 border-[var(--border-default)] bg-black aspect-square">
+                                        <div className="relative overflow-hidden rounded-2xl border-2 border-(--border-default) bg-black aspect-square">
                                             <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
                                             {/* Scan frame overlay */}
                                             {cameraReady && (
@@ -656,9 +654,9 @@ export default function CheckinPage() {
                                             </div>
                                         )}
                                         {cameraError && (
-                                            <div className="flex items-start gap-2 rounded-xl border border-[var(--color-brand-red)]/20 bg-[var(--color-brand-red)]/5 p-3">
-                                                <AlertCircle className="w-4 h-4 text-[var(--color-brand-red)] shrink-0 mt-0.5" />
-                                                <p className="text-xs font-medium text-[var(--color-brand-red)]">{cameraError}</p>
+                                            <div className="flex items-start gap-2 rounded-xl border border-(--color-brand-red)/20 bg-(--color-brand-red)/5 p-3">
+                                                <AlertCircle className="w-4 h-4 text-(--color-brand-red) shrink-0 mt-0.5" />
+                                                <p className="text-xs font-medium text-(--color-brand-red)">{cameraError}</p>
                                             </div>
                                         )}
                                     </div>
@@ -670,29 +668,29 @@ export default function CheckinPage() {
                         {(error || lastResult) && (
                             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                                 {error && (
-                                    <div className="relative overflow-hidden rounded-2xl border-2 border-[var(--color-brand-red)]/30 bg-white shadow-[var(--shadow-card)]">
-                                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.red.hex }} />
+                                    <div className="relative overflow-hidden rounded-2xl border-2 border-(--color-brand-red)/30 bg-white shadow-card">
+                                        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: ACCENT.red.hex }} />
                                         <div className="flex items-center gap-4 p-5">
                                             <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: ACCENT.red.tint }}>
                                                 <AlertCircle className="w-6 h-6" style={{ color: ACCENT.red.hex }} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-[var(--text-primary)]">Check-in thất bại</p>
-                                                <p className="text-sm text-[var(--text-secondary)] mt-0.5">{error}</p>
+                                                <p className="text-sm font-bold text-(--text-primary)">Check-in thất bại</p>
+                                                <p className="text-sm text-(--text-secondary) mt-0.5">{error}</p>
                                             </div>
                                         </div>
                                     </div>
                                 )}
                                 {lastResult && scanSuccess && !lastResultQueued && (
-                                    <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-[var(--shadow-card)]">
-                                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.green.hex }} />
+                                    <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-card">
+                                        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: ACCENT.green.hex }} />
                                         <div className="p-5 text-center">
                                             <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: ACCENT.green.tint }}>
                                                 <CheckCircle className="w-8 h-8" style={{ color: ACCENT.green.hex }} />
                                             </motion.div>
-                                            <h3 className="text-lg font-extrabold text-[var(--text-primary)]">{lastResult.student.full_name}</h3>
-                                            <p className="text-sm text-[var(--text-muted)] mt-0.5">{lastResult.student.student_id || lastResult.student.email}</p>
-                                            <p className="text-sm text-[var(--text-secondary)] mt-1">{lastResult.event.title}</p>
+                                            <h3 className="text-lg font-extrabold text-(--text-primary)">{lastResult.student.full_name}</h3>
+                                            <p className="text-sm text-(--text-muted) mt-0.5">{lastResult.student.student_id || lastResult.student.email}</p>
+                                            <p className="text-sm text-(--text-secondary) mt-1">{lastResult.event.title}</p>
                                             {lastResult.event.training_points > 0 && (
                                                 <span className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-sm font-bold" style={{ background: ACCENT.gold.tint, color: ACCENT.gold.text }}>
                                                     <Award className="w-4 h-4" /> +{lastResult.event.training_points} điểm rèn luyện
@@ -702,14 +700,14 @@ export default function CheckinPage() {
                                     </div>
                                 )}
                                 {lastResultQueued && (
-                                    <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-[var(--shadow-card)]">
-                                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.gold.hex }} />
+                                    <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-card">
+                                        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: ACCENT.gold.hex }} />
                                         <div className="p-5 text-center">
                                             <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: ACCENT.gold.tint }}>
                                                 <Cloud className="w-8 h-8" style={{ color: ACCENT.gold.hex }} />
                                             </motion.div>
-                                            <h3 className="text-lg font-extrabold text-[var(--text-primary)]">Đã lưu offline</h3>
-                                            <p className="text-sm text-[var(--text-secondary)] mt-1">Mã QR đã được lưu cục bộ.</p>
+                                            <h3 className="text-lg font-extrabold text-(--text-primary)">Đã lưu offline</h3>
+                                            <p className="text-sm text-(--text-secondary) mt-1">Mã QR đã được lưu cục bộ.</p>
                                             <span className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-sm font-bold" style={{ background: ACCENT.gold.tint, color: ACCENT.gold.text }}>
                                                 <WifiOff className="w-4 h-4" /> Sẽ đồng bộ khi có mạng
                                             </span>
@@ -721,9 +719,9 @@ export default function CheckinPage() {
                     </div>
 
                     {/* RIGHT: Attendance list */}
-                    <div className="xl:col-span-3 relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
-                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.navy.hex }} />
-                        <div className="px-5 pt-5 pb-4 border-b border-[var(--border-light)]">
+                    <div className="xl:col-span-3 relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
+                        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: ACCENT.navy.hex }} />
+                        <div className="px-5 pt-5 pb-4 border-b border-(--border-light)">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <SectionHeader
                                     label="Live"
@@ -732,7 +730,7 @@ export default function CheckinPage() {
                                 />
                                 {attendances.length > 0 && (
                                     <button onClick={exportCsv}
-                                        className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border-2 border-[var(--border-default)] text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all active:scale-95 shrink-0">
+                                        className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border-2 border-(--border-default) text-xs font-semibold text-(--text-secondary) hover:border-(--color-brand-navy) hover:text-(--color-brand-navy) transition-all active:scale-95 shrink-0">
                                         <Download className="w-4 h-4" /> Xuất CSV
                                     </button>
                                 )}
@@ -741,36 +739,36 @@ export default function CheckinPage() {
 
                         {/* Search */}
                         {attendances.length > 0 && (
-                            <div className="px-5 py-3 border-b border-[var(--border-light)]">
+                            <div className="px-5 py-3 border-b border-(--border-light)">
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none z-10" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--text-muted) pointer-events-none z-10" />
                                     <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                                         placeholder="Tìm theo tên, MSSV, email..."
-                                        className="w-full h-10 pl-10 pr-4 rounded-xl border-2 border-[var(--border-default)] bg-white text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-brand-navy)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all" />
+                                        className="w-full h-10 pl-10 pr-4 rounded-xl border-2 border-(--border-default) bg-white text-sm text-(--text-primary) placeholder:text-(--text-muted) focus:border-(--color-brand-navy) focus:outline-none focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all" />
                                 </div>
                             </div>
                         )}
 
                         {/* List */}
-                        <div className="max-h-[600px] overflow-y-auto">
+                        <div className="max-h-150 overflow-y-auto">
                             {!selectedEventId ? (
                                 <div className="flex flex-col items-center justify-center gap-3 py-16 px-6 text-center">
-                                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-muted)] flex items-center justify-center">
-                                        <QrCode className="w-7 h-7 text-[var(--text-muted)]" />
+                                    <div className="w-14 h-14 rounded-2xl bg-(--bg-muted) flex items-center justify-center">
+                                        <QrCode className="w-7 h-7 text-(--text-muted)" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-[var(--text-secondary)]">Chưa chọn sự kiện</p>
-                                        <p className="text-xs text-[var(--text-muted)] mt-1">Chọn sự kiện bên trên để xem danh sách điểm danh</p>
+                                        <p className="text-sm font-bold text-(--text-secondary)">Chưa chọn sự kiện</p>
+                                        <p className="text-xs text-(--text-muted) mt-1">Chọn sự kiện bên trên để xem danh sách điểm danh</p>
                                     </div>
                                 </div>
                             ) : attendances.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center gap-3 py-16 px-6 text-center">
-                                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-muted)] flex items-center justify-center">
-                                        <Users className="w-7 h-7 text-[var(--text-muted)]" />
+                                    <div className="w-14 h-14 rounded-2xl bg-(--bg-muted) flex items-center justify-center">
+                                        <Users className="w-7 h-7 text-(--text-muted)" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-[var(--text-secondary)]">Chưa có sinh viên check-in</p>
-                                        <p className="text-xs text-[var(--text-muted)] mt-1">Quét mã QR hoặc nhập MSSV để bắt đầu</p>
+                                        <p className="text-sm font-bold text-(--text-secondary)">Chưa có sinh viên check-in</p>
+                                        <p className="text-xs text-(--text-muted) mt-1">Quét mã QR hoặc nhập MSSV để bắt đầu</p>
                                     </div>
                                 </div>
                             ) : (
@@ -779,7 +777,7 @@ export default function CheckinPage() {
                                         const isCheckedOut = att.status === 'checked_out';
                                         return (
                                             <div key={att.id}
-                                                className={`flex items-center gap-3 px-5 py-3.5 hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)] transition-colors ${i > 0 ? 'border-t border-[var(--border-light)]' : ''}`}>
+                                                className={`flex items-center gap-3 px-5 py-3.5 hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)] transition-colors ${i > 0 ? 'border-t border-(--border-light)' : ''}`}>
                                                 {/* Avatar placeholder */}
                                                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0" style={{ background: ACCENT.navy.hex }}>
                                                     {att.registration.user.full_name.charAt(0).toUpperCase()}
@@ -787,20 +785,20 @@ export default function CheckinPage() {
 
                                                 {/* Info */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">{att.registration.user.full_name}</p>
-                                                    <p className="text-[11px] text-[var(--text-muted)]">{att.registration.user.student_id || att.registration.user.email}</p>
+                                                    <p className="text-sm font-bold text-(--text-primary) truncate">{att.registration.user.full_name}</p>
+                                                    <p className="text-[11px] text-(--text-muted)">{att.registration.user.student_id || att.registration.user.email}</p>
                                                 </div>
 
                                                 {/* Time */}
                                                 <div className="text-right shrink-0 hidden sm:block">
-                                                    <p className="text-xs font-semibold text-[var(--text-secondary)]">{format(new Date(att.checked_in_at), 'HH:mm')}</p>
-                                                    <p className="text-xs text-[var(--text-muted)]">{format(new Date(att.checked_in_at), 'dd/MM')}</p>
+                                                    <p className="text-xs font-semibold text-(--text-secondary)">{format(new Date(att.checked_in_at), 'HH:mm')}</p>
+                                                    <p className="text-xs text-(--text-muted)">{format(new Date(att.checked_in_at), 'dd/MM')}</p>
                                                 </div>
 
                                                 {/* Status badge */}
                                                 <div className="shrink-0">
                                                     {isCheckedOut ? (
-                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[var(--bg-muted)] text-[var(--text-muted)]">
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-(--bg-muted) text-(--text-muted)">
                                                             <LogOut className="w-3 h-3" /> Đã check-out
                                                         </span>
                                                     ) : (
@@ -815,7 +813,7 @@ export default function CheckinPage() {
                                                     <button
                                                         onClick={() => void handleViewAttendance(att.id)}
                                                         title="Xem chi tiết"
-                                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-secondary)] transition-colors">
+                                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-(--text-muted) hover:bg-(--bg-muted) hover:text-(--text-secondary) transition-colors">
                                                         {loadingAttendanceId === att.id ? (
                                                             <RefreshCw className="w-4 h-4 animate-spin" />
                                                         ) : (
@@ -826,14 +824,14 @@ export default function CheckinPage() {
                                                         <button
                                                             onClick={() => void handleCheckout(att.id, att.registration.user.full_name)}
                                                             title="Check-out"
-                                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-secondary)] transition-colors">
+                                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-(--text-muted) hover:bg-(--bg-muted) hover:text-(--text-secondary) transition-colors">
                                                             <LogOut className="w-4 h-4" />
                                                         </button>
                                                     ) : (
                                                         <button
                                                             onClick={() => void handleUndo(att.id, att.registration.user.full_name)}
                                                             title="Hủy bản ghi"
-                                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-red-50 hover:text-[var(--color-brand-red)] transition-colors">
+                                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-(--text-muted) hover:bg-red-50 hover:text-(--color-brand-red) transition-colors">
                                                             <RotateCcw className="w-4 h-4" />
                                                         </button>
                                                     )}
@@ -847,19 +845,19 @@ export default function CheckinPage() {
 
                         {/* ─── PENDING QUEUE SECTION ─── */}
                         {pendingCount > 0 && (
-                            <div className="border-t-2 border-dashed border-[var(--color-brand-orange)]/30 px-5 py-4 bg-[var(--color-brand-orange)]/3">
+                            <div className="border-t-2 border-dashed border-(--color-brand-orange)/30 px-5 py-4 bg-(--color-brand-orange)/3">
                                 <div className="flex items-center justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-2">
                                         <Cloud className="w-4 h-4" style={{ color: ACCENT.gold.hex }} />
                                         <span className="text-xs font-bold uppercase tracking-[0.12em]" style={{ color: ACCENT.gold.text }}>Đang chờ đồng bộ</span>
-                                        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-bold bg-[var(--color-brand-orange)] text-white">
+                                        <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1 rounded-full text-xs font-bold bg-(--color-brand-orange) text-white">
                                             {pendingCount}
                                         </span>
                                     </div>
                                     <button
                                         onClick={() => void handleSync()}
                                         disabled={isSyncing || !isOnline}
-                                        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold border border-[var(--color-brand-orange)]/40 text-[var(--color-brand-orange)] hover:bg-[var(--color-brand-orange)]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold border border-(--color-brand-orange)/40 text-(--color-brand-orange) hover:bg-(--color-brand-orange)/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         {isSyncing ? (
                                             <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -872,14 +870,14 @@ export default function CheckinPage() {
                                 </div>
                                 <div className="space-y-1.5">
                                     {pendingItems.map(item => (
-                                        <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white border border-[var(--color-brand-orange)]/20">
-                                            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold text-white shrink-0 ${
-                                                item.retries >= 3 ? 'bg-red-400' : 'bg-[var(--color-brand-orange)]'
+                                        <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white border border-(--color-brand-orange)/20">
+                                            <span className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-xs font-bold text-white shrink-0 ${
+                                                item.retries >= 3 ? 'bg-red-400' : 'bg-(--color-brand-orange)'
                                             }`}>
                                                 {item.retries + 1}
                                             </span>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                                <p className="text-xs font-semibold text-(--text-primary) truncate">
                                                     {item.action === 'qr_checkin'
                                                         ? `QR: ${((item.payload as unknown as { qr_code: string }).qr_code).slice(0, 24)}...`
                                                         : `Thủ công: Event #${(item.payload as unknown as { event_id: number }).event_id}`
@@ -889,7 +887,7 @@ export default function CheckinPage() {
                                                     <p className="text-xs text-red-500 truncate">{item.lastError}</p>
                                                 )}
                                             </div>
-                                            <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                                            <span className="shrink-0 text-xs text-(--text-muted)">
                                                 {format(new Date(item.timestamp), 'HH:mm:ss')}
                                             </span>
                                         </div>
@@ -903,15 +901,15 @@ export default function CheckinPage() {
 
             {selectedAttendance && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-                    <div className="w-full max-w-2xl rounded-3xl border border-[var(--border-default)] bg-white shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-[var(--border-light)] px-6 py-5">
+                    <div className="w-full max-w-2xl rounded-3xl border border-(--border-default) bg-white shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-(--border-light) px-6 py-5">
                             <div>
-                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-brand-orange)]">Attendance</p>
-                                <h3 className="text-xl font-extrabold text-[var(--text-primary)]">Chi tiết điểm danh</h3>
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-(--color-brand-orange)">Attendance</p>
+                                <h3 className="text-xl font-extrabold text-(--text-primary)">Chi tiết điểm danh</h3>
                             </div>
                             <button
                                 onClick={() => setSelectedAttendance(null)}
-                                className="rounded-xl border border-[var(--border-default)] p-2 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+                                className="rounded-xl border border-(--border-default) p-2 text-(--text-muted) transition-colors hover:text-(--text-primary)"
                             >
                                 <X className="h-5 w-5" />
                             </button>
@@ -919,34 +917,34 @@ export default function CheckinPage() {
 
                         <div className="space-y-5 px-6 py-5">
                             <div className="grid gap-4 md:grid-cols-2">
-                                <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-muted)]/30 p-4">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Sinh viên</p>
-                                    <p className="mt-2 text-lg font-bold text-[var(--text-primary)]">{selectedAttendance.registration.user.full_name}</p>
-                                    <p className="text-sm text-[var(--text-secondary)]">{selectedAttendance.registration.user.student_id || selectedAttendance.registration.user.email}</p>
+                                <div className="rounded-2xl border border-(--border-default) bg-(--bg-muted)/30 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-(--text-muted)">Sinh viên</p>
+                                    <p className="mt-2 text-lg font-bold text-(--text-primary)">{selectedAttendance.registration.user.full_name}</p>
+                                    <p className="text-sm text-(--text-secondary)">{selectedAttendance.registration.user.student_id || selectedAttendance.registration.user.email}</p>
                                 </div>
-                                <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-muted)]/30 p-4">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Sự kiện</p>
-                                    <p className="mt-2 text-lg font-bold text-[var(--text-primary)]">{selectedAttendance.registration.event?.title || 'Không xác định'}</p>
-                                    <p className="text-sm text-[var(--text-secondary)]">Mã bản ghi #{selectedAttendance.id}</p>
+                                <div className="rounded-2xl border border-(--border-default) bg-(--bg-muted)/30 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-(--text-muted)">Sự kiện</p>
+                                    <p className="mt-2 text-lg font-bold text-(--text-primary)">{selectedAttendance.registration.event?.title || 'Không xác định'}</p>
+                                    <p className="text-sm text-(--text-secondary)">Mã bản ghi #{selectedAttendance.id}</p>
                                 </div>
                             </div>
 
                             <div className="grid gap-4 md:grid-cols-2">
-                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
+                                <div className="rounded-2xl border border-(--border-default) p-4">
                                     <div className="flex items-center gap-2">
-                                        <Clock3 className="h-4 w-4 text-[var(--color-brand-navy)]" />
-                                        <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Check-in</p>
+                                        <Clock3 className="h-4 w-4 text-(--color-brand-navy)" />
+                                        <p className="text-xs font-bold uppercase tracking-wide text-(--text-muted)">Check-in</p>
                                     </div>
-                                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                    <p className="mt-2 text-sm font-semibold text-(--text-primary)">
                                         {format(new Date(selectedAttendance.checked_in_at), 'dd/MM/yyyy HH:mm:ss', { locale: vi })}
                                     </p>
                                 </div>
-                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
+                                <div className="rounded-2xl border border-(--border-default) p-4">
                                     <div className="flex items-center gap-2">
-                                        <LogOut className="h-4 w-4 text-[var(--color-brand-orange)]" />
-                                        <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Check-out</p>
+                                        <LogOut className="h-4 w-4 text-(--color-brand-orange)" />
+                                        <p className="text-xs font-bold uppercase tracking-wide text-(--text-muted)">Check-out</p>
                                     </div>
-                                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                    <p className="mt-2 text-sm font-semibold text-(--text-primary)">
                                         {selectedAttendance.checked_out_at
                                             ? format(new Date(selectedAttendance.checked_out_at), 'dd/MM/yyyy HH:mm:ss', { locale: vi })
                                             : 'Chưa check-out'}
@@ -955,11 +953,11 @@ export default function CheckinPage() {
                             </div>
 
                             <div className="grid gap-4 md:grid-cols-2">
-                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Trạng thái</p>
+                                <div className="rounded-2xl border border-(--border-default) p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-(--text-muted)">Trạng thái</p>
                                     <div className="mt-2">
                                         {selectedAttendance.status === 'checked_out' ? (
-                                            <span className="inline-flex items-center gap-2 rounded-xl bg-[var(--bg-muted)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)]">
+                                            <span className="inline-flex items-center gap-2 rounded-xl bg-(--bg-muted) px-3 py-2 text-sm font-bold text-(--text-secondary)">
                                                 <LogOut className="h-4 w-4" />
                                                 Đã check-out
                                             </span>
@@ -971,9 +969,9 @@ export default function CheckinPage() {
                                         )}
                                     </div>
                                 </div>
-                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Người thực hiện</p>
-                                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                <div className="rounded-2xl border border-(--border-default) p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-(--text-muted)">Người thực hiện</p>
+                                    <p className="mt-2 text-sm font-semibold text-(--text-primary)">
                                         {selectedAttendance.checker?.full_name || `#${selectedAttendance.checked_by}`}
                                     </p>
                                 </div>

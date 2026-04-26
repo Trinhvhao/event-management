@@ -8,8 +8,8 @@ import { useAuthStore } from '@/store/authStore';
 import {
     Calendar, MapPin, Users, Award, Clock, ArrowLeft,
     CheckCircle, XCircle, AlertCircle, Edit2, Ban, Hourglass, Trash2,
-    Star, Bookmark, Share2, ChevronRight, CalendarCheck, Timer,
-    GraduationCap, Building2, Ticket, Info, Bell, Mail
+    Star, ChevronRight, CalendarCheck, Timer,
+    GraduationCap, Building2, Ticket, Info, Bell, Tag
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { eventService } from '@/services/eventService';
@@ -129,7 +129,7 @@ export default function EventDetailPage() {
         } finally {
             setLoading(false);
         }
-    }, [eventId, user?.role]);
+    }, [eventId, router, user?.role]);
 
     useEffect(() => {
         if (!isHydrated) return;
@@ -331,7 +331,7 @@ export default function EventDetailPage() {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-64">
-                    <div className="w-12 h-12 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
+                    <div className="w-12 h-12 rounded-full border-[3px] border-(--color-brand-light) border-t-(--color-brand-navy) animate-spin" />
                 </div>
             </DashboardLayout>
         );
@@ -353,25 +353,25 @@ export default function EventDetailPage() {
 
     return (
         <DashboardLayout>
-            <div className="space-y-5 max-w-screen-xl mx-auto">
+            <div className="space-y-5 max-w-7xl mx-auto">
 
                 {/* Back button */}
                 <button
                     onClick={() => router.back()}
-                    className="inline-flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--color-brand-navy)] transition-colors group"
+                    className="inline-flex items-center gap-2 text-(--text-secondary) hover:text-(--color-brand-navy) transition-colors group"
                 >
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     <span className="text-sm font-semibold">Quay lại</span>
                 </button>
 
                 {/* ── EVENT HERO ── */}
-                <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+                <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
                     {/* Banner image */}
-                    <div className="relative h-56 md:h-72 lg:h-80 bg-gradient-to-br from-[var(--color-brand-navy)] via-[#1a3a7a] to-[var(--color-brand-navy)] overflow-hidden">
+                    <div className="relative h-56 md:h-72 lg:h-80 bg-linear-to-br from-(--color-brand-navy) via-[#1a3a7a] to-(--color-brand-navy) overflow-hidden">
                         {event.image_url ? (
                             <>
                                 <Image src={event.image_url} alt={event.title} fill sizes="100vw" className="object-cover" priority />
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent" />
+                                <div className="absolute inset-0 bg-linear-to-t from-slate-900/70 via-transparent to-transparent" />
                             </>
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -384,14 +384,14 @@ export default function EventDetailPage() {
                             {getStatusBadge(event.status)}
                         </div>
                         {event.is_featured && (
-                            <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-brand-orange)] text-white text-sm font-bold rounded-lg shadow-md">
+                            <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-(--color-brand-orange) text-white text-sm font-bold rounded-lg shadow-md">
                                 <Star className="w-4 h-4 fill-current" />
                                 Sự kiện nổi bật
                             </div>
                         )}
                         {Number(event.event_cost) > 0 && (
                             <div className="absolute bottom-4 left-4 z-10">
-                                <span className="px-4 py-2 bg-[var(--color-brand-orange)] text-white text-lg font-extrabold rounded-xl shadow-lg flex items-center gap-1.5">
+                                <span className="px-4 py-2 bg-(--color-brand-orange) text-white text-lg font-extrabold rounded-xl shadow-lg flex items-center gap-1.5">
                                     <Ticket className="w-5 h-5" />
                                     {new Intl.NumberFormat('vi-VN').format(Number(event.event_cost))}đ
                                 </span>
@@ -403,7 +403,7 @@ export default function EventDetailPage() {
                             <div className={`absolute bottom-4 right-4 z-10 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg ${
                                 countdown.urgent
                                     ? 'bg-red-500 text-white animate-pulse'
-                                    : 'bg-white/90 backdrop-blur-sm text-[var(--color-brand-navy)]'
+                                    : 'bg-white/90 backdrop-blur-sm text-(--color-brand-navy)'
                             }`}>
                                 <Timer className="w-4 h-4 inline mr-1" />
                                 {countdown.text}
@@ -430,12 +430,12 @@ export default function EventDetailPage() {
                         </div>
 
                         {/* Title + Description */}
-                        <h1 className="text-2xl md:text-3xl font-extrabold text-[var(--text-primary)] mb-3 leading-tight">
+                        <h1 className="text-2xl md:text-3xl font-extrabold text-(--text-primary) mb-3 leading-tight">
                             {event.title}
                         </h1>
 
                         {event.description && (
-                            <p className="text-[var(--text-secondary)] leading-relaxed mb-6">
+                            <p className="text-(--text-secondary) leading-relaxed mb-6">
                                 {event.description}
                             </p>
                         )}
@@ -460,7 +460,7 @@ export default function EventDetailPage() {
                                                     {registering ? 'Đang hủy...' : 'Hủy đăng ký'}
                                                 </button>
                                             )}
-                                        </>
+                                        </div>
                                     ) : waitlistInfo?.in_waitlist ? (
                                         <div className="flex flex-col gap-2">
                                             <div className="flex items-center gap-2 px-5 py-3 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 font-semibold">
@@ -471,16 +471,16 @@ export default function EventDetailPage() {
                                                 className="px-5 py-2.5 bg-white text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm font-semibold">
                                                 {registering ? 'Đang rời...' : 'Rời danh sách chờ'}
                                             </button>
-                                        </>
+                                        </div>
                                     ) : canJoinWaitlist() ? (
                                         <button onClick={handleJoinWaitlist} disabled={registering}
-                                            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold flex items-center gap-2 shadow-md">
+                                            className="px-6 py-3 bg-linear-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold flex items-center gap-2 shadow-md">
                                             <Hourglass className="w-5 h-5" />
                                             {registering ? 'Đang xử lý...' : 'Vào danh sách chờ'}
                                         </button>
                                     ) : canRegister() ? (
                                         <button onClick={handleRegister} disabled={registering}
-                                            className="px-8 py-3 bg-gradient-to-r from-[var(--color-brand-navy)] to-[#1a5fc8] text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold shadow-[var(--shadow-brand)]">
+                                            className="px-8 py-3 bg-linear-to-r from-(--color-brand-navy) to-[#1a5fc8] text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold shadow-brand">
                                             {registering ? 'Đang đăng ký...' : 'Đăng ký ngay'}
                                         </button>
                                     ) : (
@@ -516,7 +516,7 @@ export default function EventDetailPage() {
                                 <>
                                     {(event.status === 'pending' || event.status === 'approved' || event.status === 'upcoming') && (
                                         <button onClick={() => router.push(`/dashboard/events/${event.id}/edit`)}
-                                            className="px-5 py-2.5 bg-white border border-[var(--color-brand-navy)] text-[var(--color-brand-navy)] rounded-xl hover:bg-[var(--color-brand-navy)]/5 transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm">
+                                            className="px-5 py-2.5 bg-white border border-(--color-brand-navy) text-(--color-brand-navy) rounded-xl hover:bg-(--color-brand-navy)/5 transition-colors flex items-center gap-2 text-sm font-semibold shadow-sm">
                                             <Edit2 className="w-4 h-4" />
                                             Chỉnh sửa
                                         </button>
@@ -556,11 +556,11 @@ export default function EventDetailPage() {
                     <div className="lg:col-span-2 space-y-4">
 
                         {/* ── Time & Location Grid ── */}
-                        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
-                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] to-[var(--color-brand-orange)]" />
+                        <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
+                            <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-(--color-brand-navy) to-(--color-brand-orange)" />
                             <div className="px-6 py-5">
-                                <h2 className="text-base font-extrabold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                                    <Info className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                                <h2 className="text-base font-extrabold text-(--text-primary) mb-4 flex items-center gap-2">
+                                    <Info className="w-5 h-5 text-(--color-brand-navy)" />
                                     Thông tin sự kiện
                                 </h2>
 
@@ -572,7 +572,7 @@ export default function EventDetailPage() {
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">Ngày diễn ra</p>
-                                            <p className="font-bold text-[var(--text-primary)]">
+                                            <p className="font-bold text-(--text-primary)">
                                                 {getDayOfWeek(event.start_time)}, {format(new Date(event.start_time), 'dd/MM/yyyy', { locale: vi })}
                                             </p>
                                         </div>
@@ -585,10 +585,10 @@ export default function EventDetailPage() {
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-1">Giờ bắt đầu - Kết thúc</p>
-                                            <p className="font-bold text-[var(--text-primary)]">
+                                            <p className="font-bold text-(--text-primary)">
                                                 {format(new Date(event.start_time), 'HH:mm')} — {format(new Date(event.end_time), 'HH:mm')}
                                             </p>
-                                            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                                            <p className="text-xs text-(--text-muted) mt-0.5">
                                                 Thời lượng: <span className="font-semibold text-amber-700">{formatDuration(event.start_time, event.end_time)}</span>
                                             </p>
                                         </div>
@@ -601,7 +601,7 @@ export default function EventDetailPage() {
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-1">Địa điểm</p>
-                                            <p className="font-bold text-[var(--text-primary)]">{event.location}</p>
+                                            <p className="font-bold text-(--text-primary)">{event.location}</p>
                                         </div>
                                     </div>
 
@@ -612,54 +612,54 @@ export default function EventDetailPage() {
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase tracking-wider text-purple-600 mb-1">Người tổ chức</p>
-                                            <p className="font-bold text-[var(--text-primary)]">{event.organizer?.full_name}</p>
+                                            <p className="font-bold text-(--text-primary)">{event.organizer?.full_name}</p>
                                             {event.department && (
-                                                <p className="text-xs text-[var(--text-muted)]">{event.department.name}</p>
+                                                <p className="text-xs text-(--text-muted)">{event.department.name}</p>
                                             )}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Additional info row */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-[var(--border-light)]">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-(--border-light)">
                                     {/* Category */}
                                     {event.category && (
-                                        <div className="text-center p-3 bg-[var(--bg-muted)] rounded-xl">
-                                            <p className="text-xs text-[var(--text-muted)] mb-1">Danh mục</p>
-                                            <p className="text-sm font-bold text-[var(--text-primary)] truncate">{event.category.name}</p>
+                                        <div className="text-center p-3 bg-(--bg-muted) rounded-xl">
+                                            <p className="text-xs text-(--text-muted) mb-1">Danh mục</p>
+                                            <p className="text-sm font-bold text-(--text-primary) truncate">{event.category.name}</p>
                                         </div>
                                     )}
 
                                     {/* Department */}
                                     {event.department && (
-                                        <div className="text-center p-3 bg-[var(--bg-muted)] rounded-xl">
-                                            <p className="text-xs text-[var(--text-muted)] mb-1">Khoa</p>
-                                            <p className="text-sm font-bold text-[var(--text-primary)] truncate">{event.department.code}</p>
+                                        <div className="text-center p-3 bg-(--bg-muted) rounded-xl">
+                                            <p className="text-xs text-(--text-muted) mb-1">Khoa</p>
+                                            <p className="text-sm font-bold text-(--text-primary) truncate">{event.department.code}</p>
                                         </div>
                                     )}
 
                                     {/* Duration */}
-                                    <div className="text-center p-3 bg-[var(--bg-muted)] rounded-xl">
-                                        <p className="text-xs text-[var(--text-muted)] mb-1">Thời lượng</p>
-                                        <p className="text-sm font-bold text-[var(--text-primary)]">
+                                    <div className="text-center p-3 bg-(--bg-muted) rounded-xl">
+                                        <p className="text-xs text-(--text-muted) mb-1">Thời lượng</p>
+                                        <p className="text-sm font-bold text-(--text-primary)">
                                             {formatDuration(event.start_time, event.end_time)}
                                         </p>
                                     </div>
 
                                     {/* Capacity */}
-                                    <div className="text-center p-3 bg-[var(--bg-muted)] rounded-xl">
-                                        <p className="text-xs text-[var(--text-muted)] mb-1">Sức chứa</p>
-                                        <p className="text-sm font-bold text-[var(--text-primary)]">{event.capacity} người</p>
+                                    <div className="text-center p-3 bg-(--bg-muted) rounded-xl">
+                                        <p className="text-xs text-(--text-muted) mb-1">Sức chứa</p>
+                                        <p className="text-sm font-bold text-(--text-primary)">{event.capacity} người</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         {/* ── Capacity & Registration Stats ── */}
-                        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+                        <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
                             <div className="px-6 py-5">
-                                <h2 className="text-base font-extrabold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                                    <Users className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                                <h2 className="text-base font-extrabold text-(--text-primary) mb-4 flex items-center gap-2">
+                                    <Users className="w-5 h-5 text-(--color-brand-navy)" />
                                     Lượt đăng ký
                                 </h2>
 
@@ -668,19 +668,19 @@ export default function EventDetailPage() {
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-2xl font-extrabold text-[var(--text-primary)]">{event.current_registrations || 0}</span>
-                                                <span className="text-sm text-[var(--text-muted)] font-medium">/ {event.capacity} đã đăng ký</span>
+                                                <span className="text-2xl font-extrabold text-(--text-primary)">{event.current_registrations || 0}</span>
+                                                <span className="text-sm text-(--text-muted) font-medium">/ {event.capacity} đã đăng ký</span>
                                             </div>
-                                            <span className={`text-sm font-bold ${regPercent >= 90 ? 'text-red-600' : 'text-[var(--color-brand-navy)]'}`}>
+                                            <span className={`text-sm font-bold ${regPercent >= 90 ? 'text-red-600' : 'text-(--color-brand-navy)'}`}>
                                                 {regPercent}% đầy
                                             </span>
                                         </div>
-                                        <div className="h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                                        <div className="h-3 bg-(--bg-muted) rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full rounded-full transition-all duration-700 ${
-                                                    regPercent >= 90 ? 'bg-gradient-to-r from-red-500 to-red-400'
-                                                    : regPercent >= 70 ? 'bg-gradient-to-r from-[var(--color-brand-orange)] to-amber-400'
-                                                    : 'bg-gradient-to-r from-[var(--color-brand-navy)] to-blue-400'
+                                                    regPercent >= 90 ? 'bg-linear-to-r from-red-500 to-red-400'
+                                                    : regPercent >= 70 ? 'bg-linear-to-r from-(--color-brand-orange) to-amber-400'
+                                                    : 'bg-linear-to-r from-(--color-brand-navy) to-blue-400'
                                                 }`}
                                                 style={{ width: `${regPercent}%` }}
                                             />
@@ -725,14 +725,14 @@ export default function EventDetailPage() {
 
                         {/* ── Description ── */}
                         {event.description && (
-                            <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+                            <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
+                                <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-(--color-brand-orange) to-brand-gold" />
                                 <div className="px-6 py-5">
-                                    <h2 className="text-base font-extrabold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-                                        <Info className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                                    <h2 className="text-base font-extrabold text-(--text-primary) mb-4 flex items-center gap-2">
+                                        <Info className="w-5 h-5 text-(--color-brand-navy)" />
                                         Mô tả sự kiện
                                     </h2>
-                                    <div className="prose max-w-none text-[var(--text-secondary)] leading-relaxed">
+                                    <div className="prose max-w-none text-(--text-secondary) leading-relaxed">
                                         <p className="whitespace-pre-wrap">{event.description}</p>
                                     </div>
                                 </div>
@@ -744,14 +744,14 @@ export default function EventDetailPage() {
                     <div className="space-y-4">
 
                         {/* ── Quick Stats Card ── */}
-                        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
-                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] to-[var(--color-brand-orange)]" />
+                        <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
+                            <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-(--color-brand-navy) to-(--color-brand-orange)" />
                             <div className="px-5 py-5 space-y-4">
-                                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Tóm tắt</h3>
+                                <h3 className="text-sm font-extrabold uppercase tracking-wider text-(--text-muted)">Tóm tắt</h3>
 
                                 {/* Training Points */}
-                                <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
-                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center shadow-md">
+                                <div className="flex items-center gap-3 p-4 bg-linear-to-br from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
+                                    <div className="w-11 h-11 rounded-xl bg-linear-to-br from-amber-400 to-orange-400 flex items-center justify-center shadow-md">
                                         <Award className="w-6 h-6 text-white" />
                                     </div>
                                     <div>
@@ -762,8 +762,8 @@ export default function EventDetailPage() {
 
                                 {/* Fee */}
                                 {Number(event.event_cost) > 0 ? (
-                                    <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-200">
-                                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[var(--color-brand-orange)] to-red-500 flex items-center justify-center shadow-md">
+                                    <div className="flex items-center gap-3 p-4 bg-linear-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-200">
+                                        <div className="w-11 h-11 rounded-xl bg-linear-to-br from-(--color-brand-orange) to-red-500 flex items-center justify-center shadow-md">
                                             <Ticket className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
@@ -774,8 +774,8 @@ export default function EventDetailPage() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl border border-emerald-200">
-                                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-md">
+                                    <div className="flex items-center gap-3 p-4 bg-linear-to-br from-emerald-50 to-green-50 rounded-xl border border-emerald-200">
+                                        <div className="w-11 h-11 rounded-xl bg-linear-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-md">
                                             <Ticket className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
@@ -793,7 +793,7 @@ export default function EventDetailPage() {
                                         </div>
                                         <div>
                                             <p className="text-xs text-slate-600 font-medium">Hạn đăng ký</p>
-                                            <p className="text-sm font-bold text-[var(--text-primary)]">
+                                            <p className="text-sm font-bold text-(--text-primary)">
                                                 {format(new Date(event.registration_deadline), 'dd/MM/yyyy HH:mm', { locale: vi })}
                                             </p>
                                             {isPastDeadline ? (
@@ -809,8 +809,8 @@ export default function EventDetailPage() {
 
                         {/* ── Waitlist Info Card ── */}
                         {waitlistInfo?.in_waitlist && (
-                            <div className="relative overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 shadow-[var(--shadow-card)] p-5">
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 to-orange-400" />
+                            <div className="relative overflow-hidden rounded-2xl border border-amber-300 bg-linear-to-br from-amber-50 to-orange-50 shadow-card p-5">
+                                <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-amber-400 to-orange-400" />
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
                                         <Hourglass className="w-5 h-5 text-amber-600" />
@@ -827,17 +827,17 @@ export default function EventDetailPage() {
                         )}
 
                         {/* ── Organizer Card ── */}
-                        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+                        <div className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card">
                             <div className="px-5 py-5">
-                                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--text-muted)] mb-4">Người tổ chức</h3>
+                                <h3 className="text-sm font-extrabold uppercase tracking-wider text-(--text-muted) mb-4">Người tổ chức</h3>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center text-white font-extrabold text-lg shadow-md shrink-0">
+                                    <div className="w-12 h-12 rounded-xl bg-linear-to-br from-(--color-brand-navy) to-[#1a5fc8] flex items-center justify-center text-white font-extrabold text-lg shadow-md shrink-0">
                                         {event.organizer?.full_name?.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="font-bold text-[var(--text-primary)] truncate">{event.organizer?.full_name}</p>
+                                        <p className="font-bold text-(--text-primary) truncate">{event.organizer?.full_name}</p>
                                         {event.organizer?.email && (
-                                            <p className="text-xs text-[var(--text-muted)] truncate">{event.organizer.email}</p>
+                                            <p className="text-xs text-(--text-muted) truncate">{event.organizer.email}</p>
                                         )}
                                         {event.department && (
                                             <p className="text-xs text-purple-600 font-medium flex items-center gap-1 mt-0.5">
@@ -852,8 +852,8 @@ export default function EventDetailPage() {
 
                         {/* ── My Registration Info ── */}
                         {isRegistered && (
-                            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 shadow-[var(--shadow-card)] p-5">
-                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 to-green-400" />
+                            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-linear-to-br from-emerald-50 to-green-50 shadow-card p-5">
+                                <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-emerald-400 to-green-400" />
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
                                         <CheckCircle className="w-5 h-5 text-emerald-600" />

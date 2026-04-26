@@ -139,7 +139,7 @@ export default function EditEventPage() {
         return (
             <DashboardLayout>
             <div className="text-center py-20">
-                <p className="text-[var(--dash-text-muted)]">Không tìm thấy sự kiện</p>
+                <p className="text-(--dash-text-muted)">Không tìm thấy sự kiện</p>
                 <Link href="/dashboard/my-events">
                     <Button variant="primary" className="mt-4">Quay lại</Button>
                 </Link>
@@ -163,7 +163,7 @@ export default function EditEventPage() {
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Card variant="glass" padding="lg" className="space-y-5">
                     {/* Thông tin cơ bản */}
-                    <h3 className="text-sm font-semibold text-[var(--dash-text-muted)] uppercase tracking-wide">Thông tin cơ bản</h3>
+                    <h3 className="text-sm font-semibold text-(--dash-text-muted) uppercase tracking-wide">Thông tin cơ bản</h3>
 
                     <Input label="Tiêu đề sự kiện *" placeholder="VD: Hội thảo AI & Machine Learning" error={errors.title?.message} {...register('title')} />
 
@@ -179,7 +179,7 @@ export default function EditEventPage() {
                     </div>
 
                     {/* Thời gian & Địa điểm */}
-                    <h3 className="text-sm font-semibold text-[var(--dash-text-muted)] uppercase tracking-wide pt-2 border-t border-[var(--dash-border-light)]">Thời gian & Địa điểm</h3>
+                    <h3 className="text-sm font-semibold text-(--dash-text-muted) uppercase tracking-wide pt-2 border-t border-(--dash-border-light)">Thời gian & Địa điểm</h3>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input label="Thời gian bắt đầu *" type="datetime-local" error={errors.start_time?.message} {...register('start_time')} />
@@ -189,7 +189,7 @@ export default function EditEventPage() {
                     <Input label="Địa điểm *" placeholder="VD: Hội trường A1, Tầng 5" error={errors.location?.message} iconLeft={<MapPin size={16} />} {...register('location')} />
 
                     {/* Cài đặt */}
-                    <h3 className="text-sm font-semibold text-[var(--dash-text-muted)] uppercase tracking-wide pt-2 border-t border-[var(--dash-border-light)]">Cài đặt</h3>
+                    <h3 className="text-sm font-semibold text-(--dash-text-muted) uppercase tracking-wide pt-2 border-t border-(--dash-border-light)">Cài đặt</h3>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input label="Số lượng tối đa *" type="number" error={errors.capacity?.message} iconLeft={<Users size={16} />} {...register('capacity')} />
@@ -209,7 +209,7 @@ export default function EditEventPage() {
 
                 {/* Submit */}
                 <div className="flex justify-end mt-6">
-                    <Button type="submit" variant="primary" isLoading={isSubmitting} icon={<Save size={16} />} className="!py-3 px-8">
+                    <Button type="submit" variant="primary" isLoading={isSubmitting} icon={<Save size={16} />} className="py-3! px-8">
                         Lưu thay đổi
                     </Button>
                 </div>
