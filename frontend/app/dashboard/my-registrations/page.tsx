@@ -23,7 +23,7 @@ function SummaryCard({ label, value, accent }: { label: string; value: number; a
     return (
         <div className="relative overflow-hidden rounded-xl border border-[var(--border-default)] bg-white p-4 shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] transition-all duration-300 cursor-default">
             <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-xl" style={{ background: accent }} />
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
             <p className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-none">{value}</p>
         </div>
     );
@@ -116,7 +116,7 @@ function RegistrationCard({ reg, onCancel, onQR }: {
 
                                 {/* Upcoming badge */}
                                 {!isCancelled && isUpcoming && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(0,53,143,0.06)', color: '#00358F' }}>
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wide" style={{ background: 'rgba(0,53,143,0.06)', color: '#00358F' }}>
                                         <Sparkles className="w-3 h-3" />
                                         Sắp tới
                                     </span>
@@ -131,7 +131,7 @@ function RegistrationCard({ reg, onCancel, onQR }: {
                                 {status.icon}
                                 <span className="text-xs font-bold" style={{ color: status.color }}>{status.label}</span>
                                 {reg.registered_at && !isCancelled && (
-                                    <span className="text-[10px] text-[var(--text-muted)]">· Đăng ký {new Date(reg.registered_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
+                                    <span className="text-xs text-[var(--text-muted)]">· Đăng ký {new Date(reg.registered_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
                                 )}
                             </div>
 
@@ -234,7 +234,7 @@ export default function MyRegistrationsPage() {
                                     <Ticket className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">My Events</p>
+                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">My Events</p>
                                     <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">Sự kiện đã đăng ký</h1>
                                     <p className="text-sm text-[var(--text-muted)]">Quản lý các sự kiện bạn đã đăng ký tham gia</p>
                                 </div>

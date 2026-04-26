@@ -130,14 +130,14 @@ interface ExportTrainingPointsResponse {
 export const trainingPointsService = {
     async getMyPoints(): Promise<MyPointsResponse> {
         const response = await axios.get<ApiResponse<MyPointsResponse>>('/training-points/my-points');
-        return response.data.data;
+        return (response.data as any).data ?? response.data;
     },
 
     async getMyPointsHistory(params?: PointsHistoryQuery): Promise<PointsHistoryResponse> {
         const response = await axios.get<ApiResponse<PointsHistoryResponse>>('/training-points/my-points/history', {
             params,
         });
-        return response.data.data;
+        return (response.data as any).data ?? response.data;
     },
 
     async getCurrentSemester(): Promise<{ semester: string }> {
@@ -148,13 +148,13 @@ export const trainingPointsService = {
     /** Admin: get a user's training points */
     async getUserPoints(userId: number): Promise<UserTrainingPointsResponse> {
         const response = await axios.get<ApiResponse<UserTrainingPointsResponse>>(`/training-points/user/${userId}`);
-        return response.data.data;
+        return (response.data as any).data ?? response.data;
     },
 
     /** Admin: get training points statistics */
     async getStatistics(): Promise<TrainingPointsStatistics> {
         const response = await axios.get<ApiResponse<TrainingPointsStatistics>>('/training-points/statistics');
-        return response.data.data;
+        return (response.data as any).data ?? response.data;
     },
 
     /** Organizer/Admin: award training points for an attended event */
@@ -171,7 +171,7 @@ export const trainingPointsService = {
                 format: 'json',
             },
         });
-        return response.data.data;
+        return (response.data as any).data ?? response.data;
     },
 
     /** Organizer/Admin: export training points dataset (csv blob) */

@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { jwtConfig } from '../config/jwt';
-import { UnauthorizedError, ConflictError } from '../middleware/errorHandler';
+import { UnauthorizedError, ConflictError, ValidationError } from '../middleware/errorHandler';
 import { UserRole } from '@prisma/client';
 import { sendPasswordResetEmail, sendVerificationEmail } from './email.service';
 
@@ -39,6 +39,17 @@ export const authService = {
 
       if (existingStudent) {
         throw new ConflictError('Student ID already registered');
+      }
+    }
+
+    if (data.department_id !== undefined) {
+      const department = await prisma.department.findUnique({
+        where: { id: data.department_id },
+        select: { id: true },
+      });
+
+      if (!department) {
+        throw new ValidationError('Department không tồn tại');
       }
     }
 

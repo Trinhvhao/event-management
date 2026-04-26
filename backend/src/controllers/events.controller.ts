@@ -21,8 +21,13 @@ export const eventController = {
         category,
         department,
         status,
-        search
+        search,
+        is_free,
+        sortBy,
+        sortOrder,
       } = req.query;
+
+      const parsedIsFree = is_free === 'true' ? true : is_free === 'false' ? false : undefined;
 
       const result = await eventService.getAll({
         page: parseQueryInt(page, 1, 'page', { min: 1 }),
@@ -30,7 +35,10 @@ export const eventController = {
         category: parseOptionalPositiveInt(category, 'category'),
         department: parseOptionalPositiveInt(department, 'department'),
         status: status as string,
-        search: search as string
+        search: search as string,
+        is_free: parsedIsFree,
+        sortBy: sortBy as string | undefined,
+        sortOrder: (sortOrder as 'asc' | 'desc') || 'desc',
       });
 
       res.json(paginatedResponse(
@@ -81,7 +89,7 @@ export const eventController = {
         throw new ValidationError('Invalid event ID');
       }
 
-      const event = await eventService.getById(eventId);
+      const event = await eventService.getById(eventId, req.user ?? null);
       res.json(successResponse(event));
     } catch (error) {
       next(error);

@@ -9,6 +9,45 @@ interface RegistrationQRCodePayload {
     qr_code: string;
 }
 
+interface WaitlistPositionResponse {
+    in_waitlist: boolean;
+    position?: number;
+    status?: string;
+    total_waitlist?: number;
+    event_id?: number;
+    event_title?: string;
+}
+
+interface WaitlistEntry {
+    id: number;
+    event_id: number;
+    user_id: number;
+    position: number;
+    status: string;
+    created_at: string;
+    event?: {
+        id: number;
+        title: string;
+        start_time: string;
+        end_time: string;
+        location: string;
+    };
+    user?: {
+        id: number;
+        full_name: string;
+        email: string;
+    };
+}
+
+interface RegistrationWithRelations extends Registration {
+    user?: {
+        id: number;
+        full_name: string;
+        email: string;
+        student_id?: string;
+    };
+}
+
 export const registrationService = {
     async register(eventId: number): Promise<Registration> {
         const response = await axios.post<ApiResponse<Registration>>('/registrations', {
@@ -28,6 +67,10 @@ export const registrationService = {
         } catch (error: unknown) {
             const status = (error as { response?: { status?: number } })?.response?.status;
 
+            if (status === 403) {
+                return [];
+            }
+
             if (status !== 404) {
                 throw error;
             }
@@ -40,6 +83,13 @@ export const registrationService = {
     async getEventRegistrations(eventId: number): Promise<Registration[]> {
         const response = await axios.get<ApiResponse<Registration[]>>(
             `/registrations/event/${eventId}`
+        );
+        return response.data.data;
+    },
+
+    async getRegistrationById(registrationId: number): Promise<RegistrationWithRelations> {
+        const response = await axios.get<ApiResponse<RegistrationWithRelations>>(
+            `/registrations/${registrationId}`
         );
         return response.data.data;
     },
@@ -63,4 +113,42 @@ export const registrationService = {
             return fallback.data.data;
         }
     },
+
+    // Waitlist methods
+    async joinWaitlist(eventId: number): Promise<WaitlistEntry> {
+        const response = await axios.post<ApiResponse<WaitlistEntry>>(
+            `/registrations/waitlist/${eventId}`
+        );
+        return response.data.data;
+    },
+
+    async leaveWaitlist(eventId: number): Promise<void> {
+        await axios.delete(`/registrations/waitlist/${eventId}`);
+    },
+
+    async getWaitlistPosition(eventId: number): Promise<WaitlistPositionResponse> {
+        try {
+            const response = await axios.get<ApiResponse<WaitlistPositionResponse>>(
+                `/registrations/waitlist/${eventId}`
+            );
+            return response.data.data;
+        } catch (error: unknown) {
+            const status = (error as { response?: { status?: number } })?.response?.status;
+
+            if (status === 403 || status === 404) {
+                return { in_waitlist: false };
+            }
+
+            throw error;
+        }
+    },
+
+    async getEventWaitlist(eventId: number): Promise<WaitlistEntry[]> {
+        const response = await axios.get<ApiResponse<WaitlistEntry[]>>(
+            `/registrations/event/${eventId}/waitlist`
+        );
+        return response.data.data;
+    },
 };
+
+export type { RegistrationQRCodePayload, WaitlistPositionResponse, WaitlistEntry, RegistrationWithRelations };

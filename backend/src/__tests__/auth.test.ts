@@ -6,12 +6,29 @@ import jwt from 'jsonwebtoken';
 import { jwtConfig } from '../config/jwt';
 
 describe('Auth Module Tests', () => {
+  const authEmailPrefix = 'auth.test.';
+  let departmentId: number;
+
+  beforeAll(async () => {
+    const department = await prisma.department.upsert({
+      where: { code: 'TEST-AUTH-DEPT' },
+      update: { name: 'Test Auth Department' },
+      create: {
+        name: 'Test Auth Department',
+        code: 'TEST-AUTH-DEPT',
+      },
+      select: { id: true },
+    });
+
+    departmentId = department.id;
+  });
+
   // Clean up test data before each test
   beforeEach(async () => {
     await prisma.user.deleteMany({
       where: {
         email: {
-          contains: 'test',
+          startsWith: authEmailPrefix,
         },
       },
     });
@@ -22,18 +39,18 @@ describe('Auth Module Tests', () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({
-          email: 'test.student@university.edu.vn',
+          email: 'auth.test.student@university.edu.vn',
           password: 'password123',
           full_name: 'Test Student',
           student_id: 'SV001',
           role: 'student',
-          department_id: 1,
+          department_id: departmentId,
         });
 
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
       expect(response.body.data.user).toHaveProperty('id');
-      expect(response.body.data.user.email).toBe('test.student@university.edu.vn');
+      expect(response.body.data.user.email).toBe('auth.test.student@university.edu.vn');
       expect(response.body.data.user).not.toHaveProperty('password_hash');
     });
 
@@ -42,7 +59,7 @@ describe('Auth Module Tests', () => {
       await request(app)
         .post('/api/auth/register')
         .send({
-          email: 'test.duplicate@university.edu.vn',
+          email: 'auth.test.duplicate@university.edu.vn',
           password: 'password123',
           full_name: 'Test User',
           role: 'student',
@@ -52,7 +69,7 @@ describe('Auth Module Tests', () => {
       const response = await request(app)
         .post('/api/auth/register')
         .send({
-          email: 'test.duplicate@university.edu.vn',
+          email: 'auth.test.duplicate@university.edu.vn',
           password: 'password456',
           full_name: 'Another User',
           role: 'student',
@@ -96,14 +113,14 @@ describe('Auth Module Tests', () => {
       await request(app)
         .post('/api/auth/register')
         .send({
-          email: 'test.hash@university.edu.vn',
+          email: 'auth.test.hash@university.edu.vn',
           password,
           full_name: 'Test User',
           role: 'student',
         });
 
       const user = await prisma.user.findUnique({
-        where: { email: 'test.hash@university.edu.vn' },
+        where: { email: 'auth.test.hash@university.edu.vn' },
       });
 
       expect(user).toBeTruthy();
@@ -119,7 +136,7 @@ describe('Auth Module Tests', () => {
       const password_hash = await bcrypt.hash('password123', 10);
       await prisma.user.create({
         data: {
-          email: 'test.login@university.edu.vn',
+          email: 'auth.test.login@university.edu.vn',
           password_hash,
           full_name: 'Test User',
           role: 'student',
@@ -132,7 +149,7 @@ describe('Auth Module Tests', () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test.login@university.edu.vn',
+          email: 'auth.test.login@university.edu.vn',
           password: 'password123',
         });
 
@@ -140,14 +157,14 @@ describe('Auth Module Tests', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('token');
       expect(response.body.data).toHaveProperty('user');
-      expect(response.body.data.user.email).toBe('test.login@university.edu.vn');
+      expect(response.body.data.user.email).toBe('auth.test.login@university.edu.vn');
     });
 
     it('should fail with incorrect password', async () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test.login@university.edu.vn',
+          email: 'auth.test.login@university.edu.vn',
           password: 'wrongpassword',
         });
 
@@ -172,7 +189,7 @@ describe('Auth Module Tests', () => {
       const password_hash = await bcrypt.hash('password123', 10);
       await prisma.user.create({
         data: {
-          email: 'test.inactive@university.edu.vn',
+          email: 'auth.test.inactive@university.edu.vn',
           password_hash,
           full_name: 'Inactive User',
           role: 'student',
@@ -183,7 +200,7 @@ describe('Auth Module Tests', () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test.inactive@university.edu.vn',
+          email: 'auth.test.inactive@university.edu.vn',
           password: 'password123',
         });
 
@@ -195,7 +212,7 @@ describe('Auth Module Tests', () => {
       const response = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test.login@university.edu.vn',
+          email: 'auth.test.login@university.edu.vn',
           password: 'password123',
         });
 
@@ -205,7 +222,7 @@ describe('Auth Module Tests', () => {
       expect(decoded).toHaveProperty('id');
       expect(decoded).toHaveProperty('email');
       expect(decoded).toHaveProperty('role');
-      expect(decoded.email).toBe('test.login@university.edu.vn');
+      expect(decoded.email).toBe('auth.test.login@university.edu.vn');
     });
   });
 
@@ -214,7 +231,7 @@ describe('Auth Module Tests', () => {
       const password_hash = await bcrypt.hash('password123', 10);
       await prisma.user.create({
         data: {
-          email: 'test.forgot@university.edu.vn',
+          email: 'auth.test.forgot@university.edu.vn',
           password_hash,
           full_name: 'Test User',
           role: 'student',
@@ -226,7 +243,7 @@ describe('Auth Module Tests', () => {
       const response = await request(app)
         .post('/api/auth/forgot-password')
         .send({
-          email: 'test.forgot@university.edu.vn',
+          email: 'auth.test.forgot@university.edu.vn',
         });
 
       expect(response.status).toBe(200);
@@ -254,7 +271,7 @@ describe('Auth Module Tests', () => {
       const password_hash = await bcrypt.hash('oldpassword', 10);
       const user = await prisma.user.create({
         data: {
-          email: 'test.reset@university.edu.vn',
+          email: 'auth.test.reset@university.edu.vn',
           password_hash,
           full_name: 'Test User',
           role: 'student',
@@ -301,7 +318,7 @@ describe('Auth Module Tests', () => {
 
     it('should fail with expired token', async () => {
       const expiredToken = jwt.sign(
-        { id: userId, email: 'test.reset@university.edu.vn' },
+        { id: userId, email: 'auth.test.reset@university.edu.vn' },
         jwtConfig.secret,
         { expiresIn: '0s' }
       );
@@ -328,7 +345,7 @@ describe('Auth Module Tests', () => {
       const password_hash = await bcrypt.hash('password123', 10);
       const user = await prisma.user.create({
         data: {
-          email: 'test.refresh@university.edu.vn',
+          email: 'auth.test.refresh@university.edu.vn',
           password_hash,
           full_name: 'Test User',
           role: 'student',

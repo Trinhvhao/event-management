@@ -33,6 +33,20 @@ interface AttendanceRecord {
     };
 }
 
+interface AttendanceDetail extends AttendanceRecord {
+    checker?: {
+        id: number;
+        full_name: string;
+    };
+    registration: AttendanceRecord['registration'] & {
+        event?: {
+            id: number;
+            title: string;
+            organizer_id?: number;
+        };
+    };
+}
+
 interface AttendanceStats {
     total_registrations: number;
     total_attendances: number;
@@ -79,8 +93,8 @@ export const checkinService = {
     },
 
     /** Lấy chi tiết 1 bản ghi điểm danh */
-    async getAttendance(attendanceId: number): Promise<{ attendance: AttendanceRecord }> {
-        const response = await axios.get<ApiResponse<{ attendance: AttendanceRecord }>>(
+    async getAttendance(attendanceId: number): Promise<AttendanceDetail> {
+        const response = await axios.get<ApiResponse<AttendanceDetail>>(
             `/checkin/${attendanceId}`
         );
         return response.data.data;
@@ -104,3 +118,4 @@ export const checkinService = {
 };
 
 export type { CheckinResult, AttendanceRecord, AttendanceStats };
+export type { AttendanceDetail };

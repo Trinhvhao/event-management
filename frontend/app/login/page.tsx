@@ -228,7 +228,7 @@ export default function LoginPage() {
                                     </div>
                                     <div className="text-left">
                                         <div className="font-semibold text-primary text-xs">Student</div>
-                                        <div className="text-[10px] text-slate-500">Sinh viên</div>
+                                        <div className="text-xs text-slate-500">Sinh viên</div>
                                     </div>
                                 </motion.button>
 
@@ -245,7 +245,7 @@ export default function LoginPage() {
                                     </div>
                                     <div className="text-left">
                                         <div className="font-semibold text-primary text-xs">Admin</div>
-                                        <div className="text-[10px] text-slate-500">Quản trị</div>
+                                        <div className="text-xs text-slate-500">Quản trị</div>
                                     </div>
                                 </motion.button>
                             </div>

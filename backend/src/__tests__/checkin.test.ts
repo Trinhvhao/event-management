@@ -14,12 +14,21 @@ describe('Check-in Module Tests', () => {
     let organizerId: number;
     let studentId: number;
     let manualStudentId: number;
+    let departmentId: number;
+    let categoryId: number;
 
     const resetAttendanceAndPoints = async () => {
+        const registrationIds = [registrationId, manualRegistrationId].filter(
+            (id): id is number => typeof id === 'number'
+        );
+        const userIds = [studentId, manualStudentId].filter(
+            (id): id is number => typeof id === 'number'
+        );
+
         await prisma.attendance.deleteMany({
             where: {
                 registration_id: {
-                    in: [registrationId, manualRegistrationId],
+                    in: registrationIds,
                 },
             },
         });
@@ -28,13 +37,46 @@ describe('Check-in Module Tests', () => {
             where: {
                 event_id: eventId,
                 user_id: {
-                    in: [studentId, manualStudentId],
+                    in: userIds,
                 },
+            },
+        });
+
+        await prisma.registration.updateMany({
+            where: {
+                id: {
+                    in: registrationIds,
+                },
+            },
+            data: {
+                status: 'registered',
             },
         });
     };
 
     beforeAll(async () => {
+        const department = await prisma.department.upsert({
+            where: { code: 'TEST-CHECKIN-DEPT' },
+            update: { name: 'Test Checkin Department' },
+            create: {
+                name: 'Test Checkin Department',
+                code: 'TEST-CHECKIN-DEPT',
+            },
+            select: { id: true },
+        });
+        departmentId = department.id;
+
+        const category = await prisma.category.upsert({
+            where: { name: 'Test Checkin Category' },
+            update: { description: 'Test category for checkin' },
+            create: {
+                name: 'Test Checkin Category',
+                description: 'Test category for checkin',
+            },
+            select: { id: true },
+        });
+        categoryId = category.id;
+
         await prisma.attendance.deleteMany({});
         await prisma.trainingPoint.deleteMany({});
         await prisma.registration.deleteMany({});
@@ -52,7 +94,7 @@ describe('Check-in Module Tests', () => {
                 full_name: 'Test Organizer',
                 role: 'organizer',
                 student_id: 'ORG001',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         organizerId = organizer.id;
@@ -64,7 +106,7 @@ describe('Check-in Module Tests', () => {
                 full_name: 'Test Student',
                 role: 'student',
                 student_id: 'STU001',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         studentId = student.id;
@@ -76,7 +118,7 @@ describe('Check-in Module Tests', () => {
                 full_name: 'Manual Student',
                 role: 'student',
                 student_id: 'STU002',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         manualStudentId = manualStudent.id;
@@ -112,8 +154,8 @@ describe('Check-in Module Tests', () => {
                 training_points: 5,
                 status: 'ongoing',
                 organizer_id: organizerId,
-                category_id: 1,
-                department_id: 1,
+                category_id: categoryId,
+                department_id: departmentId,
             },
         });
         eventId = event.id;

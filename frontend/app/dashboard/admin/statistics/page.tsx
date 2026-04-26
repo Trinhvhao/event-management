@@ -2,18 +2,21 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import Card, { CardHeader } from '@/components/ui/Card';
+import { CardHeader } from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
 import { useStatisticsStore } from '@/store/statisticsStore';
 import { DateRangePicker } from '@/components/admin/shared/DateRangePicker';
-import { BarChart3, Calendar, Users, TrendingUp, RefreshCw, Download, Activity, Award } from 'lucide-react';
+import { eventService } from '@/services/eventService';
+import { Category, Department } from '@/types';
+import { toast } from 'sonner';
+import { BarChart3, Calendar, Users, TrendingUp, RefreshCw, Download, Activity, Award, ChevronDown, Layers3, Building2 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell, LineChart, Line,
+    PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts';
 
 // Brand color palette for charts
-const CHART_COLORS = ['#00358F', '#F26600', '#00A651', '#FFB800', '#FF4000', '#8b5cf6', '#06b6d4'];
+const CHART_COLORS = ['#00358F', '#F26600', '#00A651', '#FFB800', '#FF4000', '#7C3AED', '#06b6d4'];
 
 function MetricCard({
     label, value, trend, icon, color, loading
@@ -35,7 +38,7 @@ function MetricCard({
 
             <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1">{label}</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1">{label}</p>
                     {loading ? (
                         <Skeleton width={80} height={32} />
                     ) : (
@@ -63,7 +66,7 @@ function MetricCard({
     );
 }
 
-// Recharts custom tooltip
+// Custom tooltip for charts
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
     if (!active || !payload?.length) return null;
     return (
@@ -80,31 +83,203 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     );
 }
 
+// Chart wrapper component
+function ChartCard({ title, subtitle, icon, children, className = '' }: {
+    title: string; subtitle?: string; icon?: React.ReactNode; children: React.ReactNode; className?: string;
+}) {
+    return (
+        <div className={`bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden ${className}`}>
+            <div className="px-5 pt-5 pb-0 border-b border-[var(--border-light)]">
+                <div className="flex items-center gap-3 mb-1">
+                    {icon && (
+                        <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,#00358F_10%,transparent)] flex items-center justify-center">
+                            <div className="text-[var(--color-brand-navy)]">{icon}</div>
+                        </div>
+                    )}
+                    <div>
+                        <h3 className="text-sm font-bold text-[var(--text-primary)]">{title}</h3>
+                        {subtitle && <p className="text-xs text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
+                    </div>
+                </div>
+            </div>
+            <div className="p-5">
+                {children}
+            </div>
+        </div>
+    );
+}
+
 export default function AdminStatisticsPage() {
     const {
-        metrics, trends, chartData, loading, error,
-        fetchStatistics, updateDateRange, updateFilters, filters,
+        metrics, trends, chartData, loading, error, filters,
+        fetchStatistics, updateDateRange, updateFilters, clearFilters,
     } = useStatisticsStore();
 
     const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
-    const [departmentFilter, setDepartmentFilter] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('');
     const [isExporting, setIsExporting] = useState(false);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
 
     useEffect(() => { fetchStatistics(); }, [fetchStatistics]);
+
+    useEffect(() => {
+        const loadFilterOptions = async () => {
+            try {
+                const [categoryData, departmentData] = await Promise.all([
+                    eventService.getCategories(),
+                    eventService.getDepartments(),
+                ]);
+                setCategories(categoryData);
+                setDepartments(departmentData);
+            } catch (loadError) {
+                console.error('Failed to load statistics filters:', loadError);
+            }
+        };
+
+        void loadFilterOptions();
+    }, []);
 
     // Apply date range filter
     useEffect(() => {
         updateDateRange(dateRange);
     }, [dateRange, updateDateRange]);
 
-    const handleApplyFilters = () => {
-        updateFilters({ department_id: departmentFilter, category_id: categoryFilter });
+    const hasActiveFilters =
+        Boolean(dateRange.from) ||
+        Boolean(dateRange.to) ||
+        Boolean(filters.category_id) ||
+        Boolean(filters.department_id);
+
+    // Helper to escape CSV field values
+    const escapeCSVField = (value: string | number | null | undefined): string => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
     };
 
-    const handleExport = () => {
+    // Helper to format date for filename
+    const formatDateForFilename = (date: Date | null): string => {
+        if (!date) return '';
+        return date.toISOString().split('T')[0];
+    };
+
+    // Build CSV content from current chart data
+    const buildCSVContent = (): string => {
+        const lines: string[] = [];
+
+        // Section 1: Report header
+        lines.push('Báo cáo Thống kê Quản trị');
+        lines.push('');
+
+        // Section 2: Date range
+        const dateFrom = dateRange.from ? formatDateForFilename(dateRange.from) : 'Tất cả';
+        const dateTo = dateRange.to ? formatDateForFilename(dateRange.to) : 'Tất cả';
+        lines.push(`Khoảng thời gian,${escapeCSVField(dateFrom)} - ${escapeCSVField(dateTo)}`);
+        lines.push('');
+
+        // Section 3: KPI Metrics
+        lines.push('--- Chỉ số KPI ---');
+        lines.push('Thống kê,Giá trị,% thay đổi');
+        const metricsData = metrics || {
+            totalUsers: 0, totalEvents: 0, totalRegistrations: 0, activeOrganizers: 0
+        };
+        const trendsData = trends || {
+            totalUsers: { percentage: 0, direction: 'neutral' as const },
+            totalEvents: { percentage: 0, direction: 'neutral' as const },
+            totalRegistrations: { percentage: 0, direction: 'neutral' as const },
+            activeOrganizers: { percentage: 0, direction: 'neutral' as const },
+        };
+        lines.push(`Tổng người dùng,${metricsData.totalUsers},${trendsData.totalUsers.percentage}%`);
+        lines.push(`Tổng sự kiện,${metricsData.totalEvents},${trendsData.totalEvents.percentage}%`);
+        lines.push(`Tổng đăng ký,${metricsData.totalRegistrations},${trendsData.totalRegistrations.percentage}%`);
+        lines.push(`Organizers hoạt động,${metricsData.activeOrganizers},${trendsData.activeOrganizers.percentage}%`);
+        lines.push('');
+
+        // Section 4: Registration Trend
+        lines.push('--- Xu hướng đăng ký theo ngày ---');
+        lines.push('Ngày,Số đăng ký');
+        const registrationTrend = chartData?.userRegistrationTrend || [];
+        if (registrationTrend.length > 0) {
+            registrationTrend.forEach((row) => {
+                lines.push(`${escapeCSVField(row.date)},${row.count}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,');
+        }
+        lines.push('');
+
+        // Section 5: Event Status Distribution
+        lines.push('--- Phân bổ trạng thái sự kiện ---');
+        lines.push('Trạng thái,Số lượng,Tỷ lệ %');
+        const eventStatus = chartData?.eventStatusDistribution || [];
+        if (eventStatus.length > 0) {
+            eventStatus.forEach((row) => {
+                lines.push(`${escapeCSVField(row.status)},${row.count},${row.percentage}%`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,,');
+        }
+        lines.push('');
+
+        // Section 6: Events by Category
+        lines.push('--- Sự kiện theo danh mục ---');
+        lines.push('Danh mục,Số sự kiện');
+        const eventsByCategory = chartData?.eventsByCategory || [];
+        if (eventsByCategory.length > 0) {
+            eventsByCategory.forEach((row) => {
+                lines.push(`${escapeCSVField(row.categoryName || row.categoryId)},${row.count}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,');
+        }
+        lines.push('');
+
+        // Section 7: Registrations by Department
+        lines.push('--- Đăng ký theo khoa ---');
+        lines.push('Khoa,Số đăng ký');
+        const registrationsByDept = chartData?.registrationsByDepartment || [];
+        if (registrationsByDept.length > 0) {
+            registrationsByDept.forEach((row) => {
+                lines.push(`${escapeCSVField(row.departmentName || row.departmentId)},${row.count}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,');
+        }
+
+        return lines.join('\n');
+    };
+
+    // Trigger CSV file download
+    const downloadCSV = (content: string, filename: string) => {
+        const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExport = async () => {
         setIsExporting(true);
-        setTimeout(() => setIsExporting(false), 1500);
+        try {
+            await fetchStatistics();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const csvContent = buildCSVContent();
+            const today = new Date().toISOString().split('T')[0];
+            const filename = `thong-ke-quan-tri-${today}.csv`;
+            downloadCSV(csvContent, filename);
+            toast.success('Đã xuất báo cáo thống kê thành công!');
+        } catch (error) {
+            toast.error('Không thể xuất báo cáo. Vui lòng thử lại.');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     // Status distribution for pie chart
@@ -127,6 +302,34 @@ export default function AdminStatisticsPage() {
         }));
     }, [chartData]);
 
+    // Events by category data for horizontal bar chart
+    const categoryData = useMemo(() => {
+        const rows = chartData?.eventsByCategory || [];
+        return rows.map((row: { categoryId: string; categoryName: string; count: number }, i: number) => ({
+            categoryName: row.categoryName || row.categoryId,
+            count: row.count,
+            fill: CHART_COLORS[i % CHART_COLORS.length],
+        }));
+    }, [chartData]);
+
+    // Department radar chart data
+    const radarData = useMemo(() => {
+        const rows = chartData?.registrationsByDepartment || [];
+        return rows.map((row: { departmentId: string; departmentName: string; count: number }, i: number) => ({
+            department: row.departmentName || row.departmentId,
+            count: row.count,
+            fullMark: Math.max(...(chartData?.registrationsByDepartment || []).map((r: { count: number }) => r.count), 1),
+            fill: CHART_COLORS[i % CHART_COLORS.length],
+        }));
+    }, [chartData]);
+
+    // Status labels
+    const STATUS_LABELS: Record<string, string> = {
+        upcoming: 'Sắp diễn ra', ongoing: 'Đang diễn ra',
+        completed: 'Đã kết thúc', cancelled: 'Đã hủy',
+        pending: 'Chờ duyệt', approved: 'Đã duyệt',
+    };
+
     return (
         <DashboardLayout>
             <div className="space-y-6 p-4 md:p-6">
@@ -140,9 +343,9 @@ export default function AdminStatisticsPage() {
                                 <BarChart3 className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Admin Statistics</p>
+                                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Admin</p>
                                 <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight">Thống kê quản trị</h1>
-                                <p className="text-sm text-[var(--text-muted)]">Tổng hợp số liệu hệ thống</p>
+                                <p className="text-sm text-[var(--text-muted)]">Tổng hợp số liệu toàn hệ thống</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -155,63 +358,79 @@ export default function AdminStatisticsPage() {
                             </button>
                             <button
                                 onClick={handleExport}
-                                className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-brand-navy)] px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-brand)] transition-all hover:opacity-90 active:scale-95"
+                                disabled={isExporting}
+                                className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-brand-navy)] px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-brand)] transition-all hover:opacity-90 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
                             >
-                                <Download className="w-4 h-4" />
+                                {isExporting ? (
+                                    <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                ) : (
+                                    <Download className="w-4 h-4" />
+                                )}
                                 {isExporting ? 'Đang xuất...' : 'Xuất báo cáo'}
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Filters row */}
-                <div className="rounded-2xl border border-[var(--border-default)] bg-white p-5 shadow-[var(--shadow-card)]">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-end flex-1">
-                            <div className="flex flex-col gap-1.5 flex-1 max-w-[200px]">
-                                <label className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Khoảng thời gian</label>
-                                <DateRangePicker value={dateRange} onChange={setDateRange} />
-                            </div>
-                            <div className="flex flex-col gap-1.5 flex-1 max-w-[180px]">
-                                <label className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Khoa</label>
-                                <input
-                                    type="text"
-                                    placeholder="ID khoa..."
-                                    value={departmentFilter}
-                                    onChange={(e) => setDepartmentFilter(e.target.value)}
-                                    className="input-base text-sm"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5 flex-1 max-w-[180px]">
-                                <label className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Danh mục</label>
-                                <input
-                                    type="text"
-                                    placeholder="ID danh mục..."
-                                    value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="input-base text-sm"
-                                />
-                            </div>
-                            <button
-                                onClick={handleApplyFilters}
-                                className="btn btn-primary"
-                            >
-                                Áp dụng
-                            </button>
+                {/* Filter row */}
+                <div className="rounded-2xl border border-[var(--border-default)] bg-white p-4 shadow-[var(--shadow-card)]">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Khoảng thời gian</label>
+                        <DateRangePicker value={dateRange} onChange={setDateRange} />
                         </div>
-                        {(departmentFilter || categoryFilter || dateRange.from) && (
-                            <button
-                                onClick={() => {
-                                    setDateRange({ from: null, to: null });
-                                    setDepartmentFilter('');
-                                    setCategoryFilter('');
-                                    updateDateRange({ from: null, to: null });
-                                    updateFilters({ department_id: '', category_id: '' });
-                                }}
-                                className="btn btn-ghost btn-sm"
-                            >
-                                Xóa bộ lọc
-                            </button>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Danh mục</label>
+                            <div className="relative">
+                                <select
+                                    value={filters.category_id}
+                                    onChange={(e) => updateFilters({ category_id: e.target.value })}
+                                    className="input-base appearance-none pl-11 pr-10"
+                                >
+                                    <option value="">Tất cả danh mục</option>
+                                    {categories.map((category) => (
+                                        <option key={category.id} value={category.id}>
+                                            {category.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Layers3 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Đơn vị</label>
+                            <div className="relative">
+                                <select
+                                    value={filters.department_id}
+                                    onChange={(e) => updateFilters({ department_id: e.target.value })}
+                                    className="input-base appearance-none pl-11 pr-10"
+                                >
+                                    <option value="">Tất cả đơn vị</option>
+                                    {departments.map((department) => (
+                                        <option key={department.id} value={department.id}>
+                                            {department.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                            </div>
+                        </div>
+
+                        {hasActiveFilters && (
+                        <button
+                            onClick={() => {
+                                setDateRange({ from: null, to: null });
+                                clearFilters();
+                            }}
+                            className="inline-flex h-[46px] items-center justify-center gap-1.5 self-end rounded-xl border border-[var(--color-brand-red)]/20 bg-[color-mix(in_srgb,var(--color-brand-red)_6%,transparent)] px-4 text-xs font-semibold text-[var(--color-brand-red)] transition-colors hover:bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)]"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Xóa bộ lọc
+                        </button>
                         )}
                     </div>
                 </div>
@@ -231,101 +450,253 @@ export default function AdminStatisticsPage() {
                     <MetricCard loading={loading} label="Organizer hoạt động" value={metrics?.activeOrganizers || 0} trend={trends?.activeOrganizers} icon={<Award className="w-5 h-5" />} color="#8b5cf6" />
                 </div>
 
-                {/* Charts Row */}
+                {/* Charts Row 1: Registration Trends (Area) + Status Distribution (Donut) */}
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                    {/* Registration Trend — 2/3 width */}
+                    {/* Registration Trend — Area Chart 2/3 width */}
                     <div className="xl:col-span-2">
-                        <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden h-full">
-                            <div className="px-5 pt-5 pb-0 border-b border-[var(--border-light)]">
-                                <CardHeader
-                                    title="Xu hướng đăng ký"
-                                    subtitle="Đăng ký theo ngày gần nhất"
-                                    icon={<Activity className="w-5 h-5" />}
-                                />
-                            </div>
-                            <div className="px-5 py-5">
-                                {loading || trendData.length === 0 ? (
-                                    <div className="flex items-center justify-center h-64">
-                                        {loading ? (
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
-                                                <span className="text-sm text-[var(--text-muted)] font-medium">Đang tải dữ liệu...</span>
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-[var(--text-muted)] text-center py-12">Chưa có dữ liệu đăng ký</p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div style={{ height: '280px' }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={trendData} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
-                                                <defs>
-                                                    <linearGradient id="gradReg" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#00358F" stopOpacity={0.15} />
-                                                        <stop offset="95%" stopColor="#00358F" stopOpacity={0} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
-                                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                                                <Tooltip content={<ChartTooltip />} />
-                                                <Line type="monotone" dataKey="đăng_ký" name="Đăng ký" stroke="#00358F" strokeWidth={2.5} dot={{ fill: '#00358F', r: 3 }} activeDot={{ r: 5, strokeWidth: 0 }} />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <ChartCard
+                            title="Xu hướng đăng ký"
+                            subtitle="Đăng ký theo ngày gần nhất"
+                            icon={<Activity className="w-4 h-4" />}
+                        >
+                            {loading || trendData.length === 0 ? (
+                                <div className="flex items-center justify-center h-72">
+                                    {loading ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
+                                            <span className="text-sm text-[var(--text-muted)] font-medium">Đang tải dữ liệu...</span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center py-12">Chưa có dữ liệu đăng ký</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <AreaChart data={trendData} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#00358F" stopOpacity={0.3}/>
+                                                <stop offset="95%" stopColor="#00358F" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                        <XAxis 
+                                            dataKey="date" 
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                                            axisLine={false} 
+                                            tickLine={false} 
+                                        />
+                                        <YAxis 
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                                            axisLine={false} 
+                                            tickLine={false} 
+                                        />
+                                        <Tooltip 
+                                            content={<ChartTooltip />}
+                                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }}
+                                        />
+                                        <Area 
+                                            type="monotone" 
+                                            dataKey="đăng_ký" 
+                                            stroke="#00358F" 
+                                            strokeWidth={2.5} 
+                                            fill="url(#colorReg)" 
+                                            dot={false} 
+                                            activeDot={{ r: 5, fill: '#00358F', strokeWidth: 0 }}
+                                            animationDuration={1500}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            )}
+                        </ChartCard>
                     </div>
 
-                    {/* Status Distribution Pie — 1/3 width */}
+                    {/* Status Distribution — Donut Chart 1/3 width */}
                     <div>
-                        <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden h-full">
-                            <div className="px-5 pt-5 pb-0 border-b border-[var(--border-light)]">
-                                <CardHeader title="Phân bổ trạng thái" subtitle="Sự kiện theo status" icon={<BarChart3 className="w-5 h-5" />} />
-                            </div>
-                            <div className="px-5 py-5">
-                                {loading || statusData.length === 0 ? (
-                                    <div className="flex items-center justify-center h-64">
-                                        {loading ? (
-                                            <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
-                                        ) : (
-                                            <p className="text-sm text-[var(--text-muted)]">Chưa có dữ liệu</p>
-                                        )}
+                        <ChartCard
+                            title="Phân bổ trạng thái"
+                            subtitle="Sự kiện theo status"
+                            icon={<BarChart3 className="w-4 h-4" />}
+                        >
+                            {loading || statusData.length === 0 ? (
+                                <div className="flex items-center justify-center h-72">
+                                    {loading ? (
+                                        <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center py-12">Chưa có dữ liệu</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="relative">
+                                        <ResponsiveContainer width="100%" height={200}>
+                                            <PieChart>
+                                                <Pie 
+                                                    data={statusData} 
+                                                    cx="50%" 
+                                                    cy="50%" 
+                                                    innerRadius={60} 
+                                                    outerRadius={90} 
+                                                    paddingAngle={3} 
+                                                    dataKey="value"
+                                                    animationDuration={1200}
+                                                    animationBegin={0}
+                                                >
+                                                    {statusData.map((entry, i) => (
+                                                        <Cell 
+                                                            key={entry.name} 
+                                                            fill={entry.color} 
+                                                            stroke="none"
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip 
+                                                    content={<ChartTooltip />}
+                                                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        {/* Center label */}
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <div className="text-center">
+                                                <p className="text-2xl font-extrabold text-[var(--text-primary)]">{totalStatus}</p>
+                                                <p className="text-xs text-[var(--text-muted)]">Tổng sự kiện</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <>
-                                        <div style={{ height: '160px' }}>
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie data={statusData} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={4} dataKey="value">
-                                                        {statusData.map((entry, i) => (
-                                                            <Cell key={i} fill={entry.color} stroke="none" />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip content={<ChartTooltip />} />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                        <div className="space-y-2.5 mt-2">
-                                            {statusData.map((entry, i) => (
-                                                <div key={i} className="flex items-center justify-between text-sm">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
-                                                        <span className="text-[var(--text-secondary)] font-medium capitalize">{entry.name}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-[var(--text-muted)]">{totalStatus > 0 ? ((entry.value / totalStatus) * 100).toFixed(1) : 0}%</span>
-                                                        <span className="font-bold text-[var(--text-primary)]">{entry.value}</span>
-                                                    </div>
+                                    {/* Legend */}
+                                    <div className="space-y-2.5 mt-4">
+                                        {statusData.map((entry, i) => (
+                                            <div key={i} className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
+                                                    <span className="text-[var(--text-secondary)] font-medium">
+                                                        {STATUS_LABELS[entry.name] || entry.name}
+                                                    </span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-[var(--text-muted)]">
+                                                        {totalStatus > 0 ? ((entry.value / totalStatus) * 100).toFixed(1) : 0}%
+                                                    </span>
+                                                    <span className="font-bold text-[var(--text-primary)]">{entry.value}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </ChartCard>
+                    </div>
+                </div>
+
+                {/* Charts Row 2: Events by Category (Horizontal Bar) + Department Comparison (Radar) */}
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                    {/* Events by Category — Horizontal Bar Chart */}
+                    <ChartCard
+                        title="Sự kiện theo danh mục"
+                        subtitle="Phân bổ theo categories"
+                        icon={<Calendar className="w-4 h-4" />}
+                    >
+                        {loading || categoryData.length === 0 ? (
+                            <div className="flex items-center justify-center h-72">
+                                {loading ? (
+                                    <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
+                                ) : (
+                                    <p className="text-sm text-[var(--text-muted)] text-center">Chưa có dữ liệu</p>
                                 )}
                             </div>
-                        </div>
-                    </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart layout="vertical" data={categoryData} margin={{ left: 20, right: 20 }}>
+                                    <defs>
+                                        {categoryData.map((entry, i) => (
+                                            <linearGradient key={i} id={`barGrad${i}`} x1="0" y1="0" x2="1" y2="0">
+                                                <stop offset="0%" stopColor={entry.fill} stopOpacity={0.8} />
+                                                <stop offset="100%" stopColor={entry.fill} stopOpacity={1} />
+                                            </linearGradient>
+                                        ))}
+                                    </defs>
+                                    <XAxis 
+                                        type="number" 
+                                        tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                    />
+                                    <YAxis 
+                                        type="category" 
+                                        dataKey="categoryName" 
+                                        tick={{ fontSize: 12, fill: '#374151' }} 
+                                        width={120} 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                    />
+                                    <Tooltip 
+                                        content={<ChartTooltip />}
+                                        contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }}
+                                        cursor={{ fill: '#f1f5f9' }}
+                                    />
+                                    <Bar 
+                                        dataKey="count" 
+                                        radius={[0, 6, 6, 0]} 
+                                        barSize={20} 
+                                        animationDuration={1500}
+                                        background={{ fill: '#f8fafc', radius: [0, 6, 6, 0] }}
+                                    >
+                                        {categoryData.map((entry, i) => (
+                                            <Cell 
+                                                key={entry.categoryName} 
+                                                fill={`url(#barGrad${i})`}
+                                            />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
+
+                    {/* Department Comparison — Radar Chart */}
+                    <ChartCard
+                        title="So sánh theo khoa"
+                        subtitle="Đăng ký theo department"
+                        icon={<Users className="w-4 h-4" />}
+                    >
+                        {loading || radarData.length === 0 ? (
+                            <div className="flex items-center justify-center h-72">
+                                {loading ? (
+                                    <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-navy)] animate-spin" />
+                                ) : (
+                                    <p className="text-sm text-[var(--text-muted)] text-center">Chưa có dữ liệu</p>
+                                )}
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <RadarChart data={radarData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+                                    <PolarGrid stroke="#e2e8f0" />
+                                    <PolarAngleAxis 
+                                        dataKey="department" 
+                                        tick={{ fontSize: 11, fill: '#64748b' }} 
+                                    />
+                                    <PolarRadiusAxis 
+                                        tick={{ fontSize: 10, fill: '#94a3b8' }} 
+                                        axisLine={false}
+                                    />
+                                    <Radar
+                                        name="Đăng ký"
+                                        dataKey="count"
+                                        stroke="#00358F"
+                                        fill="#00358F"
+                                        fillOpacity={0.3}
+                                        strokeWidth={2}
+                                        animationDuration={1500}
+                                    />
+                                    <Tooltip 
+                                        content={<ChartTooltip />}
+                                        contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                                    />
+                                </RadarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
                 </div>
 
                 {/* Registration Trend Table */}
@@ -337,9 +708,9 @@ export default function AdminStatisticsPage() {
                         <table className="w-full">
                             <thead className="bg-[var(--bg-muted)]">
                                 <tr>
-                                    <th className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Ngày</th>
-                                    <th className="px-5 py-3 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Số đăng ký</th>
-                                    <th className="px-5 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">% Tổng</th>
+                                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Ngày</th>
+                                    <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Số đăng ký</th>
+                                    <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">% Tổng</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--border-light)]">

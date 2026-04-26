@@ -10,8 +10,32 @@ describe('Feedback Module Tests', () => {
     let organizerId: number;
     let eventId: number;
     let registrationId: number;
+    let departmentId: number;
+    let categoryId: number;
 
     beforeAll(async () => {
+        const department = await prisma.department.upsert({
+            where: { code: 'TEST-FEEDBACK-DEPT' },
+            update: { name: 'Test Feedback Department' },
+            create: {
+                name: 'Test Feedback Department',
+                code: 'TEST-FEEDBACK-DEPT',
+            },
+            select: { id: true },
+        });
+        departmentId = department.id;
+
+        const category = await prisma.category.upsert({
+            where: { name: 'Test Feedback Category' },
+            update: { description: 'Test category for feedback' },
+            create: {
+                name: 'Test Feedback Category',
+                description: 'Test category for feedback',
+            },
+            select: { id: true },
+        });
+        categoryId = category.id;
+
         // Clean test data
         await prisma.feedback.deleteMany({});
         await prisma.attendance.deleteMany({});
@@ -31,7 +55,7 @@ describe('Feedback Module Tests', () => {
                 full_name: 'Test Student',
                 role: 'student',
                 student_id: 'STU001',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         studentId = student.id;
@@ -43,7 +67,7 @@ describe('Feedback Module Tests', () => {
                 full_name: 'Test Organizer',
                 role: 'organizer',
                 student_id: 'ORG001',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         organizerId = organizer.id;
@@ -77,8 +101,8 @@ describe('Feedback Module Tests', () => {
                 training_points: 5,
                 status: 'completed',
                 organizer_id: organizerId,
-                category_id: 1,
-                department_id: 1,
+                category_id: categoryId,
+                department_id: departmentId,
             },
         });
         eventId = event.id;
@@ -174,8 +198,8 @@ describe('Feedback Module Tests', () => {
                     training_points: 3,
                     status: 'upcoming',
                     organizer_id: organizerId,
-                    category_id: 1,
-                    department_id: 1,
+                    category_id: categoryId,
+                    department_id: departmentId,
                 },
             });
 
@@ -206,8 +230,8 @@ describe('Feedback Module Tests', () => {
                     training_points: 3,
                     status: 'ongoing',
                     organizer_id: organizerId,
-                    category_id: 1,
-                    department_id: 1,
+                    category_id: categoryId,
+                    department_id: departmentId,
                 },
             });
 

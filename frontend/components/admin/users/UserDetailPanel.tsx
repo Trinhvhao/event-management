@@ -22,6 +22,8 @@ interface UserDetailPanelProps {
     isOpen: boolean;
     onClose: () => void;
     onRoleChange: (userId: string, newRole: string) => void;
+    onLock?: (userId: string) => void;
+    onUnlock?: (userId: string) => void;
 }
 
 interface AuditLogEntry {
@@ -56,7 +58,7 @@ const ROLE_OPTIONS = [
     { role: 'admin',     label: 'Quản trị viên',   color: 'purple', icon: '⚡', badge: 'bg-[color-mix(in_srgb,#8b5cf6)_10%,transparent)] text-[#8b5cf6]' },
 ];
 
-export function UserDetailPanel({ user, isOpen, onClose, onRoleChange }: UserDetailPanelProps) {
+export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, onUnlock }: UserDetailPanelProps) {
     const [activeTab, setActiveTab] = useState<'info' | 'audit'>('info');
     const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
     const [auditLoading, setAuditLoading] = useState(false);
@@ -213,7 +215,7 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange }: UserDet
                                                         <Icon className="h-5 w-5 text-[var(--color-brand-${color})]" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">{label}</p>
+                                                        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">{label}</p>
                                                         <p className="mt-1 text-sm font-semibold text-[var(--text-primary)] truncate">{value}</p>
                                                     </div>
                                                 </div>
@@ -262,7 +264,7 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange }: UserDet
                                                                 {label}
                                                             </p>
                                                             {isCurrent && (
-                                                                <span className="absolute right-2 top-2 rounded-full bg-[var(--color-brand-navy)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                                                <span className="absolute right-2 top-2 rounded-full bg-[var(--color-brand-navy)] px-1.5 py-0.5 text-xs font-bold text-white">
                                                                     ✓
                                                                 </span>
                                                             )}
@@ -270,6 +272,46 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange }: UserDet
                                                     );
                                                 })}
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="rounded-2xl border border-[var(--border-default)] bg-white p-5 shadow-[var(--shadow-card)]">
+                                        <div className="mb-4 flex items-center gap-3">
+                                            <div className="rounded-lg bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] p-2">
+                                                <Shield className="h-5 w-5 text-[var(--color-brand-navy)]" />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-[var(--text-primary)]">Thao tác</h4>
+                                                <p className="text-xs text-[var(--text-muted)]">Khóa/mở khóa tài khoản hoặc xem lịch sử</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3">
+                                            {user.is_active ? (
+                                                <button
+                                                    onClick={() => onLock?.(user.id)}
+                                                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-brand-red)]/30 bg-[color-mix(in_srgb,var(--color-brand-red)_8%,transparent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-brand-red)] hover:bg-[color-mix(in_srgb,var(--color-brand-red)_15%,transparent)] transition-all"
+                                                >
+                                                    <Lock className="h-4 w-4" />
+                                                    Khóa tài khoản
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => onUnlock?.(user.id)}
+                                                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-brand-green)]/30 bg-[color-mix(in_srgb,var(--color-brand-green)_8%,transparent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-brand-green)] hover:bg-[color-mix(in_srgb,var(--color-brand-green)_15%,transparent)] transition-all"
+                                                >
+                                                    <Unlock className="h-4 w-4" />
+                                                    Mở khóa tài khoản
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setActiveTab('audit')}
+                                                className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all"
+                                            >
+                                                <Activity className="h-4 w-4" />
+                                                Xem lịch sử hoạt động
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

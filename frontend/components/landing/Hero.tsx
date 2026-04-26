@@ -115,7 +115,7 @@ const Hero: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/20 border border-white/5">
                 <Shield size={12} className="text-brandLightBlue" />
-                <span className="text-[10px] text-brandLightBlue/80 font-mono">unievent.edu.vn/secure</span>
+                <span className="text-xs text-brandLightBlue/80 font-mono">unievent.edu.vn/secure</span>
               </div>
             </div>
 

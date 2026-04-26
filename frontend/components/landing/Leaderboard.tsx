@@ -75,8 +75,8 @@ const TopStudentRow: React.FC<{
             </div>
             <div className="text-right">
                 <div className="font-bold text-brandBlue text-lg">{points}</div>
-                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Điểm</div>
-                <div className="text-[10px] text-slate-400">{events} SK</div>
+                <div className="text-xs text-slate-400 uppercase font-bold tracking-wider">Điểm</div>
+                <div className="text-xs text-slate-400">{events} SK</div>
             </div>
         </motion.div>
     );
@@ -106,7 +106,7 @@ const TrendingEventCard: React.FC<{
         </div>
         <div className="p-4 flex flex-col justify-between flex-1">
              <div>
-                <span className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-1 block">{category}</span>
+                <span className="text-xs font-bold text-secondary uppercase tracking-wider mb-1 block">{category}</span>
                 <h4 className="font-bold text-slate-800 text-sm md:text-base line-clamp-2 group-hover:text-brandBlue transition-colors mb-2">
                     {title}
                 </h4>

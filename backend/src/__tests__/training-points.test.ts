@@ -9,8 +9,32 @@ describe('Training Points Module Tests', () => {
     let studentId: number;
     let adminId: number;
     let awardEventId: number;
+    let departmentId: number;
+    let categoryId: number;
 
     beforeAll(async () => {
+        const department = await prisma.department.upsert({
+            where: { code: 'TEST-TRAINING-DEPT' },
+            update: { name: 'Test Training Department' },
+            create: {
+                name: 'Test Training Department',
+                code: 'TEST-TRAINING-DEPT',
+            },
+            select: { id: true },
+        });
+        departmentId = department.id;
+
+        const category = await prisma.category.upsert({
+            where: { name: 'Test Training Category' },
+            update: { description: 'Test category for training points' },
+            create: {
+                name: 'Test Training Category',
+                description: 'Test category for training points',
+            },
+            select: { id: true },
+        });
+        categoryId = category.id;
+
         // Clean test data
         await prisma.trainingPoint.deleteMany({});
         await prisma.attendance.deleteMany({});
@@ -30,7 +54,7 @@ describe('Training Points Module Tests', () => {
                 full_name: 'Test Student',
                 role: 'student',
                 student_id: 'STU001',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         studentId = student.id;
@@ -42,7 +66,7 @@ describe('Training Points Module Tests', () => {
                 full_name: 'Test Admin',
                 role: 'admin',
                 student_id: 'ADM001',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         adminId = admin.id;
@@ -76,8 +100,8 @@ describe('Training Points Module Tests', () => {
                 training_points: 5,
                 status: 'ongoing',
                 organizer_id: adminId,
-                category_id: 1,
-                department_id: 1,
+                category_id: categoryId,
+                department_id: departmentId,
             },
         });
         const event2 = await prisma.event.create({
@@ -91,8 +115,8 @@ describe('Training Points Module Tests', () => {
                 training_points: 3,
                 status: 'ongoing',
                 organizer_id: adminId,
-                category_id: 1,
-                department_id: 1,
+                category_id: categoryId,
+                department_id: departmentId,
             },
         });
 
@@ -107,8 +131,8 @@ describe('Training Points Module Tests', () => {
                 training_points: 2,
                 status: 'completed',
                 organizer_id: adminId,
-                category_id: 1,
-                department_id: 1,
+                category_id: categoryId,
+                department_id: departmentId,
             },
         });
         awardEventId = event3.id;
@@ -267,18 +291,19 @@ describe('Training Points Module Tests', () => {
             expect(response.body.data.event_id).toBe(awardEventId);
         });
 
-        it('should fail when awarding duplicate points', async () => {
+        it('should update points when awarding the same event again', async () => {
             const response = await request(app)
                 .post('/api/training-points/award')
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send({
                     user_id: studentId,
                     event_id: awardEventId,
-                    points: 2,
+                    points: 4,
                 });
 
-            expect(response.status).toBe(409);
-            expect(response.body.success).toBe(false);
+            expect(response.status).toBe(201);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data.points).toBe(4);
         });
 
         it('should fail when student tries to award points', async () => {

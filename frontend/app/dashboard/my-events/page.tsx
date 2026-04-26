@@ -24,6 +24,7 @@ import {
     CheckCircle2,
     XCircle,
     Loader2,
+    Trash2,
 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
@@ -38,6 +39,7 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
 
 const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
     registered: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', dot: 'bg-emerald-500' },
+    attended: { bg: 'bg-sky-500/10', text: 'text-sky-600', dot: 'bg-sky-500' },
     cancelled: { bg: 'bg-rose-500/10', text: 'text-rose-600', dot: 'bg-rose-500' },
     pending: { bg: 'bg-amber-500/10', text: 'text-amber-600', dot: 'bg-amber-500' },
     approved: { bg: 'bg-blue-500/10', text: 'text-blue-600', dot: 'bg-blue-500' },
@@ -49,6 +51,7 @@ const statusColors: Record<string, { bg: string; text: string; dot: string }> = 
 
 const statusLabels: Record<string, string> = {
     registered: 'Đã đăng ký',
+    attended: 'Đã tham dự',
     cancelled: 'Đã hủy',
     pending: 'Chờ duyệt',
     approved: 'Đã duyệt',
@@ -62,6 +65,7 @@ interface EventCardProps {
     event: Event;
     role: UserRole;
     onEdit?: (event: Event) => void;
+    onDelete?: (event: Event) => void;
     onCancelRegistration?: (registration: Registration) => void;
     onShowQR?: (registration: Registration) => void;
     registration?: Registration;
@@ -71,6 +75,7 @@ const EventCard: React.FC<EventCardProps> = ({
     event,
     role,
     onEdit,
+    onDelete,
     onCancelRegistration,
     onShowQR,
     registration,
@@ -182,14 +187,25 @@ const EventCard: React.FC<EventCardProps> = ({
                             </>
                         )}
 
-                        {role === 'organizer' && isUpcoming && (
-                            <button
-                                onClick={() => onEdit?.(event)}
-                                className="px-5 py-2.5 bg-[#F26600] text-white rounded-xl hover:bg-[#F26600]/90 transition-all font-semibold flex items-center gap-2 text-sm shadow-md shadow-[#F26600]/20 hover:scale-105"
-                            >
-                                <Edit className="w-4 h-4" />
-                                Chỉnh sửa
-                            </button>
+                        {role === 'organizer' && (
+                            <>
+                                {isUpcoming && (
+                                    <button
+                                        onClick={() => onEdit?.(event)}
+                                        className="px-5 py-2.5 bg-[#F26600] text-white rounded-xl hover:bg-[#F26600]/90 transition-all font-semibold flex items-center gap-2 text-sm shadow-md shadow-[#F26600]/20 hover:scale-105"
+                                    >
+                                        <Edit className="w-4 h-4" />
+                                        Chỉnh sửa
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => onDelete?.(event)}
+                                    className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-semibold flex items-center gap-2 text-sm"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Xóa
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -297,6 +313,20 @@ export default function MyEventsPage() {
 
     const handleEditEvent = (event: Event) => {
         router.push(`/dashboard/events/${event.id}/edit`);
+    };
+
+    const handleDeleteEvent = async (event: Event) => {
+        if (!confirm(`Bạn có chắc chắn muốn xóa sự kiện "${event.title}"?`)) {
+            return;
+        }
+
+        try {
+            await eventService.delete(event.id);
+            toast.success('Đã xóa sự kiện');
+            await fetchData();
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error, 'Không thể xóa sự kiện'));
+        }
     };
 
     const downloadQRCode = (registration: Registration) => {
@@ -473,6 +503,7 @@ export default function MyEventsPage() {
                                     event={event}
                                     role="organizer"
                                     onEdit={handleEditEvent}
+                                    onDelete={handleDeleteEvent}
                                 />
                             ))}
 

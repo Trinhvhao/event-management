@@ -34,13 +34,13 @@ export const organizerService = {
 
     // Grant organizer rights to a user
     async grantOrganizerRights(userId: string) {
-        const response = await axios.post('/admin/organizers/grant', { userId });
+        const response = await axios.post('/admin/organizers/grant', { userId: Number(userId) });
         return response.data.data;
     },
 
     // Revoke organizer rights from a user
     async revokeOrganizerRights(userId: string) {
-        const response = await axios.delete(`/admin/organizers/${userId}/revoke`);
+        const response = await axios.delete(`/admin/organizers/${Number(userId)}/revoke`);
         return response.data.data;
     },
 

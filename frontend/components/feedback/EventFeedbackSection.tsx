@@ -406,7 +406,7 @@ export default function EventFeedbackSection({ eventId, eventStatus }: EventFeed
                                 )}
                             </div>
                         ) : (
-                            !canSubmitFeedback && (
+                            !canSubmitFeedback && totalFeedbacks > 0 && (
                                 <div className="text-center py-6 text-gray-500 text-sm">
                                     Chưa có đánh giá nào cho sự kiện này
                                 </div>

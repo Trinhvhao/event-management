@@ -99,7 +99,7 @@ function LoadingSkeleton() {
 
 export default function ProfilePage() {
     const router = useRouter();
-    const { user: authUser, token } = useAuthStore();
+    const { user: authUser, token, isAuthenticated, isHydrated } = useAuthStore();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -146,12 +146,16 @@ export default function ProfilePage() {
     }, [authUser]);
 
     useEffect(() => {
-        if (!token) {
+        if (!isHydrated) {
+            return;
+        }
+
+        if (!isAuthenticated || !token) {
             router.push('/login');
             return;
         }
         fetchProfile();
-    }, [router, token, fetchProfile]);
+    }, [router, token, fetchProfile, isAuthenticated, isHydrated]);
 
     const handleSave = async () => {
         if (!formData.full_name.trim()) {
@@ -232,7 +236,7 @@ export default function ProfilePage() {
 
     const roleConfig = user ? roleColors[user.role] || roleColors.student : roleColors.student;
 
-    if (loading) {
+    if (!isHydrated || loading) {
         return (
             <DashboardLayout>
                 <LoadingSkeleton />

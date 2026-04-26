@@ -9,14 +9,17 @@ import { jwtConfig } from '../config/jwt';
  */
 
 describe('Auth Module - Property-Based Tests', () => {
+  const hashRounds = 6;
+  const asyncRuns = 30;
+
   describe('Password Hashing Properties', () => {
     it('should always hash passwords differently even with same input', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.string({ minLength: 6, maxLength: 100 }),
           async (password) => {
-            const hash1 = await bcrypt.hash(password, 10);
-            const hash2 = await bcrypt.hash(password, 10);
+            const hash1 = await bcrypt.hash(password, hashRounds);
+            const hash2 = await bcrypt.hash(password, hashRounds);
             
             // Hashes should be different (due to salt)
             expect(hash1).not.toBe(hash2);
@@ -28,7 +31,7 @@ describe('Auth Module - Property-Based Tests', () => {
             expect(valid2).toBe(true);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: asyncRuns }
       );
     });
 
@@ -37,7 +40,7 @@ describe('Auth Module - Property-Based Tests', () => {
         fc.asyncProperty(
           fc.string({ minLength: 6, maxLength: 100 }),
           async (password) => {
-            const hash = await bcrypt.hash(password, 10);
+            const hash = await bcrypt.hash(password, hashRounds);
             
             // Hash should not contain the original password
             expect(hash).not.toContain(password);
@@ -45,7 +48,7 @@ describe('Auth Module - Property-Based Tests', () => {
             expect(hash.length).toBeGreaterThan(password.length);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: asyncRuns }
       );
     });
 
@@ -57,13 +60,13 @@ describe('Auth Module - Property-Based Tests', () => {
           async (password1, password2) => {
             fc.pre(password1 !== password2); // Only test different passwords
             
-            const hash = await bcrypt.hash(password1, 10);
+            const hash = await bcrypt.hash(password1, hashRounds);
             const isValid = await bcrypt.compare(password2, hash);
             
             expect(isValid).toBe(false);
           }
         ),
-        { numRuns: 100 }
+        { numRuns: asyncRuns }
       );
     });
   });

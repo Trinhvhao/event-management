@@ -103,7 +103,7 @@ function LogEntry({ log }: { log: AuditLogEntry }) {
                             {label}
                         </p>
                         {isCritical && (
-                            <p className="text-[10px] text-[var(--color-brand-red)] font-medium">Thao tác quan trọng</p>
+                            <p className="text-xs text-[var(--color-brand-red)] font-medium">Thao tác quan trọng</p>
                         )}
                     </div>
                 </div>
@@ -120,7 +120,7 @@ function LogEntry({ log }: { log: AuditLogEntry }) {
                         <User className="w-3.5 h-3.5 text-[var(--color-brand-navy)]" />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wide">Người thực hiện</p>
+                        <p className="text-xs text-[var(--text-muted)] font-semibold uppercase tracking-wide">Người thực hiện</p>
                         <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{log.admin?.full_name || '—'}</p>
                     </div>
                 </div>
@@ -130,7 +130,7 @@ function LogEntry({ log }: { log: AuditLogEntry }) {
                             <User className="w-3.5 h-3.5 text-[var(--color-brand-orange)]" />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wide">Tác động đến</p>
+                            <p className="text-xs text-[var(--text-muted)] font-semibold uppercase tracking-wide">Tác động đến</p>
                             <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{log.user.full_name}</p>
                         </div>
                     </div>
@@ -140,7 +140,7 @@ function LogEntry({ log }: { log: AuditLogEntry }) {
             {/* Changes diff */}
             {log.old_value !== null && log.new_value !== null && (
                 <div className="rounded-lg bg-[var(--bg-muted)]/50 p-3 space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)] mb-2">Thay đổi</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] mb-2">Thay đổi</p>
                     <div className="flex items-center gap-2 text-xs">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[color-mix(in_srgb,var(--color-brand-red)_8%,transparent)] text-[var(--color-brand-red)] font-semibold shrink-0">
                             – {String(log.old_value)}
@@ -154,7 +154,7 @@ function LogEntry({ log }: { log: AuditLogEntry }) {
             )}
 
             {/* Entity info */}
-            <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--text-muted)]">
+            <div className="flex items-center gap-2 mt-2 text-xs text-[var(--text-muted)]">
                 <span className="font-semibold uppercase tracking-wide">Entity:</span>
                 <span>{log.entity_type}</span>
                 <span className="text-[var(--border-default)]">|</span>

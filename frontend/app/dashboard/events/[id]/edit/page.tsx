@@ -12,9 +12,11 @@ import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import ImageUpload from '@/components/ui/ImageUpload';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 import Skeleton from '@/components/ui/Skeleton';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Users, Award, Image as ImageIcon, Save } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Award, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -39,7 +41,6 @@ const editEventSchema = z.object({
     training_points: z.string().optional(),
     event_cost: z.string().optional(),
     registration_deadline: z.string().optional(),
-    image_url: z.string().url('URL không hợp lệ').optional().or(z.literal('')),
 });
 
 type EditEventForm = z.infer<typeof editEventSchema>;
@@ -62,6 +63,7 @@ export default function EditEventPage() {
     const { departments } = useDepartments();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formReady, setFormReady] = useState(false);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
 
     const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<EditEventForm>({
         resolver: zodResolver(editEventSchema),
@@ -81,7 +83,7 @@ export default function EditEventPage() {
             setValue('training_points', String(event.training_points));
             setValue('event_cost', String(event.event_cost || 0));
             setValue('registration_deadline', event.registration_deadline ? toDatetimeLocal(event.registration_deadline) : '');
-            setValue('image_url', event.image_url || '');
+            setImageUrl(event.image_url || null);
             setFormReady(true);
         }
     }, [event, formReady, setValue]);
@@ -105,7 +107,7 @@ export default function EditEventPage() {
                 capacity: Number(data.capacity),
                 training_points: Number(data.training_points || 0),
                 event_cost: Number(data.event_cost || 0),
-                image_url: data.image_url || undefined,
+                image_url: imageUrl || undefined,
                 registration_deadline: data.registration_deadline
                     ? new Date(data.registration_deadline).toISOString()
                     : undefined,
@@ -165,14 +167,11 @@ export default function EditEventPage() {
 
                     <Input label="Tiêu đề sự kiện *" placeholder="VD: Hội thảo AI & Machine Learning" error={errors.title?.message} {...register('title')} />
 
-                    <div>
-                        <label className="input-label">Mô tả</label>
-                        <textarea
-                            className="input-field min-h-[120px] resize-y"
-                            placeholder="Mô tả chi tiết về sự kiện..."
-                            {...register('description')}
-                        />
-                    </div>
+                    <RichTextEditor
+                        value={watch('description') || ''}
+                        onChange={(val) => setValue('description', val)}
+                        placeholder="Mô tả chi tiết về sự kiện..."
+                    />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Select label="Danh mục *" options={categoryOptions} value={watchedCategory} onChange={v => setValue('category_id', v)} placeholder="Chọn danh mục" error={errors.category_id?.message} />
@@ -201,7 +200,11 @@ export default function EditEventPage() {
                         <Input label="Hạn đăng ký" type="datetime-local" helperText="Để trống = không giới hạn" error={errors.registration_deadline?.message} {...register('registration_deadline')} />
                     </div>
 
-                    <Input label="URL hình ảnh" type="url" placeholder="https://..." helperText="URL ảnh bìa sự kiện" iconLeft={<ImageIcon size={16} />} error={errors.image_url?.message} {...register('image_url')} />
+                    <ImageUpload
+                        value={imageUrl || undefined}
+                        onChange={(url) => setImageUrl(url)}
+                        helperText="Ảnh bìa sự kiện (tối đa 5MB)"
+                    />
                 </Card>
 
                 {/* Submit */}

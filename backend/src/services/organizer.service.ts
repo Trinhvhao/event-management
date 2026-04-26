@@ -51,11 +51,8 @@ export const organizerService = {
             where.is_active = params.status === 'active';
         }
 
-        // Get organizers
         const organizers = await prisma.user.findMany({
             where,
-            skip,
-            take: limit,
             include: {
                 department: {
                     select: {
@@ -122,10 +119,11 @@ export const organizerService = {
             );
         }
 
-        const total = await prisma.user.count({ where });
+        const total = filteredOrganizers.length;
+        const paginatedOrganizers = filteredOrganizers.slice(skip, skip + limit);
 
         return {
-            data: filteredOrganizers,
+            data: paginatedOrganizers,
             pagination: {
                 page,
                 limit,

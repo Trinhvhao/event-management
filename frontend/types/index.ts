@@ -98,7 +98,7 @@ export interface Category {
 }
 
 // Registration types
-export type RegistrationStatus = 'registered' | 'cancelled';
+export type RegistrationStatus = 'registered' | 'cancelled' | 'attended';
 
 export interface Registration {
   id: number;

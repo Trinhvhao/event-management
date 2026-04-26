@@ -201,6 +201,7 @@ const completeCheckin = async (registration: RegistrationWithRelations, checkedB
             },
             update: {
                 points: registration.event.training_points,
+                semester: currentSemester,
             },
         });
 
@@ -396,7 +397,7 @@ export const getAttendanceByEvent = async (eventId: number, requester: Requester
 export const getAttendanceStats = async (eventId: number, requester: RequesterContext) => {
     await assertEventAttendanceAccess(eventId, requester);
 
-    const [totalRegistrations, totalAttendances, totalCheckouts] = await Promise.all([
+    const [totalRegistrations, totalAttendances, totalCheckouts, activeCheckins] = await Promise.all([
         prisma.registration.count({
             where: {
                 event_id: eventId,
@@ -406,7 +407,6 @@ export const getAttendanceStats = async (eventId: number, requester: RequesterCo
         prisma.attendance.count({
             where: {
                 registration: { event_id: eventId },
-                status: 'checked_in',
             },
         }),
         prisma.attendance.count({
@@ -415,9 +415,13 @@ export const getAttendanceStats = async (eventId: number, requester: RequesterCo
                 status: 'checked_out',
             },
         }),
+        prisma.attendance.count({
+            where: {
+                registration: { event_id: eventId },
+                status: 'checked_in',
+            },
+        }),
     ]);
-
-    const activeCheckins = totalAttendances - totalCheckouts;
 
     const attendanceRate =
         totalRegistrations > 0

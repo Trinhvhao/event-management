@@ -214,7 +214,7 @@ export default function EventsCalendarPage() {
                       {format(day, 'dd/MM')}
                     </span>
                     {dayEvents.length > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary/15 text-secondary font-semibold">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-secondary/15 text-secondary font-semibold">
                         {dayEvents.length}
                       </span>
                     )}

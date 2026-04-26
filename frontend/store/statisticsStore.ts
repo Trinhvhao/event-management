@@ -101,9 +101,10 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
             ]);
 
             set({
-                metrics: metricsData.metrics,
-                trends: metricsData.trends,
-                chartData: chartsData,
+                // BE wraps response in { success, data: { metrics, trends } }
+                metrics: (metricsData as any).metrics ?? metricsData,
+                trends: (metricsData as any).trends ?? null,
+                chartData: (chartsData as any).data ?? (chartsData as any) ?? null,
                 loading: false,
             });
         } catch (error) {

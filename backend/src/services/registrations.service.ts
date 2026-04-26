@@ -112,6 +112,10 @@ export const registerForEvent = async (userId: number, eventId: number) => {
         throw new ConflictError('Bạn đã đăng ký sự kiện này rồi');
     }
 
+    if (existingRegistration?.status === 'attended') {
+        throw new ConflictError('Bạn đã tham dự sự kiện này rồi');
+    }
+
     let updatedRegistration;
 
     if (existingRegistration?.status === 'cancelled') {
@@ -165,6 +169,17 @@ export const registerForEvent = async (userId: number, eventId: number) => {
             },
         });
     }
+
+    await prisma.eventWaitlist.updateMany({
+        where: {
+            event_id: eventId,
+            user_id: userId,
+            status: 'waiting',
+        },
+        data: {
+            status: 'promoted',
+        },
+    });
 
     // Send confirmation email
     try {
@@ -390,3 +405,262 @@ export const getRegistrationQRCodeWithAccess = async (
     };
 };
 
+// =====================
+// Waitlist Functions
+// =====================
+
+export const joinWaitlist = async (userId: number, eventId: number) => {
+    const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: {
+            id: true,
+            title: true,
+            status: true,
+            start_time: true,
+            end_time: true,
+            capacity: true,
+            registration_deadline: true,
+            deleted_at: true,
+        },
+    });
+
+    if (!event || event.deleted_at) {
+        throw new NotFoundError('Sự kiện không tồn tại');
+    }
+
+    if (event.status !== 'upcoming' && event.status !== 'approved') {
+        throw new ValidationError('Chỉ có thể vào danh sách chờ sự kiện sắp diễn ra');
+    }
+
+    if (event.end_time <= new Date()) {
+        throw new ValidationError('Sự kiện đã kết thúc');
+    }
+
+    if (event.registration_deadline && new Date() > event.registration_deadline) {
+        throw new ValidationError('Đã quá hạn đăng ký sự kiện');
+    }
+
+    const activeRegistrations = await prisma.registration.count({
+        where: {
+            event_id: eventId,
+            status: 'registered',
+        },
+    });
+
+    if (activeRegistrations < event.capacity) {
+        throw new ConflictError('Sự kiện vẫn còn chỗ trống, không thể vào danh sách chờ');
+    }
+
+    // Check if already registered
+    const existingRegistration = await prisma.registration.findUnique({
+        where: {
+            user_id_event_id: {
+                user_id: userId,
+                event_id: eventId,
+            },
+        },
+    });
+
+    if (existingRegistration?.status === 'registered') {
+        throw new ConflictError('Bạn đã đăng ký sự kiện này rồi');
+    }
+
+    if (existingRegistration?.status === 'attended') {
+        throw new ConflictError('Bạn đã tham dự sự kiện này rồi');
+    }
+
+    // Check if already in waitlist
+    const existingWaitlist = await prisma.eventWaitlist.findUnique({
+        where: {
+            event_id_user_id: {
+                event_id: eventId,
+                user_id: userId,
+            },
+        },
+    });
+
+    if (existingWaitlist && existingWaitlist.status === 'waiting') {
+        throw new ConflictError('Bạn đã có trong danh sách chờ của sự kiện này');
+    }
+
+    // Get next position
+    const lastInWaitlist = await prisma.eventWaitlist.findFirst({
+        where: {
+            event_id: eventId,
+            status: 'waiting',
+        },
+        orderBy: {
+            position: 'desc',
+        },
+    });
+
+    const nextPosition = (lastInWaitlist?.position ?? 0) + 1;
+
+    // Create waitlist entry
+    const waitlistEntry = await prisma.eventWaitlist.upsert({
+        where: {
+            event_id_user_id: {
+                event_id: eventId,
+                user_id: userId,
+            },
+        },
+        update: {
+            position: nextPosition,
+            status: 'waiting',
+        },
+        create: {
+            event_id: eventId,
+            user_id: userId,
+            position: nextPosition,
+            status: 'waiting',
+        },
+        include: {
+            event: {
+                select: {
+                    id: true,
+                    title: true,
+                    start_time: true,
+                    end_time: true,
+                    location: true,
+                },
+            },
+            user: {
+                select: {
+                    id: true,
+                    full_name: true,
+                    email: true,
+                },
+            },
+        },
+    });
+
+    return waitlistEntry;
+};
+
+export const leaveWaitlist = async (userId: number, eventId: number) => {
+    const waitlistEntry = await prisma.eventWaitlist.findUnique({
+        where: {
+            event_id_user_id: {
+                event_id: eventId,
+                user_id: userId,
+            },
+        },
+    });
+
+    if (!waitlistEntry) {
+        throw new NotFoundError('Bạn không có trong danh sách chờ của sự kiện này');
+    }
+
+    if (waitlistEntry.status !== 'waiting') {
+        throw new ConflictError('Yêu cầu không hợp lệ');
+    }
+
+    // Update status to cancelled
+    await prisma.eventWaitlist.update({
+        where: { id: waitlistEntry.id },
+        data: { status: 'cancelled' },
+    });
+
+    // Reorder remaining waitlist positions
+    await prisma.eventWaitlist.updateMany({
+        where: {
+            event_id: eventId,
+            status: 'waiting',
+            position: {
+                gt: waitlistEntry.position,
+            },
+        },
+        data: {
+            position: {
+                decrement: 1,
+            },
+        },
+    });
+
+    return true;
+};
+
+export const getWaitlistPosition = async (userId: number, eventId: number) => {
+    const waitlistEntry = await prisma.eventWaitlist.findUnique({
+        where: {
+            event_id_user_id: {
+                event_id: eventId,
+                user_id: userId,
+            },
+        },
+        include: {
+            event: {
+                select: {
+                    id: true,
+                    title: true,
+                    capacity: true,
+                },
+            },
+        },
+    });
+
+    if (!waitlistEntry || waitlistEntry.status !== 'waiting') {
+        return null;
+    }
+
+    // Count total waitlist size
+    const totalWaitlist = await prisma.eventWaitlist.count({
+        where: {
+            event_id: eventId,
+            status: 'waiting',
+        },
+    });
+
+    return {
+        position: waitlistEntry.position,
+        status: waitlistEntry.status,
+        total_waitlist: totalWaitlist,
+        event_id: eventId,
+        event_title: waitlistEntry.event.title,
+    };
+};
+
+export const getEventWaitlist = async (
+    eventId: number,
+    requester: RequesterContext
+) => {
+    const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: {
+            id: true,
+            organizer_id: true,
+            deleted_at: true,
+        },
+    });
+
+    if (!event || event.deleted_at) {
+        throw new NotFoundError('Sự kiện không tồn tại');
+    }
+
+    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+        throw new ForbiddenError('Bạn không có quyền xem danh sách chờ của sự kiện này');
+    }
+
+    const waitlist = await prisma.eventWaitlist.findMany({
+        where: {
+            event_id: eventId,
+            status: 'waiting',
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    full_name: true,
+                    email: true,
+                    student_id: true,
+                    department_id: true,
+                },
+            },
+        },
+        orderBy: {
+            position: 'asc',
+        },
+    });
+
+    return waitlist;
+};

@@ -158,7 +158,7 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">Từ ngày</label>
+                                    <label className="block text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">Từ ngày</label>
                                     <input
                                         type="date"
                                         value={value.from ? value.from.toISOString().split('T')[0] : ''}
@@ -168,7 +168,7 @@ export function DateRangePicker({ value, onChange, className = '' }: DateRangePi
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">Đến ngày</label>
+                                    <label className="block text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">Đến ngày</label>
                                     <input
                                         type="date"
                                         value={value.to ? value.to.toISOString().split('T')[0] : ''}

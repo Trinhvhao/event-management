@@ -77,6 +77,39 @@ export const adminController = {
     },
 
     /**
+     * POST /api/admin/users/import
+     * Import users from CSV file
+     */
+    async importUsers(req: Request, res: Response): Promise<void> {
+        try {
+            const adminId = getAuthenticatedUser(req).id;
+            const ipAddress = req.ip || undefined;
+            const userAgent = req.get('user-agent') || undefined;
+
+            const result = await adminService.importUsers(
+                req,
+                adminId,
+                ipAddress,
+                userAgent
+            );
+
+            res.json({
+                success: true,
+                message: `Đã nhập ${result.success} người dùng thành công`,
+                imported: result.success,
+                failed: result.failed,
+                errors: result.errors,
+            });
+        } catch (error) {
+            console.error('Import users error:', error);
+            res.status(400).json({
+                success: false,
+                message: (error as Error).message,
+            });
+        }
+    },
+
+    /**
      * PUT /api/admin/users/:id/lock
      * Lock a user account
      */

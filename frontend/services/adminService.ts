@@ -17,6 +17,12 @@ interface BulkActionResult {
     failures?: Array<{ userId: string; error: string }>;
 }
 
+interface CSVImportResult {
+    success: number;
+    failed: number;
+    errors?: Array<{ row: number; email: string; error: string }>;
+}
+
 interface UserAuditLogsQuery {
     page?: number;
     limit?: number;
@@ -76,6 +82,16 @@ export const adminService = {
     // Bulk unlock users
     async bulkUnlock(userIds: string[]): Promise<BulkActionResult> {
         const response = await axios.post('/admin/users/bulk-unlock', { userIds });
+        return response.data;
+    },
+
+    // Import users from CSV file
+    async importUsers(formData: FormData): Promise<CSVImportResult> {
+        const response = await axios.post('/admin/users/import', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
         return response.data;
     },
 

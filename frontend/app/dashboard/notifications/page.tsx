@@ -264,7 +264,7 @@ export default function NotificationsPage() {
                                     <Bell className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Notifications</p>
+                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Notifications</p>
                                     <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">Thông báo</h1>
                                     <p className="text-sm text-[var(--text-muted)]">
                                         {unreadCount > 0
@@ -303,7 +303,7 @@ export default function NotificationsPage() {
                         >
                             {tab.label}
                             {tab.count > 0 && (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                                     filter === tab.key
                                         ? 'bg-[var(--color-brand-navy)] text-white'
                                         : 'bg-white text-[var(--text-muted)] border border-[var(--border-default)]'

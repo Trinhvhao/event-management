@@ -92,7 +92,7 @@ export default function UserProfileMenu() {
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-[var(--text-primary)] truncate">{displayName}</p>
                                 <p className="text-xs text-[var(--text-muted)] truncate">{displayEmail}</p>
-                                <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${roleInfo.badge}`}>
+                                <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${roleInfo.badge}`}>
                                     <span>{roleInfo.icon}</span>
                                     {roleInfo.label}
                                 </span>

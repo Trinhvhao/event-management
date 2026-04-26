@@ -35,7 +35,7 @@ export function StatusChip({ status, variant }: StatusChipProps) {
     const finalVariant = variant || getVariantFromStatus(status);
 
     return (
-        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${variantStyles[finalVariant]}`}>
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${variantStyles[finalVariant]}`}>
             {status}
         </span>
     );

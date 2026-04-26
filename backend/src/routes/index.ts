@@ -14,6 +14,7 @@ import statisticsRoutes from './statistics.routes';
 import analyticsRoutes from './analytics.routes';
 import adminRoutes from './admin.routes';
 import searchRoutes from './search.routes';
+import uploadRoutes from './upload.routes';
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -27,6 +28,7 @@ router.use('/statistics', statisticsRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/admin', adminRoutes);
 router.use('/search', searchRoutes);
+router.use('/upload', uploadRoutes);
 
 // API info endpoint
 router.get('/', (_req, res) => {

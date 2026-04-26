@@ -72,6 +72,7 @@ model User {
   checked_in_attendances Attendance[]    @relation("CheckedBy")
   audit_logs_as_admin    AuditLog[]      @relation("AuditAdmin")
   audit_logs_as_user     AuditLog[]      @relation("AuditUser")
+  waitlist_entries       EventWaitlist[]
 
   @@index([email])
   @@index([student_id])
@@ -138,6 +139,7 @@ model Event {
   awarded_training_points TrainingPoint[]
   feedback                Feedback[]
   notifications           Notification[]
+  waitlist                EventWaitlist[]
 
   @@index([start_time])
   @@index([status])
@@ -267,4 +269,31 @@ model AuditLog {
   @@index([created_at])
   @@index([entity_type, entity_id])
   @@map("audit_logs")
+}
+
+enum WaitlistStatus {
+  waiting
+  promoted
+  cancelled
+}
+
+model EventWaitlist {
+  id        Int            @id @default(autoincrement())
+  event_id  Int
+  user_id   Int
+  position  Int
+  status    WaitlistStatus @default(waiting)
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+
+  // Relations
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, user_id])
+  @@index([event_id])
+  @@index([user_id])
+  @@index([event_id, status])
+  @@index([position])
+  @@map("event_waitlist")
 }

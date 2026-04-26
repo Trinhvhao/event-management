@@ -64,3 +64,35 @@ export const authenticate = (
     }
   }
 };
+
+export const authenticateOptional = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      next();
+      return;
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, jwtConfig.secret);
+
+    if (!isJwtUserPayload(decoded) || decoded.type === 'refresh') {
+      next();
+      return;
+    }
+
+    req.user = {
+      id: decoded.id,
+      email: typeof decoded.email === 'string' ? decoded.email : '',
+      role: decoded.role,
+    };
+    next();
+  } catch {
+    next();
+  }
+};

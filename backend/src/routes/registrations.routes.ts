@@ -11,8 +11,14 @@ router.get('/my', authenticate, authorize('student'), registrationsController.ge
 router.get('/my-registrations', authenticate, authorize('student'), registrationsController.getMyRegistrations);
 router.delete('/:id', authenticate, authorize('student'), registrationsController.cancelRegistration);
 
+// Waitlist routes
+router.post('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.joinWaitlist);
+router.delete('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.leaveWaitlist);
+router.get('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.getMyWaitlistPosition);
+
 // Organizer/Admin routes
 router.get('/event/:eventId', authenticate, authorize('organizer', 'admin'), registrationsController.getEventRegistrations);
+router.get('/event/:eventId/waitlist', authenticate, authorize('organizer', 'admin'), registrationsController.getEventWaitlist);
 router.get('/:id/qrcode', authenticate, registrationsController.getRegistrationQRCode);
 router.get('/:id/qr', authenticate, registrationsController.getRegistrationQRCode);
 router.get('/:id', authenticate, registrationsController.getRegistrationById);

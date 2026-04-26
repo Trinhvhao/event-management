@@ -103,14 +103,14 @@ export function DataTable<TData>({
         return 'text-left';
     };
 
-    const thClass = 'px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] bg-[var(--bg-muted)] whitespace-nowrap';
+    const thClass = 'px-4 py-3 text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] bg-[var(--bg-muted)]';
     const tdClass = 'px-4 py-3 align-middle text-sm text-[var(--text-primary)]';
 
     return (
         <div className="w-full space-y-4">
             <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
                 <div className="overflow-x-auto">
-                    <table className="w-full table-auto">
+                    <table className="w-full table-fixed">
                         <thead>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <tr key={headerGroup.id}>
@@ -172,13 +172,14 @@ export function DataTable<TData>({
                                     </td>
                                 </tr>
                             ) : (
-                                table.getRowModel().rows.map((row) => {
+                                table.getRowModel().rows.map((row, rowIndex) => {
                                     const isSelected = Boolean(safeRowSelection[row.id]);
+                                    const isEven = rowIndex % 2 === 0;
 
                                     return (
                                     <tr
                                         key={row.id}
-                                        className={`transition-colors duration-150 ${onRowClick ? 'cursor-pointer' : ''} ${isSelected ? 'bg-[color-mix(in_srgb,var(--color-brand-navy)_5%,transparent)]' : 'hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)]'}`}
+                                        className={`transition-colors duration-150 ${onRowClick ? 'cursor-pointer' : ''} ${isSelected ? 'bg-[color-mix(in_srgb,var(--color-brand-navy)_6%,transparent)]' : isEven ? 'bg-white' : 'bg-[color-mix(in_srgb,var(--color-brand-navy)_2%,transparent)]'} hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_5%,transparent)]`}
                                         onClick={() => onRowClick?.(row.original)}
                                     >
                                         {row.getVisibleCells().map((cell) => {

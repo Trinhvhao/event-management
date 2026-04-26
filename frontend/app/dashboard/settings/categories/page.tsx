@@ -210,7 +210,7 @@ export default function SettingsCategoriesPage() {
               <FolderCog className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">System Settings</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">System Settings</p>
               <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight">Danh mục hệ thống</h1>
               <p className="text-sm text-[var(--text-muted)]">Quản lý danh mục sự kiện và khoa/phòng ban</p>
             </div>
@@ -327,7 +327,7 @@ export default function SettingsCategoriesPage() {
                               {item.description || 'Không có mô tả'}
                             </p>
                             <div className="flex items-center gap-3 mt-2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] px-2.5 py-1 text-[10px] font-bold text-[var(--color-brand-navy)]">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] px-2.5 py-1 text-xs font-bold text-[var(--color-brand-navy)]">
                                 {item.event_count || 0} sự kiện
                               </span>
                             </div>
@@ -480,7 +480,7 @@ export default function SettingsCategoriesPage() {
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-[var(--text-primary)]">
                               {item.name}
-                              <span className="ml-2 inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--color-brand-orange)_12%,transparent)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-brand-orange)]">
+                              <span className="ml-2 inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--color-brand-orange)_12%,transparent)] px-2.5 py-0.5 text-xs font-bold text-[var(--color-brand-orange)]">
                                 {item.code}
                               </span>
                             </p>
@@ -488,7 +488,7 @@ export default function SettingsCategoriesPage() {
                               {item.description || 'Không có mô tả'}
                             </p>
                             <div className="flex items-center gap-3 mt-2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--color-brand-orange)_8%,transparent)] px-2.5 py-1 text-[10px] font-bold text-[var(--color-brand-orange)]">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--color-brand-orange)_8%,transparent)] px-2.5 py-1 text-xs font-bold text-[var(--color-brand-orange)]">
                                 {item.user_count || 0} users
                               </span>
                             </div>

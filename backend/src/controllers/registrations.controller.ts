@@ -96,3 +96,67 @@ export const getRegistrationQRCode = async (req: Request, res: Response, next: N
         next(error);
     }
 };
+
+// =====================
+// Waitlist Controllers
+// =====================
+
+export const joinWaitlist = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = getAuthenticatedUser(req).id;
+        const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+
+        const waitlistEntry = await registrationsService.joinWaitlist(userId, eventId);
+
+        res.status(201).json(successResponse(waitlistEntry, 'Đã thêm vào danh sách chờ'));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const leaveWaitlist = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = getAuthenticatedUser(req).id;
+        const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+
+        await registrationsService.leaveWaitlist(userId, eventId);
+
+        res.json(successResponse({ message: 'Đã rời danh sách chờ' }));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getMyWaitlistPosition = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = getAuthenticatedUser(req).id;
+        const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+
+        const position = await registrationsService.getWaitlistPosition(userId, eventId);
+
+        if (!position) {
+            res.json(successResponse({ in_waitlist: false }));
+            return;
+        }
+
+        res.json(successResponse({
+            in_waitlist: true,
+            ...position,
+        }));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getEventWaitlist = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+        const requester = getAuthenticatedUser(req);
+
+        const waitlist = await registrationsService.getEventWaitlist(eventId, requester);
+
+        res.json(successResponse(waitlist));
+    } catch (error) {
+        next(error);
+    }
+};

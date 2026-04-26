@@ -67,7 +67,7 @@ function NotificationItem({ notification, onMarkRead }: { notification: BellNoti
                         <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed line-clamp-2">
                             {notification.message}
                         </p>
-                        <p className="text-[10px] text-[var(--text-muted)] mt-1.5 font-medium">
+                        <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">
                             {formatRelativeTime(notification.sent_at)}
                         </p>
                     </div>
@@ -198,7 +198,7 @@ export default function NotificationBell() {
             >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-brand-red)] text-[10px] font-extrabold text-white shadow-md">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-brand-red)] text-xs font-extrabold text-white shadow-md">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
@@ -215,7 +215,7 @@ export default function NotificationBell() {
                             <div>
                                 <h3 className="text-sm font-bold text-[var(--text-primary)]">Thông báo</h3>
                                 {unreadCount > 0 && (
-                                    <p className="text-[10px] text-[var(--color-brand-navy)] font-semibold">{unreadCount} chưa đọc</p>
+                                    <p className="text-xs text-[var(--color-brand-navy)] font-semibold">{unreadCount} chưa đọc</p>
                                 )}
                             </div>
                         </div>
@@ -251,7 +251,7 @@ export default function NotificationBell() {
                                 {/* Pagination */}
                                 {pagination.totalPages > 1 && (
                                     <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--border-default)] bg-[var(--bg-muted)]/30">
-                                        <span className="text-[10px] text-[var(--text-muted)] font-medium">
+                                        <span className="text-xs text-[var(--text-muted)] font-medium">
                                             Trang {pagination.page} / {pagination.totalPages}
                                         </span>
                                         <div className="flex items-center gap-1">

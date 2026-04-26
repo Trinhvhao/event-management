@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authenticateOptional } from '../middleware/auth';
 import { authorize } from '../middleware/authorize';
 import { validateCreateEvent, validateUpdateEvent } from '../validators/events.validator';
 import { eventController } from '../controllers/events.controller';
@@ -60,7 +60,7 @@ router.put('/:id/reject', authenticate, authorize('admin'), eventController.reje
  * @desc    Get event by ID
  * @access  Public
  */
-router.get('/:id', eventController.getById);
+router.get('/:id', authenticateOptional, eventController.getById);
 
 /**
  * @route   POST /api/events

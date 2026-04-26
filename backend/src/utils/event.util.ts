@@ -9,6 +9,7 @@ export const transformEvent = (event: any) => {
 
     return {
         ...rest,
+        event_cost: Number(rest.event_cost ?? 0),
         current_registrations: _count?.registrations ?? 0,
     };
 };

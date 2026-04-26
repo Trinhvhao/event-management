@@ -24,6 +24,9 @@ import {
     Building2,
     Tag,
     FileText,
+    Square,
+    CheckSquare as CheckSquareFilled,
+    Trash2,
 } from 'lucide-react';
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -122,6 +125,88 @@ function RejectModal({ event, onClose, onConfirm, processing }: RejectModalProps
     );
 }
 
+interface BulkRejectModalProps {
+    count: number;
+    onClose: () => void;
+    onConfirm: (reason: string | undefined) => void;
+    processing: boolean;
+}
+
+function BulkRejectModal({ count, onClose, onConfirm, processing }: BulkRejectModalProps) {
+    const [reason, setReason] = useState('');
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white rounded-2xl max-w-md w-full mx-4 shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="h-[3px] bg-gradient-to-r from-red-500 via-red-400 to-red-300" />
+                <div className="p-6">
+                    <div className="flex items-center gap-3 mb-1">
+                        <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                            <AlertCircle className="w-5 h-5 text-red-600" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-[var(--text-primary)]">Từ chối nhiều sự kiện</h3>
+                            <p className="text-xs text-[var(--text-muted)]">Hành động này không thể hoàn tác</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-[var(--bg-muted)] rounded-xl">
+                        <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Sẽ từ chối:</p>
+                        <p className="text-sm text-[var(--text-secondary)] font-medium">{count} sự kiện</p>
+                    </div>
+
+                    <div className="mt-4">
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                            Lý do từ chối <span className="text-[var(--text-muted)] font-normal">(áp dụng cho tất cả)</span>
+                        </label>
+                        <textarea
+                            className="w-full px-4 py-3 border-2 border-[var(--border-default)] rounded-xl resize-none focus:outline-none focus:border-red-400 focus:ring-4 focus:ring-red-500/10 transition-all text-sm"
+                            rows={3}
+                            placeholder="VD: Thông tin sự kiện không chính xác, trùng lịch với sự kiện khác..."
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            disabled={processing}
+                        />
+                    </div>
+
+                    <div className="flex gap-3 mt-5">
+                        <button
+                            onClick={onClose}
+                            disabled={processing}
+                            className="flex-1 px-4 py-2.5 border-2 border-[var(--border-default)] rounded-xl text-[var(--text-secondary)] font-semibold hover:bg-[var(--bg-muted)] transition-all disabled:opacity-50 text-sm"
+                        >
+                            Hủy bỏ
+                        </button>
+                        <button
+                            onClick={() => onConfirm(reason.trim() || undefined)}
+                            disabled={processing}
+                            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[var(--shadow-brand)] text-sm"
+                        >
+                            {processing ? (
+                                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                            ) : null}
+                            Xác nhận từ chối ({count})
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
 function LoadingSkeleton() {
     return (
         <div className="space-y-4">
@@ -158,9 +243,12 @@ export default function PendingEventsPage() {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [rejectTarget, setRejectTarget] = useState<Event | null>(null);
+    const [bulkRejectTarget, setBulkRejectTarget] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
     const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
+    const [selectedEvents, setSelectedEvents] = useState<Set<number>>(new Set());
+    const [bulkProcessing, setBulkProcessing] = useState(false);
 
     const fetchData = useCallback(async () => {
         try {
@@ -188,6 +276,11 @@ export default function PendingEventsPage() {
             setProcessingId(event.id);
             await eventService.approveEvent(event.id);
             setEvents((prev) => prev.filter((item) => item.id !== event.id));
+            setSelectedEvents((prev) => {
+                const next = new Set(prev);
+                next.delete(event.id);
+                return next;
+            });
             toast.success(`Đã duyệt: ${event.title}`);
         } catch (error: unknown) {
             toast.error(getApiErrorMessage(error, 'Không thể duyệt sự kiện'));
@@ -206,12 +299,115 @@ export default function PendingEventsPage() {
             setProcessingId(rejectTarget.id);
             await eventService.rejectEvent(rejectTarget.id, reason);
             setEvents((prev) => prev.filter((item) => item.id !== rejectTarget.id));
+            setSelectedEvents((prev) => {
+                const next = new Set(prev);
+                next.delete(rejectTarget.id);
+                return next;
+            });
             toast.success(`Đã từ chối: ${rejectTarget.title}`);
         } catch (error: unknown) {
             toast.error(getApiErrorMessage(error, 'Không thể từ chối sự kiện'));
         } finally {
             setProcessingId(null);
             setRejectTarget(null);
+        }
+    };
+
+    const toggleEventSelection = (eventId: number) => {
+        setSelectedEvents((prev) => {
+            const next = new Set(prev);
+            if (next.has(eventId)) {
+                next.delete(eventId);
+            } else {
+                next.add(eventId);
+            }
+            return next;
+        });
+    };
+
+    const selectAllOnPage = () => {
+        setSelectedEvents(new Set(filteredAndSortedEvents.map((e) => e.id)));
+    };
+
+    const clearSelection = () => {
+        setSelectedEvents(new Set());
+    };
+
+    const handleBulkApprove = async () => {
+        if (selectedEvents.size === 0) return;
+
+        setBulkProcessing(true);
+        const ids = Array.from(selectedEvents);
+
+        try {
+            const results = await Promise.allSettled(
+                ids.map((id) => eventService.approveEvent(id))
+            );
+
+            const successCount = results.filter((r) => r.status === 'fulfilled').length;
+            const failedCount = results.filter((r) => r.status === 'rejected').length;
+
+            if (successCount > 0) {
+                setEvents((prev) => prev.filter((e) => !selectedEvents.has(e.id) || results[ids.indexOf(e.id)]?.status === 'rejected'));
+                const successIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+                setSelectedEvents((prev) => {
+                    const next = new Set(prev);
+                    successIds.forEach((id) => next.delete(id));
+                    return next;
+                });
+            }
+
+            if (failedCount > 0) {
+                toast.error(`Đã duyệt ${successCount}/${ids.length} sự kiện. ${failedCount} thất bại.`);
+            } else {
+                toast.success(`Đã duyệt ${successCount} sự kiện thành công`);
+            }
+        } catch {
+            toast.error('Có lỗi xảy ra khi duyệt sự kiện');
+        } finally {
+            setBulkProcessing(false);
+        }
+    };
+
+    const handleBulkReject = () => {
+        if (selectedEvents.size === 0) return;
+        setBulkRejectTarget(Array.from(selectedEvents));
+    };
+
+    const handleBulkRejectConfirm = async (reason: string | undefined) => {
+        if (bulkRejectTarget.length === 0) return;
+
+        setBulkProcessing(true);
+        const ids = bulkRejectTarget;
+
+        try {
+            const results = await Promise.allSettled(
+                ids.map((id) => eventService.rejectEvent(id, reason))
+            );
+
+            const successCount = results.filter((r) => r.status === 'fulfilled').length;
+            const failedCount = results.filter((r) => r.status === 'rejected').length;
+
+            if (successCount > 0) {
+                setEvents((prev) => prev.filter((e) => !bulkRejectTarget.includes(e.id) || results[bulkRejectTarget.indexOf(e.id)]?.status === 'rejected'));
+                const successIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+                setSelectedEvents((prev) => {
+                    const next = new Set(prev);
+                    successIds.forEach((id) => next.delete(id));
+                    return next;
+                });
+            }
+
+            if (failedCount > 0) {
+                toast.error(`Đã từ chối ${successCount}/${ids.length} sự kiện. ${failedCount} thất bại.`);
+            } else {
+                toast.success(`Đã từ chối ${successCount} sự kiện thành công`);
+            }
+        } catch {
+            toast.error('Có lỗi xảy ra khi từ chối sự kiện');
+        } finally {
+            setBulkProcessing(false);
+            setBulkRejectTarget([]);
         }
     };
 
@@ -236,6 +432,9 @@ export default function PendingEventsPage() {
         return result;
     }, [events, searchQuery, sortOrder, selectedDepartment]);
 
+    const isAllSelectedOnPage = filteredAndSortedEvents.length > 0 &&
+        filteredAndSortedEvents.every((e) => selectedEvents.has(e.id));
+
     return (
         <DashboardLayout>
             <div className="space-y-5 max-w-screen-2xl mx-auto">
@@ -250,7 +449,7 @@ export default function PendingEventsPage() {
                                     <CheckSquare className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Admin</p>
+                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Admin</p>
                                     <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">Phê duyệt sự kiện</h1>
                                     <p className="text-sm text-[var(--text-muted)]">Rà soát và phê duyệt các sự kiện mới được tạo</p>
                                 </div>
@@ -297,7 +496,7 @@ export default function PendingEventsPage() {
 
                             {/* Sort by date */}
                             <div className="relative shrink-0">
-                                <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1">Sắp xếp</label>
+                                <label className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1">Sắp xếp</label>
                                 <div className="relative">
                                     <select
                                         value={sortOrder}
@@ -313,7 +512,7 @@ export default function PendingEventsPage() {
 
                             {/* Filter by department */}
                             <div className="relative shrink-0">
-                                <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1">Khoa</label>
+                                <label className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1">Khoa</label>
                                 <div className="relative">
                                     <select
                                         value={selectedDepartment || ''}
@@ -333,7 +532,7 @@ export default function PendingEventsPage() {
                         {/* Active filters */}
                         {(searchQuery || selectedDepartment) && (
                             <div className="mt-3 pt-3 border-t border-[var(--border-light)] flex flex-wrap items-center gap-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Đang lọc:</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Đang lọc:</span>
                                 {searchQuery && (
                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700">
                                         &ldquo;{searchQuery}&rdquo;
@@ -373,6 +572,83 @@ export default function PendingEventsPage() {
                     </div>
                 )}
 
+                {/* BULK ACTION TOOLBAR */}
+                <AnimatePresence>
+                    {selectedEvents.size > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -20, height: 0 }}
+                            animate={{ opacity: 1, y: 0, height: 'auto' }}
+                            exit={{ opacity: 0, y: -20, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="relative overflow-hidden rounded-2xl border-2 border-[var(--color-brand-navy)] bg-gradient-to-r from-[var(--color-brand-navy)] to-[#1a5fc8] p-4 shadow-lg">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20">
+                                            <CheckSquare className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <p className="text-white font-bold text-lg">
+                                                Đã chọn: {selectedEvents.size} sự kiện
+                                            </p>
+                                            <p className="text-white/70 text-xs">
+                                                {selectedEvents.size === filteredAndSortedEvents.length
+                                                    ? 'Tất cả sự kiện trên trang này đã được chọn'
+                                                    : `Chọn ${filteredAndSortedEvents.length - selectedEvents.size} sự kiện còn lại`}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                                        {!isAllSelectedOnPage && (
+                                            <button
+                                                onClick={selectAllOnPage}
+                                                disabled={bulkProcessing}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                                            >
+                                                <CheckSquareFilled className="w-3.5 h-3.5" />
+                                                Chọn tất cả trên trang này
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={clearSelection}
+                                            disabled={bulkProcessing}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                            Bỏ chọn tất cả
+                                        </button>
+                                        <button
+                                            onClick={handleBulkApprove}
+                                            disabled={bulkProcessing}
+                                            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-md"
+                                        >
+                                            {bulkProcessing ? (
+                                                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                </svg>
+                                            ) : (
+                                                <Check className="w-3.5 h-3.5" />
+                                            )}
+                                            Duyệt tất cả
+                                        </button>
+                                        <button
+                                            onClick={handleBulkReject}
+                                            disabled={bulkProcessing}
+                                            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-red-500 hover:bg-red-400 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-md"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                            Từ chối tất cả
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* EVENTS LIST */}
                 {loading ? (
                     <LoadingSkeleton />
@@ -411,94 +687,98 @@ export default function PendingEventsPage() {
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
                                     transition={{ delay: idx * 0.05, duration: 0.3 }}
-                                    className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-all"
+                                    className={`bg-white rounded-2xl border-2 shadow-[var(--shadow-card)] overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-all ${
+                                        selectedEvents.has(event.id)
+                                            ? 'border-[var(--color-brand-navy)] ring-2 ring-[var(--color-brand-navy)]/20'
+                                            : 'border-[var(--border-default)]'
+                                    }`}
                                 >
                                     {/* Gradient accent line */}
                                     <div className="h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
 
                                     <div className="p-5">
                                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                            {/* Event info */}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-start gap-3 mb-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                            <h2 className="text-lg font-bold text-[var(--text-primary)] line-clamp-1">
-                                                                {event.title}
-                                                            </h2>
-                                                            <span className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold shrink-0">
-                                                                Chờ duyệt
-                                                            </span>
-                                                        </div>
+                                            {/* Selection checkbox + Event info */}
+                                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                <button
+                                                    onClick={() => toggleEventSelection(event.id)}
+                                                    disabled={processingId === event.id}
+                                                    className={`mt-1 shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                                                        selectedEvents.has(event.id)
+                                                            ? 'bg-[var(--color-brand-navy)] border-[var(--color-brand-navy)] text-white'
+                                                            : 'bg-white border-[var(--border-default)] hover:border-[var(--color-brand-navy)]'
+                                                    } disabled:opacity-50`}
+                                                    aria-label={selectedEvents.has(event.id) ? 'Bỏ chọn sự kiện' : 'Chọn sự kiện'}
+                                                >
+                                                    {selectedEvents.has(event.id) && <Check className="w-4 h-4" />}
+                                                    {!selectedEvents.has(event.id) && <Square className="w-4 h-4 text-transparent" />}
+                                                </button>
 
-                                                        {/* Meta info */}
-                                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--text-secondary)]">
-                                                            {/* Category */}
-                                                            {event.category && (
-                                                                <span className="inline-flex items-center gap-1.5">
-                                                                    <div className="w-6 h-6 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
-                                                                        <Tag className="w-3.5 h-3.5 text-purple-600" />
-                                                                    </div>
-                                                                    <span className="font-medium">{event.category.name}</span>
-                                                                </span>
-                                                            )}
-
-                                                            {/* Department */}
-                                                            {event.department && (
-                                                                <span className="inline-flex items-center gap-1.5">
-                                                                    <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                                                                        <Building2 className="w-3.5 h-3.5 text-[var(--color-brand-navy)]" />
-                                                                    </div>
-                                                                    <span className="font-medium">{event.department.name}</span>
-                                                                </span>
-                                                            )}
-
-                                                            {/* Date */}
-                                                            <span className="inline-flex items-center gap-1.5">
-                                                                <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center shrink-0">
-                                                                    <Calendar className="w-3.5 h-3.5 text-green-600" />
-                                                                </div>
-                                                                <span className="font-medium">
-                                                                    {format(parseISO(event.start_time), 'dd/MM/yyyy', { locale: vi })}
-                                                                </span>
-                                                            </span>
-
-                                                            {/* Time */}
-                                                            <span className="inline-flex items-center gap-1.5">
-                                                                <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                                                                    <Clock className="w-3.5 h-3.5 text-[var(--color-brand-orange)]" />
-                                                                </div>
-                                                                <span className="font-medium">
-                                                                    {format(parseISO(event.start_time), 'HH:mm', { locale: vi })}
-                                                                </span>
-                                                            </span>
-
-                                                            {/* Location */}
-                                                            <span className="inline-flex items-center gap-1.5">
-                                                                <div className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                                                                    <MapPin className="w-3.5 h-3.5 text-red-500" />
-                                                                </div>
-                                                                <span className="font-medium truncate max-w-[200px]">{event.location}</span>
-                                                            </span>
-                                                        </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <h2 className="text-lg font-bold text-[var(--text-primary)] line-clamp-1">
+                                                            {event.title}
+                                                        </h2>
+                                                        <span className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold shrink-0">
+                                                            Chờ duyệt
+                                                        </span>
                                                     </div>
-                                                </div>
 
-                                                {/* Bottom row: registrations & created date */}
-                                                <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--text-muted)]">
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <Users className="w-3.5 h-3.5" />
-                                                        <span className="font-semibold">{event.current_registrations || 0}</span> / {event.capacity} đăng ký
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <FileText className="w-3.5 h-3.5" />
-                                                        Tạo lúc {format(parseISO(event.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
-                                                    </span>
+                                                    {/* Meta info */}
+                                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--text-secondary)]">
+                                                        {/* Category */}
+                                                        {event.category && (
+                                                            <span className="inline-flex items-center gap-1.5">
+                                                                <div className="w-6 h-6 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
+                                                                    <Tag className="w-3.5 h-3.5 text-purple-600" />
+                                                                </div>
+                                                                <span className="font-medium">{event.category.name}</span>
+                                                            </span>
+                                                        )}
+
+                                                        {/* Department */}
+                                                        {event.department && (
+                                                            <span className="inline-flex items-center gap-1.5">
+                                                                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                                                                    <Building2 className="w-3.5 h-3.5 text-[var(--color-brand-navy)]" />
+                                                                </div>
+                                                                <span className="font-medium">{event.department.name}</span>
+                                                            </span>
+                                                        )}
+
+                                                        {/* Date */}
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                            <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center shrink-0">
+                                                                <Calendar className="w-3.5 h-3.5 text-green-600" />
+                                                            </div>
+                                                            <span className="font-medium">
+                                                                {format(parseISO(event.start_time), 'dd/MM/yyyy', { locale: vi })}
+                                                            </span>
+                                                        </span>
+
+                                                        {/* Time */}
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                            <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                                                                <Clock className="w-3.5 h-3.5 text-[var(--color-brand-orange)]" />
+                                                            </div>
+                                                            <span className="font-medium">
+                                                                {format(parseISO(event.start_time), 'HH:mm', { locale: vi })}
+                                                            </span>
+                                                        </span>
+
+                                                        {/* Location */}
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                            <div className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                                                                <MapPin className="w-3.5 h-3.5 text-red-500" />
+                                                            </div>
+                                                            <span className="font-medium truncate max-w-[200px]">{event.location}</span>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
 
                                             {/* Actions */}
-                                            <div className="flex items-center gap-2 shrink-0 lg:flex-col lg:items-end">
+                                            <div className="flex items-center gap-2 shrink-0 lg:flex-col lg:items-end lg:ml-4">
                                                 <Link
                                                     href={`/dashboard/events/${event.id}`}
                                                     className="inline-flex items-center gap-1.5 px-3 py-2 border-2 border-[var(--border-default)] rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-all text-sm font-semibold"
@@ -549,6 +829,18 @@ export default function PendingEventsPage() {
                         onClose={() => setRejectTarget(null)}
                         onConfirm={handleRejectConfirm}
                         processing={processingId === rejectTarget.id}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Bulk Reject Modal */}
+            <AnimatePresence>
+                {bulkRejectTarget.length > 0 && (
+                    <BulkRejectModal
+                        count={bulkRejectTarget.length}
+                        onClose={() => setBulkRejectTarget([])}
+                        onConfirm={handleBulkRejectConfirm}
+                        processing={bulkProcessing}
                     />
                 )}
             </AnimatePresence>

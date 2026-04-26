@@ -8,8 +8,32 @@ describe('Notifications Module Tests', () => {
     let studentId: number;
     let eventId: number;
     let notificationId: number;
+    let departmentId: number;
+    let categoryId: number;
 
     beforeAll(async () => {
+        const department = await prisma.department.upsert({
+            where: { code: 'TEST-NOTIFICATION-DEPT' },
+            update: { name: 'Test Notification Department' },
+            create: {
+                name: 'Test Notification Department',
+                code: 'TEST-NOTIFICATION-DEPT',
+            },
+            select: { id: true },
+        });
+        departmentId = department.id;
+
+        const category = await prisma.category.upsert({
+            where: { name: 'Test Notification Category' },
+            update: { description: 'Test category for notifications' },
+            create: {
+                name: 'Test Notification Category',
+                description: 'Test category for notifications',
+            },
+            select: { id: true },
+        });
+        categoryId = category.id;
+
         // Clean test data
         await prisma.notification.deleteMany({});
         await prisma.event.deleteMany({});
@@ -26,7 +50,7 @@ describe('Notifications Module Tests', () => {
                 full_name: 'Test Student',
                 role: 'student',
                 student_id: 'STU001',
-                department_id: 1,
+                department_id: departmentId,
             },
         });
         studentId = student.id;
@@ -52,8 +76,8 @@ describe('Notifications Module Tests', () => {
                 training_points: 5,
                 status: 'upcoming',
                 organizer_id: studentId,
-                category_id: 1,
-                department_id: 1,
+                category_id: categoryId,
+                department_id: departmentId,
             },
         });
         eventId = event.id;

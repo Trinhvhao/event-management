@@ -3,12 +3,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     QrCode, Camera, CheckCircle, Award, Users, AlertCircle,
-    BarChart3, Download, Search, X, RotateCcw, LogOut, ScanLine, RefreshCw
+    BarChart3, Download, Search, X, RotateCcw, LogOut, ScanLine, RefreshCw,
+    WifiOff, Wifi, Cloud, Eye, Clock3
 } from 'lucide-react';
-import { checkinService, CheckinResult, AttendanceRecord, AttendanceStats } from '@/services/checkinService';
+import { checkinService, CheckinResult, AttendanceRecord, AttendanceStats, AttendanceDetail } from '@/services/checkinService';
+import { useOfflineCheckin } from '@/hooks/useOfflineCheckin';
 import { eventService } from '@/services/eventService';
 import { Event } from '@/types';
 import { useAuthStore } from '@/store/authStore';
@@ -56,7 +58,7 @@ function SectionHeader({ label, title, subtitle, action }: {
     return (
         <div className="flex items-center justify-between gap-4">
             <div>
-                {label && <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-brand-orange)] mb-0.5">{label}</p>}
+                {label && <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-brand-orange)] mb-0.5">{label}</p>}
                 <h2 className="text-base font-extrabold text-[var(--text-primary)]">{title}</h2>
                 {subtitle && <p className="text-xs text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
             </div>
@@ -69,12 +71,18 @@ export default function CheckinPage() {
     const router = useRouter();
     const { user } = useAuthStore();
 
+    // ── Offline check-in hook ────────────────────────────────────────────
+    const { isOnline, pendingItems, pendingCount, isSyncing, queueCheckIn, processQueue } =
+        useOfflineCheckin();
+
+    // ── Local UI state ────────────────────────────────────────────────────
     const [mode, setMode] = useState<ScanMode>('manual');
     const [qrInput, setQrInput] = useState('');
     const [manualStudentId, setManualStudentId] = useState('');
     const [manualRegistrationId, setManualRegistrationId] = useState('');
     const [processing, setProcessing] = useState(false);
     const [lastResult, setLastResult] = useState<CheckinResult | null>(null);
+    const [lastResultQueued, setLastResultQueued] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastScan, setLastScan] = useState<{ value: string; ts: number } | null>(null);
     const [scanSuccess, setScanSuccess] = useState(false);
@@ -85,6 +93,8 @@ export default function CheckinPage() {
     const [stats, setStats] = useState<AttendanceStats | null>(null);
     const [loadingAttendances, setLoadingAttendances] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedAttendance, setSelectedAttendance] = useState<AttendanceDetail | null>(null);
+    const [loadingAttendanceId, setLoadingAttendanceId] = useState<number | null>(null);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [cameraReady, setCameraReady] = useState(false);
 
@@ -165,6 +175,7 @@ export default function CheckinPage() {
         setProcessing(true);
         setError(null);
         setLastResult(null);
+        setLastResultQueued(false);
         setScanSuccess(false);
 
         try {
@@ -177,14 +188,25 @@ export default function CheckinPage() {
             toast.success(`Check-in thành công: ${result.student.full_name}`);
             void loadAttendanceData();
         } catch (err: unknown) {
-            const msg = normalizeQrError(getErrorMessage(err, 'Check-in thất bại'), 'Check-in thất bại');
-            setError(msg);
-            playSound('error');
-            toast.error(msg);
+            // Offline or network error — queue for later sync
+            if (!navigator.onLine) {
+                await queueCheckIn('qr_checkin', { qr_code: qrData.trim() });
+                setLastResultQueued(true);
+                setLastScan({ value: qrData.trim(), ts: Date.now() });
+                setScanSuccess(true);
+                setQrInput('');
+                playSound('success');
+                toast.success('Đang offline — đã lưu để đồng bộ sau');
+            } else {
+                const msg = normalizeQrError(getErrorMessage(err, 'Check-in thất bại'), 'Check-in thất bại');
+                setError(msg);
+                playSound('error');
+                toast.error(msg);
+            }
         } finally {
             setProcessing(false);
         }
-    }, [loadAttendanceData, playSound]);
+    }, [loadAttendanceData, playSound, queueCheckIn]);
 
     // ── Camera logic ──────────────────────────────────────────────────
     const stopCamera = useCallback(() => {
@@ -261,7 +283,7 @@ export default function CheckinPage() {
         let regId: number | undefined;
         if (rid) { regId = parseInt(rid, 10); if (!Number.isInteger(regId) || regId <= 0) { toast.error('Registration ID không hợp lệ'); return; } }
 
-        setProcessing(true); setError(null); setLastResult(null); setScanSuccess(false);
+        setProcessing(true); setError(null); setLastResult(null); setLastResultQueued(false); setScanSuccess(false);
         try {
             const result = await checkinService.processManualCheckin({ event_id: selectedEventId, registration_id: regId, student_id: sid || undefined });
             setLastResult(result); setLastScan({ value: 'manual', ts: Date.now() }); setScanSuccess(true);
@@ -270,8 +292,18 @@ export default function CheckinPage() {
             toast.success(`Check-in thành công: ${result.student.full_name}`);
             await loadAttendanceData();
         } catch (err: unknown) {
-            const msg = normalizeQrError(getErrorMessage(err, 'Check-in thất bại'), 'Check-in thất bại');
-            setError(msg); playSound('error'); toast.error(msg);
+            if (!navigator.onLine) {
+                await queueCheckIn('manual_checkin', { event_id: selectedEventId, registration_id: regId, student_id: sid || undefined });
+                setLastResultQueued(true);
+                setLastScan({ value: 'manual', ts: Date.now() });
+                setScanSuccess(true);
+                setManualStudentId(''); setManualRegistrationId('');
+                playSound('success');
+                toast.success('Đang offline — đã lưu để đồng bộ sau');
+            } else {
+                const msg = normalizeQrError(getErrorMessage(err, 'Check-in thất bại'), 'Check-in thất bại');
+                setError(msg); playSound('error'); toast.error(msg);
+            }
         } finally { setProcessing(false); }
     };
 
@@ -298,6 +330,18 @@ export default function CheckinPage() {
         }
     };
 
+    const handleViewAttendance = async (attendanceId: number) => {
+        try {
+            setLoadingAttendanceId(attendanceId);
+            const attendanceDetail = await checkinService.getAttendance(attendanceId);
+            setSelectedAttendance(attendanceDetail);
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err, 'Không thể tải chi tiết điểm danh'));
+        } finally {
+            setLoadingAttendanceId(null);
+        }
+    };
+
     // ── CSV Export ────────────────────────────────────────────────────
     const exportCsv = () => {
         if (!attendances.length) return;
@@ -317,6 +361,26 @@ export default function CheckinPage() {
         URL.revokeObjectURL(a.href);
     };
 
+    // ── Sync pending queue ─────────────────────────────────────────────
+    const handleSync = async () => {
+        if (isSyncing) return;
+        const results = await processQueue();
+        const succeeded = results.filter(r => r.success);
+        const skipped = results.filter(r => r.skipped);
+        const failed = results.filter(r => !r.success && !r.skipped);
+
+        if (succeeded.length > 0) {
+            toast.success(`Đã đồng bộ ${succeeded.length} check-in thành công`);
+            void loadAttendanceData();
+        }
+        skipped.forEach(() => {
+            toast.info('Một số check-in đã tồn tại trên server, đã bỏ qua');
+        });
+        if (failed.length > 0) {
+            toast.error(`${failed.length} check-in thất bại sau nhiều lần thử. Đã xóa khỏi hàng đợi.`);
+        }
+    };
+
     const filtered = attendances.filter(a => {
         if (!searchTerm) return true;
         const t = searchTerm.toLowerCase();
@@ -333,6 +397,33 @@ export default function CheckinPage() {
         <DashboardLayout>
             <div className="space-y-5 p-4 md:p-6 lg:p-8 max-w-screen-2xl mx-auto">
 
+                {/* ─── OFFLINE BANNER ─── */}
+                <AnimatePresence>
+                    {!isOnline && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+                            className="relative overflow-hidden rounded-2xl border-2 border-[var(--color-brand-orange)]/40 bg-[var(--color-brand-orange)]/5 px-5 py-3.5"
+                        >
+                            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.gold.hex }} />
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[var(--color-brand-orange)]/10">
+                                    <WifiOff className="w-5 h-5" style={{ color: ACCENT.gold.hex }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-[var(--text-primary)]">Bạn đang offline</p>
+                                    <p className="text-xs text-[var(--text-secondary)]">Check-in được lưu cục bộ và sẽ đồng bộ khi có mạng.</p>
+                                </div>
+                                {pendingCount > 0 && (
+                                    <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: ACCENT.gold.tint, color: ACCENT.gold.text }}>
+                                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT.gold.hex }} />
+                                        {pendingCount} đang chờ đồng bộ
+                                    </span>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* ─── PAGE HEADER ─── */}
                 <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
                     <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
@@ -344,12 +435,39 @@ export default function CheckinPage() {
                                     <QrCode className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Check-in</p>
+                                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Check-in</p>
                                     <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">Điểm danh sự kiện</h1>
                                     <p className="text-sm text-[var(--text-muted)]">Quét QR hoặc nhập MSSV để check-in / check-out sinh viên</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                                {/* Online indicator */}
+                                <span className={`inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-xs font-semibold border border-[var(--border-default)] ${
+                                    isOnline ? 'text-[#00A651] bg-[rgba(0,166,81,0.06)]' : 'text-[var(--color-brand-orange)] bg-[rgba(242,102,0,0.06)]'
+                                }`}>
+                                    {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+                                    {isOnline ? 'Online' : 'Offline'}
+                                </span>
+                                {/* Sync button */}
+                                {pendingCount > 0 && (
+                                    <button
+                                        onClick={() => void handleSync()}
+                                        disabled={isSyncing || !isOnline}
+                                        title="Đồng bộ check-in đang chờ"
+                                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-[var(--color-brand-navy)] bg-[var(--color-brand-navy)] text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                    >
+                                        {isSyncing ? (
+                                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                        ) : <Cloud className="w-4 h-4" />}
+                                        Đồng bộ
+                                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-white/20 text-xs font-bold">
+                                            {pendingCount}
+                                        </span>
+                                    </button>
+                                )}
                                 <button onClick={() => void loadAttendanceData()} disabled={!selectedEventId || loadingAttendances}
                                     className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border-2 border-[var(--border-default)] bg-white text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all disabled:opacity-50 active:scale-95">
                                     <RefreshCw className={`w-4 h-4 ${loadingAttendances ? 'animate-spin' : ''}`} />
@@ -365,7 +483,7 @@ export default function CheckinPage() {
                     <div className="px-5 py-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex-1 min-w-0">
-                                <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] block mb-1.5">Sự kiện đang điểm danh</label>
+                                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] block mb-1.5">Sự kiện đang điểm danh</label>
                                 <select
                                     value={selectedEventId || ''}
                                     onChange={e => setSelectedEventId(Number(e.target.value) || null)}
@@ -412,7 +530,7 @@ export default function CheckinPage() {
                                 <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{ background: `linear-gradient(135deg, ${accent.tint} 0%, transparent 60%)` }} />
                                 <div className="relative flex items-start justify-between gap-3">
                                     <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
+                                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
                                         <p className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-none">{value}</p>
                                     </div>
                                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: accent.tint, color: accent.hex }}>
@@ -460,7 +578,7 @@ export default function CheckinPage() {
                                 {mode === 'manual' && (
                                     <div className="space-y-3">
                                         <div>
-                                            <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1.5">Dán nội dung mã QR</label>
+                                            <label className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] block mb-1.5">Dán nội dung mã QR</label>
                                             <textarea
                                                 value={qrInput}
                                                 onChange={e => setQrInput(e.target.value)}
@@ -481,7 +599,7 @@ export default function CheckinPage() {
                                         </button>
 
                                         <div className="border-t border-[var(--border-light)] pt-4 space-y-3">
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Hoặc check-in thủ công</p>
+                                            <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Hoặc check-in thủ công</p>
                                             <div className="grid grid-cols-2 gap-2">
                                                 <input type="text" value={manualStudentId}
                                                     onChange={e => setManualStudentId(e.target.value)}
@@ -565,7 +683,7 @@ export default function CheckinPage() {
                                         </div>
                                     </div>
                                 )}
-                                {lastResult && scanSuccess && (
+                                {lastResult && scanSuccess && !lastResultQueued && (
                                     <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-[var(--shadow-card)]">
                                         <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.green.hex }} />
                                         <div className="p-5 text-center">
@@ -580,6 +698,21 @@ export default function CheckinPage() {
                                                     <Award className="w-4 h-4" /> +{lastResult.event.training_points} điểm rèn luyện
                                                 </span>
                                             )}
+                                        </div>
+                                    </div>
+                                )}
+                                {lastResultQueued && (
+                                    <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-[var(--shadow-card)]">
+                                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.gold.hex }} />
+                                        <div className="p-5 text-center">
+                                            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: ACCENT.gold.tint }}>
+                                                <Cloud className="w-8 h-8" style={{ color: ACCENT.gold.hex }} />
+                                            </motion.div>
+                                            <h3 className="text-lg font-extrabold text-[var(--text-primary)]">Đã lưu offline</h3>
+                                            <p className="text-sm text-[var(--text-secondary)] mt-1">Mã QR đã được lưu cục bộ.</p>
+                                            <span className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-sm font-bold" style={{ background: ACCENT.gold.tint, color: ACCENT.gold.text }}>
+                                                <WifiOff className="w-4 h-4" /> Sẽ đồng bộ khi có mạng
+                                            </span>
                                         </div>
                                     </div>
                                 )}
@@ -661,17 +794,17 @@ export default function CheckinPage() {
                                                 {/* Time */}
                                                 <div className="text-right shrink-0 hidden sm:block">
                                                     <p className="text-xs font-semibold text-[var(--text-secondary)]">{format(new Date(att.checked_in_at), 'HH:mm')}</p>
-                                                    <p className="text-[10px] text-[var(--text-muted)]">{format(new Date(att.checked_in_at), 'dd/MM')}</p>
+                                                    <p className="text-xs text-[var(--text-muted)]">{format(new Date(att.checked_in_at), 'dd/MM')}</p>
                                                 </div>
 
                                                 {/* Status badge */}
                                                 <div className="shrink-0">
                                                     {isCheckedOut ? (
-                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[var(--bg-muted)] text-[var(--text-muted)]">
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[var(--bg-muted)] text-[var(--text-muted)]">
                                                             <LogOut className="w-3 h-3" /> Đã check-out
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold" style={{ background: ACCENT.green.tint, color: ACCENT.green.hex }}>
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold" style={{ background: ACCENT.green.tint, color: ACCENT.green.hex }}>
                                                             <CheckCircle className="w-3 h-3" /> Đã check-in
                                                         </span>
                                                     )}
@@ -679,6 +812,16 @@ export default function CheckinPage() {
 
                                                 {/* Actions */}
                                                 <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        onClick={() => void handleViewAttendance(att.id)}
+                                                        title="Xem chi tiết"
+                                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-secondary)] transition-colors">
+                                                        {loadingAttendanceId === att.id ? (
+                                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <Eye className="w-4 h-4" />
+                                                        )}
+                                                    </button>
                                                     {!isCheckedOut ? (
                                                         <button
                                                             onClick={() => void handleCheckout(att.id, att.registration.user.full_name)}
@@ -701,9 +844,144 @@ export default function CheckinPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* ─── PENDING QUEUE SECTION ─── */}
+                        {pendingCount > 0 && (
+                            <div className="border-t-2 border-dashed border-[var(--color-brand-orange)]/30 px-5 py-4 bg-[var(--color-brand-orange)]/3">
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <Cloud className="w-4 h-4" style={{ color: ACCENT.gold.hex }} />
+                                        <span className="text-xs font-bold uppercase tracking-[0.12em]" style={{ color: ACCENT.gold.text }}>Đang chờ đồng bộ</span>
+                                        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-bold bg-[var(--color-brand-orange)] text-white">
+                                            {pendingCount}
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => void handleSync()}
+                                        disabled={isSyncing || !isOnline}
+                                        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold border border-[var(--color-brand-orange)]/40 text-[var(--color-brand-orange)] hover:bg-[var(--color-brand-orange)]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        {isSyncing ? (
+                                            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                        ) : <RefreshCw className="w-3 h-3" />}
+                                        Đồng bộ ngay
+                                    </button>
+                                </div>
+                                <div className="space-y-1.5">
+                                    {pendingItems.map(item => (
+                                        <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white border border-[var(--color-brand-orange)]/20">
+                                            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold text-white shrink-0 ${
+                                                item.retries >= 3 ? 'bg-red-400' : 'bg-[var(--color-brand-orange)]'
+                                            }`}>
+                                                {item.retries + 1}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                                    {item.action === 'qr_checkin'
+                                                        ? `QR: ${((item.payload as unknown as { qr_code: string }).qr_code).slice(0, 24)}...`
+                                                        : `Thủ công: Event #${(item.payload as unknown as { event_id: number }).event_id}`
+                                                    }
+                                                </p>
+                                                {item.lastError && (
+                                                    <p className="text-xs text-red-500 truncate">{item.lastError}</p>
+                                                )}
+                                            </div>
+                                            <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                                                {format(new Date(item.timestamp), 'HH:mm:ss')}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {selectedAttendance && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+                    <div className="w-full max-w-2xl rounded-3xl border border-[var(--border-default)] bg-white shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-[var(--border-light)] px-6 py-5">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-brand-orange)]">Attendance</p>
+                                <h3 className="text-xl font-extrabold text-[var(--text-primary)]">Chi tiết điểm danh</h3>
+                            </div>
+                            <button
+                                onClick={() => setSelectedAttendance(null)}
+                                className="rounded-xl border border-[var(--border-default)] p-2 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-5 px-6 py-5">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-muted)]/30 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Sinh viên</p>
+                                    <p className="mt-2 text-lg font-bold text-[var(--text-primary)]">{selectedAttendance.registration.user.full_name}</p>
+                                    <p className="text-sm text-[var(--text-secondary)]">{selectedAttendance.registration.user.student_id || selectedAttendance.registration.user.email}</p>
+                                </div>
+                                <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-muted)]/30 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Sự kiện</p>
+                                    <p className="mt-2 text-lg font-bold text-[var(--text-primary)]">{selectedAttendance.registration.event?.title || 'Không xác định'}</p>
+                                    <p className="text-sm text-[var(--text-secondary)]">Mã bản ghi #{selectedAttendance.id}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
+                                    <div className="flex items-center gap-2">
+                                        <Clock3 className="h-4 w-4 text-[var(--color-brand-navy)]" />
+                                        <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Check-in</p>
+                                    </div>
+                                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                        {format(new Date(selectedAttendance.checked_in_at), 'dd/MM/yyyy HH:mm:ss', { locale: vi })}
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
+                                    <div className="flex items-center gap-2">
+                                        <LogOut className="h-4 w-4 text-[var(--color-brand-orange)]" />
+                                        <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Check-out</p>
+                                    </div>
+                                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                        {selectedAttendance.checked_out_at
+                                            ? format(new Date(selectedAttendance.checked_out_at), 'dd/MM/yyyy HH:mm:ss', { locale: vi })
+                                            : 'Chưa check-out'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Trạng thái</p>
+                                    <div className="mt-2">
+                                        {selectedAttendance.status === 'checked_out' ? (
+                                            <span className="inline-flex items-center gap-2 rounded-xl bg-[var(--bg-muted)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)]">
+                                                <LogOut className="h-4 w-4" />
+                                                Đã check-out
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold" style={{ background: ACCENT.green.tint, color: ACCENT.green.hex }}>
+                                                <CheckCircle className="h-4 w-4" />
+                                                Đang check-in
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="rounded-2xl border border-[var(--border-default)] p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Người thực hiện</p>
+                                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                                        {selectedAttendance.checker?.full_name || `#${selectedAttendance.checked_by}`}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </DashboardLayout>
     );
 }

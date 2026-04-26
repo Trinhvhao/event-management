@@ -8,6 +8,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     size?: 'sm' | 'md' | 'lg';
     isLoading?: boolean;
     icon?: React.ReactNode;
+    iconPosition?: 'left' | 'right';
     children: React.ReactNode;
 }
 
@@ -16,6 +17,7 @@ export default function Button({
     size = 'md',
     isLoading = false,
     icon,
+    iconPosition = 'left',
     children,
     className,
     disabled,
@@ -47,9 +49,20 @@ export default function Button({
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
             ) : icon ? (
-                <span className="shrink-0">{icon}</span>
-            ) : null}
-            {children}
+                iconPosition === 'right' ? (
+                    <>
+                        {children}
+                        <span className="shrink-0">{icon}</span>
+                    </>
+                ) : (
+                    <>
+                        <span className="shrink-0">{icon}</span>
+                        {children}
+                    </>
+                )
+            ) : (
+                children
+            )}
         </button>
     );
 }

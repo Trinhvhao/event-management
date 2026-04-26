@@ -8,6 +8,13 @@ import {
   PaginatedResponse,
 } from '@/types';
 
+export interface UploadResponse {
+  url: string;
+  filename: string;
+  size: number;
+  mimetype: string;
+}
+
 export const eventService = {
   async getAll(params?: {
     page?: number;
@@ -16,9 +23,34 @@ export const eventService = {
     department?: string;
     status?: string;
     search?: string;
+    category_id?: number;
+    department_id?: number;
+    sortBy?: string;
+    sortOrder?: string;
+    is_free?: boolean;
   }): Promise<PaginatedResponse<Event>> {
+    // Map FE params to BE params, strip unsupported fields to avoid 400 errors
+    const {
+      category_id,
+      department_id,
+      is_free,
+      ...rest
+    } = params ?? {};
+
+    const apiParams: Record<string, unknown> = { ...rest };
+
+    if (category_id !== undefined) {
+      apiParams.category = category_id;
+    }
+    if (department_id !== undefined) {
+      apiParams.department = department_id;
+    }
+    if (is_free !== undefined) {
+      apiParams.is_free = String(is_free);
+    }
+
     const response = await axios.get<PaginatedResponse<Event>>('/events', {
-      params,
+      params: apiParams,
     });
     return response.data;
   },
@@ -102,6 +134,19 @@ export const eventService = {
   async rejectEvent(id: number, reason?: string): Promise<Event> {
     const response = await axios.put<ApiResponse<Event>>(`/events/${id}/reject`, {
       reason,
+    });
+    return response.data.data;
+  },
+
+  /** Upload hình ảnh lên server */
+  async uploadImage(file: File): Promise<UploadResponse> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await axios.post<ApiResponse<UploadResponse>>('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response.data.data;
   },

@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     Calendar,
-    Home,
+    CalendarDays,
     User,
-    LogOut,
     Menu,
     X,
     Award,
@@ -20,15 +19,11 @@ import {
     ChevronRight,
     FileText,
     Shield,
-    Bell,
-    Settings,
     Activity,
     LayoutDashboard,
     ClipboardList
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { toast } from 'sonner';
-import { authService } from '@/services/authService';
 import NotificationBell from '../dashboard/NotificationBell';
 import GlobalSearch from '@/components/dashboard/GlobalSearch';
 import UserProfileMenu from '../dashboard/UserProfileMenu';
@@ -42,7 +37,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout, isHydrated, isAuthenticated } = useAuthStore();
+    const { user, isHydrated, isAuthenticated } = useAuthStore();
 
     React.useEffect(() => {
         if (!isHydrated) return;
@@ -50,17 +45,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             router.push('/login');
         }
     }, [isHydrated, isAuthenticated, router]);
-
-    const handleLogout = async () => {
-        try {
-            await authService.logout();
-        } catch {
-            // Always clear client auth state even if server-side logout fails.
-        }
-        logout();
-        toast.success('Đăng xuất thành công');
-        router.push('/login');
-    };
 
     const getNavItems = () => {
         if (user?.role === 'admin') {
@@ -70,7 +54,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     label: 'Sự kiện',
                     items: [
                         { href: '/dashboard/events', icon: Calendar, label: 'Danh sách sự kiện' },
-                        { href: '/dashboard/events/calendar', icon: Calendar, label: 'Lịch sự kiện' },
+                        { href: '/dashboard/events/calendar', icon: CalendarDays, label: 'Lịch sự kiện' },
                         { href: '/dashboard/events/pending', icon: ClipboardList, label: 'Phê duyệt sự kiện' }
                     ]
                 },
@@ -83,7 +67,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     ]
                 },
                 { href: '/dashboard/admin/training-points', icon: Award, label: 'Điểm rèn luyện' },
-                { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
                 {
                     label: 'Cài đặt',
                     items: [
@@ -115,6 +98,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     };
 
     const navItems = getNavItems();
+
+    const navHrefs = navItems.flatMap((item) => ('items' in item && item.items ? item.items.map((subItem) => subItem.href) : [item.href]));
+    const activeHref = navHrefs
+        .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+        .sort((a, b) => b.length - a.length)[0] || null;
 
     return (
         <div className="min-h-screen bg-[var(--bg-page)]">
@@ -180,13 +168,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                 return (
                                     <div key={index} className="space-y-0.5">
                                         {!sidebarCollapsed && (
-                                            <div className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                                            <div className="px-3 py-2.5 text-xs font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                                                 {item.label}
                                             </div>
                                         )}
                                         {item.items.map((subItem) => {
                                             const Icon = subItem.icon;
-                                            const isActive = pathname === subItem.href || pathname.startsWith(subItem.href + '/');
+                                            const isActive = activeHref === subItem.href;
                                             return (
                                                 <Link
                                                     key={subItem.href}
@@ -211,7 +199,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                                 );
                             } else {
                                 const Icon = item.icon;
-                                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                                const isActive = activeHref === item.href;
                                 return (
                                     <Link
                                         key={item.href}
@@ -239,20 +227,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <div className="p-3 border-t border-[var(--border-default)] space-y-1">
                         {!sidebarCollapsed && (
                             <button
-                                onClick={handleLogout}
-                                className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
+                                onClick={() => { router.push('/dashboard/profile'); setSidebarOpen(false); }}
+                                className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)] transition-all duration-200"
                             >
-                                <LogOut className="w-5 h-5 shrink-0 text-red-400 group-hover:text-red-500" />
-                                <span className="text-sm font-medium">Đăng xuất</span>
+                                <User className="w-5 h-5 shrink-0 text-[var(--text-muted)] group-hover:text-[var(--color-brand-navy)]" />
+                                <span className="text-sm font-medium">Tài khoản</span>
                             </button>
                         )}
                         {sidebarCollapsed && (
                             <button
-                                onClick={handleLogout}
-                                className="group flex items-center justify-center w-full p-2.5 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
-                                title="Đăng xuất"
+                                onClick={() => { router.push('/dashboard/profile'); setSidebarOpen(false); }}
+                                className="group flex items-center justify-center w-full p-2.5 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--color-brand-navy)] transition-all duration-200"
+                                title="Tài khoản"
                             >
-                                <LogOut className="w-5 h-5" />
+                                <User className="w-5 h-5" />
                             </button>
                         )}
                     </div>

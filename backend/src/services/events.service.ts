@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { NotFoundError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
+import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../middleware/errorHandler';
 import { EventStatus, UserRole, Prisma } from '@prisma/client';
 import { createNotification } from './notifications.service';
 import { transformEvents, transformEvent } from '../utils/event.util';
@@ -15,14 +15,20 @@ export const eventService = {
     department?: number;
     status?: string;
     search?: string;
+    is_free?: boolean;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
   }) {
-    const { page, limit, category, department, status, search } = filters;
+    const { page, limit, category, department, status, search, is_free, sortBy, sortOrder } = filters;
 
     // Build where clause
     const where: Prisma.EventWhereInput = {};
 
     if (category !== undefined) where.category_id = category;
     if (department !== undefined) where.department_id = department;
+    if (status === 'pending') {
+      throw new ValidationError('Sự kiện chờ duyệt không hiển thị trong danh sách sự kiện');
+    }
     if (status === 'upcoming') {
       // Backward compatibility for legacy records that still use approved.
       where.status = { in: ['upcoming', 'approved'] };
@@ -31,10 +37,16 @@ export const eventService = {
     } else if (status) {
       where.status = status as EventStatus;
     } else {
-      where.status = { not: 'pending' };
+      where.status = { notIn: ['pending'] };
     }
 
     where.deleted_at = null;
+
+    if (is_free === true) {
+      where.event_cost = 0;
+    } else if (is_free === false) {
+      where.event_cost = { gt: 0 };
+    }
 
     if (search) {
       where.OR = [
@@ -57,7 +69,15 @@ export const eventService = {
           },
           _count: { select: { registrations: true } }
         },
-        orderBy: { start_time: 'desc' }
+        orderBy: (() => {
+          if (!sortBy) return { start_time: 'desc' };
+          const validFields = ['start_time', 'title', 'event_cost', 'current_registrations'];
+          if (!validFields.includes(sortBy)) return { start_time: 'desc' };
+          if (sortBy === 'current_registrations') {
+            return { registrations: { _count: sortOrder || 'desc' } };
+          }
+          return { [sortBy]: sortOrder || 'desc' };
+        })()
       }),
       prisma.event.count({ where })
     ]);
@@ -112,7 +132,10 @@ export const eventService = {
   /**
    * Get event by ID
    */
-  async getById(id: number) {
+  async getById(
+    id: number,
+    requester?: { id: number; role: UserRole } | null
+  ) {
     const event = await prisma.event.findUnique({
       where: { id, deleted_at: null },
       include: {
@@ -129,6 +152,16 @@ export const eventService = {
 
     if (!event) {
       throw new NotFoundError('Event');
+    }
+
+    if (event.status === 'pending') {
+      const canAccessPending =
+        requester?.role === 'admin' ||
+        (requester?.role === 'organizer' && requester.id === event.organizer_id);
+
+      if (!canAccessPending) {
+        throw new NotFoundError('Event');
+      }
     }
 
     return transformEvent(event);
@@ -289,10 +322,17 @@ export const eventService = {
       throw new ForbiddenError('You can only update your own events');
     }
 
-    // Business rule: Cannot reduce capacity below current registrations
-    if (data.capacity && data.capacity < event._count.registrations) {
+    const activeRegistrations = await prisma.registration.count({
+      where: {
+        event_id: id,
+        status: { in: ['registered', 'attended'] },
+      },
+    });
+
+    // Business rule: Cannot reduce capacity below active seats already occupied
+    if (typeof data.capacity === 'number' && data.capacity < activeRegistrations) {
       throw new ConflictError(
-        `Cannot reduce capacity below current registrations (${event._count.registrations})`
+        `Cannot reduce capacity below current active registrations (${activeRegistrations})`
       );
     }
 

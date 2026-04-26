@@ -1,7 +1,6 @@
 import prisma from '../config/database';
 import { UserRole } from '@prisma/client';
 import {
-    ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -304,20 +303,6 @@ export const awardTrainingPoints = async (
         throw new ValidationError('Sinh viên chưa check-in sự kiện này');
     }
 
-    const existing = await prisma.trainingPoint.findUnique({
-        where: {
-            user_id_event_id: {
-                user_id: userId,
-                event_id: eventId,
-            },
-        },
-        select: { id: true },
-    });
-
-    if (existing) {
-        throw new ConflictError('Điểm rèn luyện cho sự kiện này đã được cộng trước đó');
-    }
-
     const awardedPoints = points ?? event.training_points;
     if (!Number.isInteger(awardedPoints) || awardedPoints <= 0) {
         throw new ValidationError('points phải là số nguyên dương');
@@ -325,13 +310,23 @@ export const awardTrainingPoints = async (
 
     const awardedSemester = semester?.trim() || getCurrentSemester();
 
-    const created = await prisma.trainingPoint.create({
-        data: {
+    const created = await prisma.trainingPoint.upsert({
+        where: {
+            user_id_event_id: {
+                user_id: userId,
+                event_id: eventId,
+            },
+        },
+        create: {
             user_id: userId,
             event_id: eventId,
             points: awardedPoints,
             semester: awardedSemester,
             earned_at: new Date(),
+        },
+        update: {
+            points: awardedPoints,
+            semester: awardedSemester,
         },
         include: {
             user: {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adminService } from '@/services/adminService';
 import { User, UserRole } from '@/types';
-import { ShieldCheck, Users, Shield, GraduationCap, Activity } from 'lucide-react';
+import { ShieldCheck, Users, Shield, GraduationCap, Activity, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 type RoleSummary = {
@@ -120,7 +120,7 @@ export default function SettingsRolesPage() {
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">System Settings</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">System Settings</p>
               <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight">Phân quyền hệ thống</h1>
               <p className="text-sm text-[var(--text-muted)]">Quản lý vai trò và quyền hạn người dùng</p>
             </div>
@@ -147,7 +147,7 @@ export default function SettingsRolesPage() {
                         <div className="text-white">{config.icon}</div>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                           {config.label}
                         </p>
                         <p className="text-2xl font-extrabold tracking-tight" style={{ color: config.color }}>
@@ -182,7 +182,7 @@ export default function SettingsRolesPage() {
                           }}
                         />
                       </div>
-                      <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
                         {stats.percentage.toFixed(1)}% of total users
                       </p>
                     </div>
@@ -269,14 +269,13 @@ export default function SettingsRolesPage() {
               <table className="w-full">
                 <thead className="bg-[var(--bg-muted)]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Họ tên</th>
-                    <th className="px-6 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Email</th>
-                    <th className="px-6 py-3 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Vai trò</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Họ tên</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Email</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Vai trò</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-light)]">
                   {users.map((user) => {
-                    const roleConfig = ROLE_CONFIG[user.role];
                     return (
                       <tr key={user.id} className="hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)] transition-colors">
                         <td className="px-6 py-4">
@@ -289,16 +288,19 @@ export default function SettingsRolesPage() {
                         </td>
                         <td className="px-6 py-4 text-sm text-[var(--text-secondary)]">{user.email}</td>
                         <td className="px-6 py-4 text-center">
-                          <select
-                            value={user.role}
-                            disabled={processingId === String(user.id)}
-                            onChange={(e) => updateRole(user, e.target.value as UserRole)}
-                            className="inline-flex items-center justify-center rounded-xl border border-[var(--border-default)] bg-white px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] shadow-sm transition-all hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-navy)]/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <option value="student">Sinh viên</option>
-                            <option value="organizer">Ban tổ chức</option>
-                            <option value="admin">Admin</option>
-                          </select>
+                          <div className="relative mx-auto w-[180px]">
+                            <select
+                              value={user.role}
+                              disabled={processingId === String(user.id)}
+                              onChange={(e) => updateRole(user, e.target.value as UserRole)}
+                              className="select-base"
+                            >
+                              <option value="student">Sinh viên</option>
+                              <option value="organizer">Ban tổ chức</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                          </div>
                         </td>
                       </tr>
                     );

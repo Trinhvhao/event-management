@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import { requireAdmin } from '../middleware/authorize';
 import { adminController } from '../controllers/admin.controller';
+import { uploadCSV } from '../controllers/upload.controller';
 
 const router = Router();
 
@@ -11,6 +12,7 @@ router.use(requireAdmin);
 
 // User Management Routes
 router.get('/users', adminController.getUsers);
+router.post('/users/import', uploadCSV, adminController.importUsers);
 router.put('/users/:id/lock', adminController.lockUser);
 router.put('/users/:id/unlock', adminController.unlockUser);
 router.put('/users/:id/role', adminController.changeUserRole);

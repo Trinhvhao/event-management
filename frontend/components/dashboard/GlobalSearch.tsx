@@ -181,7 +181,7 @@ export default function GlobalSearch() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${TYPE_LABEL_CLASSES[result.type]}`}>
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide ${TYPE_LABEL_CLASSES[result.type]}`}>
                                                         {TYPE_LABELS[result.type]}
                                                     </span>
                                                 </div>
@@ -191,7 +191,7 @@ export default function GlobalSearch() {
                                                 )}
                                             </div>
                                             <div className={`shrink-0 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0'}`}>
-                                                <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-muted)] px-2 py-0.5 rounded-md">
+                                                <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-muted)] px-2 py-0.5 rounded-md">
                                                     Enter để chọn
                                                 </span>
                                             </div>

@@ -497,7 +497,7 @@ export async function seedDemoExpansion(
           user_id: student.id,
           event_id: event.id,
           status,
-          qr_code: generateQRCode(student.id, event.id),
+          qr_code: await generateQRCode(student.id, event.id),
           registered_at: new Date(event.created_at.getTime() + participantIndex * 60000),
         },
       });

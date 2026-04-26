@@ -91,7 +91,7 @@ const ScreenNotifications = () => (
                     <div className="flex-1">
                         <div className="flex justify-between items-start">
                              <h4 className={`text-sm font-bold ${item.active ? 'text-gray-900' : 'text-gray-600'}`}>{item.title}</h4>
-                             <span className="text-[10px] text-gray-400">{item.time}</span>
+                             <span className="text-xs text-gray-400">{item.time}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.msg}</p>
                     </div>

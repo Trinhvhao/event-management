@@ -4,8 +4,8 @@ import { ApiResponse } from '@/types';
 interface StatisticsQuery {
     dateFrom?: string;
     dateTo?: string;
-    department_id?: string;
-    category_id?: string;
+    department_id?: number;
+    category_id?: number;
 }
 
 interface Metrics {
@@ -40,12 +40,21 @@ interface ChartsStatisticsPayload {
 
 export const adminStatisticsService = {
     async getDashboard(params?: StatisticsQuery): Promise<DashboardStatisticsPayload> {
-        const response = await axios.get<ApiResponse<DashboardStatisticsPayload>>('/admin/statistics/dashboard', { params });
+        // Map FE string params to BE integer params
+        const apiParams: Record<string, string | number | undefined> = { ...params };
+        if (apiParams.department_id) apiParams.department_id = Number(apiParams.department_id) || undefined;
+        if (apiParams.category_id) apiParams.category_id = Number(apiParams.category_id) || undefined;
+
+        const response = await axios.get<ApiResponse<DashboardStatisticsPayload>>('/admin/statistics/dashboard', { params: apiParams });
         return response.data.data;
     },
 
     async getCharts(params?: StatisticsQuery): Promise<ChartsStatisticsPayload> {
-        const response = await axios.get<ApiResponse<ChartsStatisticsPayload>>('/admin/statistics/charts', { params });
+        const apiParams: Record<string, string | number | undefined> = { ...params };
+        if (apiParams.department_id) apiParams.department_id = Number(apiParams.department_id) || undefined;
+        if (apiParams.category_id) apiParams.category_id = Number(apiParams.category_id) || undefined;
+
+        const response = await axios.get<ApiResponse<ChartsStatisticsPayload>>('/admin/statistics/charts', { params: apiParams });
         return response.data.data;
     },
 };

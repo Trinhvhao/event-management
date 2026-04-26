@@ -37,6 +37,10 @@ if (isRateLimitEnabled) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Static files for uploaded images
+import path from 'path';
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // Logging middleware
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

@@ -11,9 +11,8 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-    const { isAuthenticated, user } = useAuthStore();
+    const { isAuthenticated, user, isHydrated } = useAuthStore();
     const router = useRouter();
-    const isHydrated = typeof window !== 'undefined';
 
     useEffect(() => {
         if (isHydrated && !isAuthenticated) {

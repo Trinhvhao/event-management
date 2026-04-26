@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Search, Calendar, X } from 'lucide-react';
+import { Search, Calendar, X, SlidersHorizontal, RotateCcw, ChevronDown } from 'lucide-react';
 import axios from '@/lib/axios';
 import { DataTable } from '@/components/admin/shared/DataTable';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -73,7 +73,7 @@ function ActionBadge({ actionType }: { actionType: string }) {
     const style = ACTION_STYLES[actionType] || { color: 'text-gray-600', bg: 'bg-gray-50' };
     const label = ACTION_LABELS[actionType] || actionType.replace(/_/g, ' ');
     return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${style.color} ${style.bg}`}>
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${style.color} ${style.bg}`}>
             {label}
         </span>
     );
@@ -143,38 +143,43 @@ export default function AuditLogsPage() {
                     {formatDate(row.original.created_at)}
                 </span>
             ),
+            meta: { headerClassName: 'min-w-[160px]', cellClassName: 'min-w-[160px]', align: 'left' as const },
         },
         {
             accessorKey: 'action_type',
             header: 'Hành động',
             cell: ({ row }) => <ActionBadge actionType={row.original.action_type} />,
+            meta: { headerClassName: 'min-w-[140px]', cellClassName: 'min-w-[140px]', align: 'center' as const },
         },
         {
             accessorKey: 'admin',
             header: 'Admin',
             cell: ({ row }) => (
-                <span className="font-medium text-sm">
+                <span className="font-medium text-sm truncate block max-w-[180px]" title={row.original.admin?.full_name || undefined}>
                     {row.original.admin?.full_name || '—'}
                 </span>
             ),
+            meta: { headerClassName: 'min-w-[160px]', cellClassName: 'min-w-[160px]', align: 'left' as const },
         },
         {
             accessorKey: 'user',
             header: 'User mục tiêu',
             cell: ({ row }) => (
-                <span className="text-sm">
+                <span className="text-sm truncate block max-w-[180px]" title={row.original.user?.full_name || undefined}>
                     {row.original.user?.full_name || '—'}
                 </span>
             ),
+            meta: { headerClassName: 'min-w-[150px]', cellClassName: 'min-w-[150px]', align: 'left' as const },
         },
         {
             accessorKey: 'entity_type',
             header: 'Entity',
             cell: ({ row }) => (
-                <span className="text-xs font-medium px-2 py-1 bg-[var(--bg-muted)] rounded-md">
+                <span className="text-xs font-medium px-2 py-1 bg-[var(--bg-muted)] rounded-md whitespace-nowrap">
                     {row.original.entity_type}
                 </span>
             ),
+            meta: { headerClassName: 'min-w-[120px]', cellClassName: 'min-w-[120px]', align: 'center' as const },
         },
         {
             accessorKey: 'old_value',
@@ -184,13 +189,14 @@ export default function AuditLogsPage() {
                 const newVal = row.original.new_value;
                 if (oldVal === null && newVal === null) return <span className="text-[var(--text-muted)]">—</span>;
                 return (
-                    <div className="flex items-center gap-1 text-xs">
+                    <div className="flex items-center gap-1 text-xs whitespace-nowrap">
                         <span className="text-red-500 font-medium">{oldVal !== null ? String(oldVal) : ''}</span>
                         <span className="text-[var(--text-muted)]">→</span>
                         <span className="text-green-500 font-medium">{newVal !== null ? String(newVal) : ''}</span>
                     </div>
                 );
             },
+            meta: { headerClassName: 'min-w-[120px]', cellClassName: 'min-w-[120px]', align: 'left' as const },
         },
         {
             accessorKey: 'entity_id',
@@ -200,17 +206,18 @@ export default function AuditLogsPage() {
                     #{row.original.entity_id}
                 </span>
             ),
+            meta: { headerClassName: 'min-w-[80px]', cellClassName: 'min-w-[80px]', align: 'left' as const },
         },
     ];
 
     return (
         <DashboardLayout>
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-6">
                 {/* Page header */}
-                <div className="rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)] overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+                <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
+                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
                     <div className="p-6">
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Nhật ký hoạt động</h1>
+                        <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight">Nhật ký hoạt động</h1>
                         <p className="text-sm text-[var(--text-muted)] mt-1">
                             Theo dõi tất cả thao tác của admin trên hệ thống
                         </p>
@@ -218,57 +225,101 @@ export default function AuditLogsPage() {
                 </div>
 
                 {/* Filters */}
-                <div className="rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)] overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-[var(--color-brand-navy)] to-[var(--color-brand-orange)]" />
-                    <div className="p-4 space-y-4">
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            {/* Search */}
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-                                <input
-                                    type="text"
-                                    placeholder="Tìm theo tên admin hoặc user..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full h-10 pl-10 pr-4 rounded-xl border border-[var(--border-default)] bg-white text-sm focus:outline-none focus:border-[var(--color-brand-navy)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] transition-all"
-                                />
+                <section className="rounded-2xl border border-[var(--border-default)] bg-white p-5 shadow-[var(--shadow-card)]">
+                    <div className="mb-5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] flex items-center justify-center">
+                                <SlidersHorizontal className="w-4.5 h-4.5 text-[var(--color-brand-navy)]" />
                             </div>
-
-                            {/* Date from */}
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-                                <input
-                                    type="date"
-                                    value={dateFrom}
-                                    onChange={(e) => setDateFrom(e.target.value)}
-                                    className="h-10 pl-10 pr-3 rounded-xl border border-[var(--border-default)] bg-white text-sm focus:outline-none focus:border-[var(--color-brand-navy)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] transition-all"
-                                />
+                            <div>
+                                <h2 className="text-sm font-bold text-[var(--text-primary)]">Bộ lọc và tìm kiếm</h2>
+                                <p className="text-xs text-[var(--text-muted)]">Tìm kiếm nhật ký hoạt động</p>
                             </div>
+                        </div>
+                        {hasFilters && (
+                            <button
+                                onClick={clearFilters}
+                                className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-brand-red)]/30 bg-[color-mix(in_srgb,var(--color-brand-red)_6%,transparent)] px-4 py-2 text-xs font-bold text-[var(--color-brand-red)] shadow-sm transition-all hover:bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)] active:scale-95"
+                            >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                Xóa bộ lọc
+                            </button>
+                        )}
+                    </div>
 
-                            {/* Date to */}
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] text-sm">→</span>
-                                <input
-                                    type="date"
-                                    value={dateTo}
-                                    onChange={(e) => setDateTo(e.target.value)}
-                                    className="h-10 pl-8 pr-3 rounded-xl border border-[var(--border-default)] bg-white text-sm focus:outline-none focus:border-[var(--color-brand-navy)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] transition-all"
-                                />
-                            </div>
-
-                            {/* Clear filters */}
-                            {hasFilters && (
+                    {/* Search */}
+                    <div className="mb-4">
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Tìm kiếm</label>
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-muted)]" />
+                            <input
+                                type="text"
+                                placeholder="Nhập tên admin hoặc user..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="input-base pl-12 pr-10"
+                            />
+                            {search && (
                                 <button
-                                    onClick={clearFilters}
-                                    className="flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium text-[var(--text-muted)] hover:text-[var(--color-brand-navy)] hover:bg-[var(--bg-muted)] transition-all"
+                                    onClick={() => setSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]"
                                 >
-                                    <X className="w-4 h-4" />
-                                    Xóa lọc
+                                    <X className="h-4 w-4" />
                                 </button>
                             )}
                         </div>
                     </div>
-                </div>
+
+                    {/* Date range filters */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Từ ngày</label>
+                            <div className="relative">
+                                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    className="input-base pl-10"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Đến ngày</label>
+                            <div className="relative">
+                                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    className="input-base pl-10"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Active filter summary */}
+                    {hasFilters && (
+                        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-4 py-2.5">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Bộ lọc:</span>
+                            {search && (
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] shadow-sm border border-[var(--border-default)]">
+                                    Tìm: &ldquo;{search}&rdquo;
+                                </span>
+                            )}
+                            {dateFrom && (
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] shadow-sm border border-[var(--border-default)]">
+                                    Từ: {dateFrom}
+                                </span>
+                            )}
+                            {dateTo && (
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] shadow-sm border border-[var(--border-default)]">
+                                    Đến: {dateTo}
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </section>
 
                 {/* Data table */}
                 <DataTable

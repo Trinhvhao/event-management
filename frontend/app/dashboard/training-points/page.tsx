@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import { trainingPointsService, TrainingPointRecord } from '@/services/trainingPointsService';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/store/authStore';
 
 const HISTORY_PAGE_SIZE = 12;
 const POINTS_GOAL = 100;
@@ -26,7 +27,7 @@ function StatCard({ label, value, icon: Icon, accent }: {
         <div className="bg-white rounded-2xl border border-[var(--border-default)] p-4 shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] transition-all duration-300">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-muted)] mb-1.5">{label}</p>
                     <p className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-none">{value}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: accent.tint, color: accent.hex }}>
@@ -54,7 +55,7 @@ function ProgressBar({ current, total, label }: { current: number; total: number
                     style={{ background: `linear-gradient(90deg, ${ACCENT.navy.hex}, ${ACCENT.gold.hex})` }}
                 />
             </div>
-            <p className="text-[10px] text-[var(--text-muted)] font-medium">{pct}% hoàn thành</p>
+            <p className="text-xs text-[var(--text-muted)] font-medium">{pct}% hoàn thành</p>
         </div>
     );
 }
@@ -78,7 +79,7 @@ function EventHistoryRow({ point, onClick }: { point: TrainingPointRecord; onCli
                         {new Date(point.event.start_time).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </span>
                     <span className="w-1 h-1 rounded-full bg-[var(--border-default)]" />
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold" style={{ background: ACCENT.navy.tint, color: ACCENT.navy.hex }}>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-bold" style={{ background: ACCENT.navy.tint, color: ACCENT.navy.hex }}>
                         {point.semester}
                     </span>
                 </div>
@@ -98,6 +99,7 @@ function EventHistoryRow({ point, onClick }: { point: TrainingPointRecord; onCli
 
 export default function TrainingPointsPage() {
     const router = useRouter();
+    const { isAuthenticated, isHydrated } = useAuthStore();
     const [loading, setLoading] = useState(true);
     const [historyLoading, setHistoryLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -138,15 +140,15 @@ export default function TrainingPointsPage() {
     }, []);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) { router.push('/login'); return; }
+        if (!isHydrated) return;
+        if (!isAuthenticated) { router.push('/login'); return; }
         const init = async () => {
             try { await Promise.all([fetchSummary(), fetchHistory({ append: false, offset: 0, semester: '' })]); }
             catch { toast.error('Không thể tải điểm rèn luyện'); }
             finally { setLoading(false); }
         };
         void init();
-    }, [fetchHistory, fetchSummary, router]);
+    }, [fetchHistory, fetchSummary, router, isAuthenticated, isHydrated]);
 
     const applyFilter = async () => {
         try { await fetchHistory({ append: false, offset: 0, semester: semesterFilter }); }
@@ -158,7 +160,7 @@ export default function TrainingPointsPage() {
         catch { toast.error('Không thể tải thêm lịch sử điểm'); }
     };
 
-    if (loading) {
+    if (!isHydrated || loading) {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-64">
@@ -185,7 +187,7 @@ export default function TrainingPointsPage() {
                                 <Award className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Training Points</p>
+                                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Training Points</p>
                                 <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">Điểm rèn luyện</h1>
                                 <p className="text-sm text-[var(--text-muted)]">Theo dõi và quản lý điểm rèn luyện của bạn</p>
                             </div>
@@ -251,7 +253,7 @@ export default function TrainingPointsPage() {
                             {/* Achievements preview */}
                             <div className="mt-5 pt-4 border-t border-[var(--border-light)]">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Thành tựu</p>
+                                    <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Thành tựu</p>
                                     <div className="flex items-center gap-1">
                                         {[1, 2, 3].map(i => (
                                             <Star key={i} className={`w-4 h-4 ${i <= Math.floor(progressPercent / 33) ? 'fill-[#FFB800] text-[#FFB800]' : 'text-[var(--border-default)]'}`} />
@@ -269,9 +271,9 @@ export default function TrainingPointsPage() {
                                             opacity: totalPoints >= 100 ? 0 : 0.3,
                                         }} />
                                     </div>
-                                    <span className="text-[10px] font-bold" style={{ color: ACCENT.gold.hex }}>{Math.min(progressPercent, 100)}%</span>
+                                    <span className="text-xs font-bold" style={{ color: ACCENT.gold.hex }}>{Math.min(progressPercent, 100)}%</span>
                                 </div>
-                                <p className="text-[10px] text-[var(--text-muted)] mt-1.5">
+                                <p className="text-xs text-[var(--text-muted)] mt-1.5">
                                     {totalPoints >= 100 ? (
                                         <span className="font-semibold" style={{ color: ACCENT.green.hex }}>Chúc mừng! Đã hoàn thành mục tiêu</span>
                                     ) : (
@@ -298,7 +300,7 @@ export default function TrainingPointsPage() {
                                 <div className="flex items-center gap-2">
                                     <h2 className="text-base font-bold text-[var(--text-primary)]">Lịch sử điểm rèn luyện</h2>
                                     {points.length > 0 && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-muted)] text-[var(--text-muted)]">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-[var(--bg-muted)] text-[var(--text-muted)]">
                                             {points.length} sự kiện
                                         </span>
                                     )}

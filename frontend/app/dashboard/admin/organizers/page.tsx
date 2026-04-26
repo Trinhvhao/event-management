@@ -3,12 +3,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useOrganizerStore } from '@/store/organizerStore';
+import { categoryService } from '@/services/categoryService';
 import { DataTable } from '@/components/admin/shared/DataTable';
 import { StatusChip } from '@/components/admin/shared/StatusChip';
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
 import { KPIMetricsDisplay } from '@/components/admin/organizers/KPIMetricsDisplay';
 import { GrantOrganizerDialog } from '@/components/admin/organizers/GrantOrganizerDialog';
-import { Search, UserPlus, UserMinus, BarChart3, X, Users, RotateCcw, Building2, UserCog, TrendingUp } from 'lucide-react';
+import { Search, UserPlus, UserMinus, X, Users, RotateCcw, Building2, UserCog, TrendingUp, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { ColumnDef, OnChangeFn, SortingState } from '@tanstack/react-table';
 import { toast } from 'sonner';
 
@@ -28,12 +29,31 @@ interface Organizer {
     };
 }
 
+interface DepartmentOption {
+    id?: string;
+    name?: string;
+}
+
 const DEFAULT_FILTERS = {
     search: '',
+    department_id: '',
     status: '',
+    eventsCreatedMin: null,
+    eventsCreatedMax: null,
+    totalAttendeesMin: null,
+    totalAttendeesMax: null,
     sortBy: 'eventsCreated',
     sortOrder: 'desc' as const,
 };
+
+const SORT_OPTIONS = [
+    { value: 'eventsCreated-desc', label: 'Sự kiện (Nhiều nhất)' },
+    { value: 'eventsCreated-asc', label: 'Sự kiện (Ít nhất)' },
+    { value: 'totalAttendees-desc', label: 'Lượt tham gia (Cao nhất)' },
+    { value: 'totalAttendees-asc', label: 'Lượt tham gia (Thấp nhất)' },
+    { value: 'averageRating-desc', label: 'Đánh giá (Cao nhất)' },
+    { value: 'averageRating-asc', label: 'Đánh giá (Thấp nhất)' },
+];
 
 const getInitials = (fullName: string) =>
     fullName.trim().split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('');
@@ -52,11 +72,25 @@ export default function OrganizerManagementPage() {
     const [selectedMetrics, setSelectedMetrics] = useState<Organizer['metrics'] | null>(null);
     const [metricsLoading, setMetricsLoading] = useState(false);
     const [metricsError, setMetricsError] = useState<string | null>(null);
+    const [departments, setDepartments] = useState<DepartmentOption[]>([]);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [revokeDialog, setRevokeDialog] = useState<{ isOpen: boolean; organizerId?: string; organizerName?: string }>({ isOpen: false });
 
     useEffect(() => { fetchOrganizers(); }, [fetchOrganizers]);
+
+    useEffect(() => {
+        const loadDepartments = async () => {
+            try {
+                const data = await categoryService.getDepartments();
+                setDepartments(data || []);
+            } catch (loadError) {
+                console.error('Failed to load departments:', loadError);
+            }
+        };
+
+        void loadDepartments();
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -121,13 +155,35 @@ export default function OrganizerManagementPage() {
 
     const hasCustomFilters =
         searchInput.trim().length > 0 ||
+        filters.department_id !== DEFAULT_FILTERS.department_id ||
         filters.status !== DEFAULT_FILTERS.status ||
+        filters.eventsCreatedMin !== DEFAULT_FILTERS.eventsCreatedMin ||
+        filters.eventsCreatedMax !== DEFAULT_FILTERS.eventsCreatedMax ||
+        filters.totalAttendeesMin !== DEFAULT_FILTERS.totalAttendeesMin ||
+        filters.totalAttendeesMax !== DEFAULT_FILTERS.totalAttendeesMax ||
         filters.sortBy !== DEFAULT_FILTERS.sortBy ||
         filters.sortOrder !== DEFAULT_FILTERS.sortOrder;
 
     const resetFilters = () => {
         setSearchInput('');
         updateFilters(DEFAULT_FILTERS);
+    };
+
+    const parseSortOption = (value: string) => {
+        const [sortBy, sortOrder] = value.split('-');
+        return { sortBy, sortOrder };
+    };
+
+    const currentSortValue = `${filters.sortBy}-${filters.sortOrder}`;
+    const parseNullableNumber = (value: string) => {
+        if (!value.trim()) return null;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const handleSortChange = (value: string) => {
+        const { sortBy, sortOrder } = parseSortOption(value);
+        updateFilters({ sortBy, sortOrder });
     };
 
     const sortingState: SortingState = useMemo(
@@ -160,7 +216,7 @@ export default function OrganizerManagementPage() {
                     </div>
                 </div>
             ),
-            meta: { headerClassName: 'w-[35%]', align: 'left' as const },
+            meta: { headerClassName: 'min-w-[220px]', cellClassName: 'min-w-[220px]', align: 'left' as const },
         },
         {
             accessorKey: 'department',
@@ -169,25 +225,26 @@ export default function OrganizerManagementPage() {
                 <div className="flex items-center gap-2">
                     {row.original.department ? (
                         <>
-                            <Building2 className="h-4 w-4 text-[var(--text-muted)]" />
-                            <span className="text-sm text-[var(--text-secondary)]">{row.original.department.name}</span>
+                            <Building2 className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+                            <span className="text-sm text-[var(--text-secondary)] truncate block max-w-[180px]" title={row.original.department.name}>{row.original.department.name}</span>
                         </>
                     ) : (
                         <span className="text-sm italic text-[var(--text-muted)]">Chưa có phòng ban</span>
                     )}
                 </div>
             ),
-            meta: { headerClassName: 'w-[25%]', align: 'left' as const },
+            meta: { headerClassName: 'min-w-[160px]', cellClassName: 'min-w-[160px]', align: 'left' as const },
         },
         {
             accessorKey: 'is_active',
             header: 'Trạng thái',
+            enableSorting: true,
             cell: ({ row }) => (
                 <div className="flex justify-center">
                     <StatusChip status={row.original.is_active ? 'Đang hoạt động' : 'Không hoạt động'} />
                 </div>
             ),
-            meta: { headerClassName: 'w-[15%]', align: 'center' as const },
+            meta: { headerClassName: 'min-w-[140px]', cellClassName: 'min-w-[140px]', align: 'center' as const },
         },
         {
             id: 'actions',
@@ -210,7 +267,7 @@ export default function OrganizerManagementPage() {
                     </button>
                 </div>
             ),
-            meta: { headerClassName: 'w-[25%]', align: 'right' as const },
+            meta: { headerClassName: 'min-w-[200px]', cellClassName: 'min-w-[200px]', align: 'right' as const },
         },
     ];
 
@@ -226,7 +283,7 @@ export default function OrganizerManagementPage() {
                                 <UserCog className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Organizer Management</p>
+                                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Organizer Management</p>
                                 <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight">Quản lý Ban tổ chức</h1>
                                 <p className="text-sm text-[var(--text-muted)]">Quản lý quyền và theo dõi hiệu suất của các organizer</p>
                             </div>
@@ -249,60 +306,156 @@ export default function OrganizerManagementPage() {
 
                 {/* Filters */}
                 <section className="rounded-2xl border border-[var(--border-default)] bg-white p-5 shadow-[var(--shadow-card)]">
-                    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="mb-5 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-orange)_10%,transparent)] flex items-center justify-center">
                                 <Search className="h-4.5 w-4.5 text-[var(--color-brand-orange)]" />
                             </div>
                             <div>
-                                <h2 className="text-sm font-bold text-[var(--text-primary)]">Bộ lọc và sắp xếp</h2>
-                                <p className="text-xs text-[var(--text-muted)]">Tìm organizer theo tên/email và sắp xếp theo KPI</p>
+                                <h2 className="text-sm font-bold text-[var(--text-primary)]">Bộ lọc và tìm kiếm</h2>
+                                <p className="text-xs text-[var(--text-muted)]">Tìm organizer theo tên/email</p>
                             </div>
                         </div>
                         {hasCustomFilters && (
-                            <button onClick={resetFilters} className="inline-flex items-center gap-2 self-start rounded-lg border border-[var(--border-default)] bg-white px-3 py-2 text-sm font-semibold text-[var(--text-secondary)] shadow-sm hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)]">
-                                <RotateCcw className="h-4 w-4" />
-                                Đặt lại
+                            <button onClick={resetFilters} className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-brand-red)]/30 bg-[color-mix(in_srgb,var(--color-brand-red)_6%,transparent)] px-4 py-2 text-xs font-bold text-[var(--color-brand-red)] shadow-sm transition-all hover:bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)] active:scale-95">
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                Xóa bộ lọc
                             </button>
                         )}
                     </div>
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                        <div className="relative md:col-span-2">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+
+                    {/* Search */}
+                    <div className="mb-4">
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Tìm kiếm</label>
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--text-muted)]" />
                             <input
                                 type="text"
-                                placeholder="Tìm theo tên hoặc email..."
+                                placeholder="Nhập họ tên hoặc email..."
                                 value={searchInput}
                                 onChange={(e) => setSearchInput(e.target.value)}
-                                className="input-base pl-10"
-                                style={{ paddingLeft: '2.5rem' }}
+                                className="input-base pr-10"
+                                style={{ paddingLeft: '3.25rem' }}
                             />
+                            {searchInput && (
+                                <button
+                                    onClick={() => setSearchInput('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
                         </div>
-                        <select
-                            value={filters.status}
-                            onChange={(e) => updateFilters({ status: e.target.value })}
-                            className="input-base"
-                        >
-                            <option value="">Tất cả trạng thái</option>
-                            <option value="active">Đang hoạt động</option>
-                            <option value="inactive">Không hoạt động</option>
-                        </select>
-                        <div className="flex gap-2">
-                            <select
-                                value={filters.sortBy}
-                                onChange={(e) => updateFilters({ sortBy: e.target.value })}
-                                className="input-base flex-1"
-                            >
-                                <option value="eventsCreated">Theo số sự kiện</option>
-                                <option value="totalAttendees">Theo lượt tham gia</option>
-                                <option value="averageRating">Theo đánh giá</option>
-                            </select>
-                            <button
-                                onClick={() => updateFilters({ sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' })}
-                                className="flex h-[44px] w-[90px] items-center justify-center gap-1.5 rounded-xl border border-[var(--border-default)] bg-white px-3 text-sm font-semibold text-[var(--text-secondary)] shadow-sm transition-all hover:border-[var(--color-brand-orange)] hover:bg-[color-mix(in_srgb,var(--color-brand-orange)_4%,transparent)] hover:text-[var(--color-brand-orange)]"
-                            >
-                                {filters.sortOrder === 'asc' ? '↑ Tăng' : '↓ Giảm'}
-                            </button>
+                    </div>
+
+                    {/* Filter controls */}
+                    <div className="mb-3 flex items-center gap-2">
+                        <SlidersHorizontal className="h-4 w-4 text-[var(--text-muted)]" />
+                        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Bộ lọc chuyên sâu</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Đơn vị</label>
+                            <div className="relative">
+                                <select
+                                    value={filters.department_id}
+                                    onChange={(e) => updateFilters({ department_id: e.target.value })}
+                                    className="input-base appearance-none pr-10"
+                                >
+                                    <option value="">Tất cả đơn vị</option>
+                                    {departments.map((department) => (
+                                        <option key={department.id} value={department.id}>
+                                            {department.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Status */}
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Trạng thái</label>
+                            <div className="relative">
+                                <select
+                                    value={filters.status}
+                                    onChange={(e) => updateFilters({ status: e.target.value })}
+                                    className="input-base appearance-none pr-10"
+                                >
+                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="active">Đang hoạt động</option>
+                                    <option value="inactive">Không hoạt động</option>
+                                </select>
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Sự kiện đã tạo</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={filters.eventsCreatedMin ?? ''}
+                                    onChange={(e) => updateFilters({ eventsCreatedMin: parseNullableNumber(e.target.value) })}
+                                    placeholder="Từ"
+                                    className="input-base"
+                                />
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={filters.eventsCreatedMax ?? ''}
+                                    onChange={(e) => updateFilters({ eventsCreatedMax: parseNullableNumber(e.target.value) })}
+                                    placeholder="Đến"
+                                    className="input-base"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Lượt tham gia</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={filters.totalAttendeesMin ?? ''}
+                                    onChange={(e) => updateFilters({ totalAttendeesMin: parseNullableNumber(e.target.value) })}
+                                    placeholder="Từ"
+                                    className="input-base"
+                                />
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={filters.totalAttendeesMax ?? ''}
+                                    onChange={(e) => updateFilters({ totalAttendeesMax: parseNullableNumber(e.target.value) })}
+                                    placeholder="Đến"
+                                    className="input-base"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Sort — merged into single dropdown */}
+                        <div>
+                            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Sắp xếp</label>
+                            <div className="relative">
+                                <select
+                                    value={currentSortValue}
+                                    onChange={(e) => handleSortChange(e.target.value)}
+                                    className="input-base appearance-none pr-10"
+                                >
+                                    {SORT_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                </select>
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -395,7 +548,13 @@ export default function OrganizerManagementPage() {
                                             Áp dụng
                                         </button>
                                         <button
-                                            onClick={() => { setDateFrom(''); setDateTo(''); selectedOrganizer && fetchDetailedMetrics(selectedOrganizer.id); }}
+                                            onClick={() => {
+                                                setDateFrom('');
+                                                setDateTo('');
+                                                if (selectedOrganizer) {
+                                                    fetchDetailedMetrics(selectedOrganizer.id);
+                                                }
+                                            }}
                                             className="btn btn-ghost btn-sm"
                                         >
                                             Xóa lọc

@@ -40,7 +40,7 @@ export function KPIMetricsDisplay({ metrics }: KPIMetricsDisplayProps) {
                         <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
                         <p className="text-sm font-extrabold text-[var(--text-primary)]">{value}</p>
                     </div>
                 </div>

@@ -104,7 +104,7 @@ export default function RecentEventsTable() {
         }
     };
 
-    const tableHeaderClass = 'px-5 py-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]';
+    const tableHeaderClass = 'px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]';
 
     return (
         <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden">
