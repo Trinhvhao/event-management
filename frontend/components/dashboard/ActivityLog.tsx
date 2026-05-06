@@ -76,7 +76,7 @@ export default function ActivityLog() {
                     .catch(() => ({ notifications: [], total: 0, limit: 0, offset: 0, has_more: false, message: '' })),
                 user?.role === 'organizer'
                     ? eventService.getMyEvents().then((data) => data.slice(0, 6))
-                    : eventService.getAll({ page: 1, limit: 6 }).then((data) => data.data.items || []),
+                    : eventService.getAll({ page: 1, limit: 6 }).then((data) => data.items || []),
             ]);
 
             const fromNotifications: ActivityItem[] = (notificationResult.notifications || []).map((item) => ({

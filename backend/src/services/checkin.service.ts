@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { UserRole, AttendanceStatus } from '@prisma/client';
 import * as notificationsService from './notifications.service';
 import { ValidationError, NotFoundError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
+import { eventTeamService } from './event-team.service';
 
 interface QRCodeData {
     registration_id: number;
@@ -105,7 +106,7 @@ const decodeQrPayload = (qrCode: string): QRCodeData | null => {
     }
 };
 
-const assertRequesterCanManageEvent = (
+const assertRequesterCanManageEvent = async (
     registration: RegistrationWithRelations,
     checkedBy: number,
     userRole: UserRole
@@ -114,7 +115,7 @@ const assertRequesterCanManageEvent = (
         throw new NotFoundError('Event');
     }
 
-    if (userRole === 'organizer' && registration.event.organizer_id !== checkedBy) {
+    if (userRole === 'organizer' && !(await eventTeamService.canUserPerformAction(registration.event_id, checkedBy, userRole, 'checkin'))) {
         throw new ForbiddenError('Bạn không có quyền check-in cho sự kiện này');
     }
 };
@@ -358,7 +359,7 @@ const assertEventAttendanceAccess = async (eventId: number, requester: Requester
         throw new NotFoundError('Event');
     }
 
-    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+    if (requester.role === 'organizer' && !(await eventTeamService.canUserPerformAction(eventId, requester.id, requester.role, 'checkin'))) {
         throw new ForbiddenError('Bạn không có quyền xem điểm danh của sự kiện này');
     }
 };
@@ -471,7 +472,7 @@ export const getAttendanceById = async (attendanceId: number, requester: Request
         throw new NotFoundError('Không tìm thấy bản ghi điểm danh');
     }
 
-    if (requester.role === 'organizer' && attendance.registration.event.organizer_id !== requester.id) {
+    if (requester.role === 'organizer' && !(await eventTeamService.canUserPerformAction(attendance.registration.event_id, requester.id, requester.role, 'checkin'))) {
         throw new ForbiddenError('Bạn không có quyền xem bản ghi này');
     }
 
@@ -498,7 +499,7 @@ export const checkoutAttendance = async (attendanceId: number, checkedBy: number
         throw new NotFoundError('Event');
     }
 
-    if (userRole === 'organizer' && attendance.registration.event.organizer_id !== checkedBy) {
+    if (userRole === 'organizer' && !(await eventTeamService.canUserPerformAction(attendance.registration.event_id, checkedBy, userRole, 'checkin'))) {
         throw new ForbiddenError('Bạn không có quyền check-out cho sự kiện này');
     }
 
@@ -553,7 +554,7 @@ export const undoAttendance = async (attendanceId: number, checkedBy: number, us
         throw new NotFoundError('Event');
     }
 
-    if (userRole === 'organizer' && attendance.registration.event.organizer_id !== checkedBy) {
+    if (userRole === 'organizer' && !(await eventTeamService.canUserPerformAction(attendance.registration.event_id, checkedBy, userRole, 'checkin'))) {
         throw new ForbiddenError('Bạn không có quyền thao tác với bản ghi này');
     }
 

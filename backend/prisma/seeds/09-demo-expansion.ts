@@ -52,6 +52,7 @@ interface EventBlueprint {
   isFeatured?: boolean;
   registrationDeadlineOffset: number;
   softDeleted?: boolean;
+  eventCost?: number;
 }
 
 const ADMIN_EMAIL = 'admin@dnu.edu.vn';
@@ -93,6 +94,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 0,
     capacity: 120,
     trainingPoints: 4,
+    eventCost: 200000,
     registrationDeadlineOffset: 2,
   },
   {
@@ -108,6 +110,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 1,
     capacity: 150,
     trainingPoints: 3,
+    eventCost: 0,
     registrationDeadlineOffset: 3,
     isFeatured: true,
   },
@@ -124,6 +127,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 2,
     capacity: 600,
     trainingPoints: 2,
+    eventCost: 0,
     registrationDeadlineOffset: 1,
     isFeatured: true,
   },
@@ -140,6 +144,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 3,
     capacity: 80,
     trainingPoints: 6,
+    eventCost: 450000,
     registrationDeadlineOffset: 4,
   },
   {
@@ -155,6 +160,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 4,
     capacity: 250,
     trainingPoints: 5,
+    eventCost: 0,
     registrationDeadlineOffset: -1,
     isFeatured: true,
   },
@@ -171,6 +177,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 5,
     capacity: 400,
     trainingPoints: 3,
+    eventCost: 80000,
     registrationDeadlineOffset: 5,
   },
   {
@@ -186,6 +193,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 2,
     capacity: 350,
     trainingPoints: 2,
+    eventCost: 150000,
     registrationDeadlineOffset: 3,
   },
   {
@@ -201,6 +209,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 0,
     capacity: 100,
     trainingPoints: 4,
+    eventCost: 300000,
     registrationDeadlineOffset: -40,
   },
   {
@@ -216,6 +225,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 1,
     capacity: 280,
     trainingPoints: 3,
+    eventCost: 0,
     registrationDeadlineOffset: -24,
   },
   {
@@ -231,6 +241,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 3,
     capacity: 120,
     trainingPoints: 3,
+    eventCost: 50000,
     registrationDeadlineOffset: 3,
   },
   {
@@ -246,6 +257,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 4,
     capacity: 500,
     trainingPoints: 1,
+    eventCost: 0,
     registrationDeadlineOffset: -10,
     softDeleted: true,
   },
@@ -262,6 +274,7 @@ const eventBlueprints: EventBlueprint[] = [
     organizerIndex: 5,
     capacity: 60,
     trainingPoints: 2,
+    eventCost: 120000,
     registrationDeadlineOffset: 6,
   },
 ];
@@ -435,6 +448,7 @@ export async function seedDemoExpansion(
         organizer_id: organizer.id,
         capacity: blueprint.capacity,
         training_points: blueprint.trainingPoints,
+        event_cost: blueprint.eventCost ?? 0,
         status: blueprint.status,
         is_featured: blueprint.isFeatured ?? false,
         registration_deadline: registrationDeadline,

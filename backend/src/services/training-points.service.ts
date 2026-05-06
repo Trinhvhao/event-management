@@ -6,6 +6,7 @@ import {
     ValidationError,
 } from '../middleware/errorHandler';
 import { notifyPointsAwarded } from './notifications.service';
+import { eventTeamService } from './event-team.service';
 
 type RequesterContext = {
     id: number;
@@ -285,7 +286,7 @@ export const awardTrainingPoints = async (
         throw new NotFoundError('Event');
     }
 
-    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+    if (requester.role === 'organizer' && !(await eventTeamService.canUserPerformAction(eventId, requester.id, requester.role, 'award_points'))) {
         throw new ForbiddenError('Bạn không có quyền cộng điểm cho sự kiện này');
     }
 

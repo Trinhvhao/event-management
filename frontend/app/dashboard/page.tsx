@@ -456,7 +456,7 @@ export default function DashboardPage() {
           notificationService.getAll({ limit: 5 }).catch(() => ({ notifications: [] })),
         ]);
 
-        const events: Event[] = eventsRes.data?.items || eventsRes.data || [];
+        const events: Event[] = eventsRes.items || (eventsRes as any).data?.items || (eventsRes as any).data || [];
         const dashboardStats = (statsRes as any)?.data ?? statsRes ?? {};
         const eventsByStatusArr: Array<{ status: string; count: number }> = dashboardStats.eventsByStatus || [];
         const usersByRole = dashboardStats.usersByRole || [];
@@ -498,7 +498,7 @@ export default function DashboardPage() {
           statisticsService.getOrganizerStats(),
         ]);
 
-        const myEvents: Event[] = myEventsRes.data || myEventsRes || [];
+        const myEvents: Event[] = Array.isArray(myEventsRes) ? myEventsRes : (myEventsRes as any).data || [];
         const organizerStats = (statsRes as any)?.data ?? statsRes ?? {};
         const orgEventsByStatus: Record<string, number> = organizerStats.eventsByStatus || {};
 
@@ -515,6 +515,7 @@ export default function DashboardPage() {
           totalDepartments: 0,
           pendingEvents: 0,
           recentEvents: myEvents.slice(0, 5),
+          recentNotifications: [],
           trainingPoints: 0,
           unreadNotifications: 0,
         });
@@ -525,7 +526,7 @@ export default function DashboardPage() {
           notificationService.getUnreadCount().catch(() => 0),
         ]);
 
-        const events: Event[] = eventsRes.data?.items || eventsRes.data || [];
+        const events: Event[] = eventsRes.items || (eventsRes as any).data?.items || (eventsRes as any).data || [];
         const pointsData = (myPointsRes as any)?.data ?? myPointsRes ?? {};
         const unreadCount = typeof unreadNotifs === 'number' ? unreadNotifs : (unreadNotifs as any)?.unread_count ?? (unreadNotifs as any)?.count ?? 0;
         setStats({
@@ -541,6 +542,7 @@ export default function DashboardPage() {
           totalDepartments: 0,
           pendingEvents: 0,
           recentEvents: events,
+          recentNotifications: [],
           trainingPoints: pointsData.grand_total || 0,
           unreadNotifications: unreadCount,
         });
@@ -741,6 +743,63 @@ export default function DashboardPage() {
               }
             >
               <DonutChart data={donutData} />
+              {/* Quick breakdown cards */}
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                {[
+                  {
+                    label: 'Sắp diễn ra',
+                    value: stats?.upcomingEvents || 0,
+                    total: stats?.totalEvents || 0,
+                    color: '#00358F',
+                    icon: <Clock size={14} />,
+                    status: 'upcoming',
+                  },
+                  {
+                    label: 'Đang diễn ra',
+                    value: stats?.ongoingEvents || 0,
+                    total: stats?.totalEvents || 0,
+                    color: '#F26600',
+                    icon: <Activity size={14} />,
+                    status: 'ongoing',
+                  },
+                  {
+                    label: 'Đã kết thúc',
+                    value: stats?.completedEvents || 0,
+                    total: stats?.totalEvents || 0,
+                    color: '#94a3b8',
+                    icon: <CheckCircle size={14} />,
+                    status: 'completed',
+                  },
+                ].map(({ label, value, total, color, icon, status }) => {
+                  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                  return (
+                    <Link
+                      key={status}
+                      href={`/dashboard/events?status=${status}`}
+                      className="group flex flex-col gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--bg-muted)]/40 p-3 transition-all hover:border-[color-mix(in_srgb,${color}_30%,transparent)] hover:bg-[var(--bg-muted)]"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5" style={{ color }}>
+                          {icon}
+                          <span className="text-[11px] font-semibold">{label}</span>
+                        </div>
+                        <ArrowUpRight size={12} className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <div className="flex items-end gap-1.5">
+                        <span className="text-2xl font-black tracking-tight" style={{ color }}>{value}</span>
+                        <span className="text-[11px] font-medium text-[var(--text-muted)] mb-0.5">sự kiện</span>
+                      </div>
+                      <div className="h-1.5 bg-white rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${pct}%`, background: color }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-medium text-[var(--text-muted)]">{pct}% tổng</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </SectionCard>
 
             <SectionCard

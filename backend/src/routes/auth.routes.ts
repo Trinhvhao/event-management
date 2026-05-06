@@ -5,7 +5,8 @@ import {
   validateRegister,
   validateLogin,
   validateForgotPassword,
-  validateResetPassword
+  validateResetPassword,
+  validateVerifyPassword,
 } from '../validators/auth.validator';
 
 const router = Router();
@@ -79,5 +80,12 @@ router.put('/me', authenticate, authController.updateProfile);
  * @access  Private
  */
 router.put('/change-password', authenticate, authController.changePassword);
+
+/**
+ * @route   POST /api/auth/verify-password
+ * @desc    Verify current user's password (for confirming sensitive actions)
+ * @access  Private
+ */
+router.post('/verify-password', authenticate, validateVerifyPassword, authController.verifyPassword);
 
 export default router;

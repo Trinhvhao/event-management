@@ -1,19 +1,21 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuthStore } from '@/store/authStore';
 import {
     Calendar, MapPin, Users, Award, Clock, ArrowLeft,
     CheckCircle, XCircle, AlertCircle, Edit2, Ban, Hourglass, Trash2,
-    Star, ChevronRight, CalendarCheck, Timer,
+    Star, ChevronRight, CalendarCheck, Timer, CreditCard,
     GraduationCap, Building2, Ticket, Info, Bell, Tag
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { eventService } from '@/services/eventService';
 import { registrationService } from '@/services/registrationService';
+import { paymentService } from '@/services/paymentService';
 import { Event, Registration } from '@/types';
 import { format, isPast, differenceInHours, differenceInMinutes, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -54,21 +56,6 @@ function formatDuration(start: string, end: string) {
     return `${minutes} phút`;
 }
 
-function getTimeUntilEvent(start: string) {
-    const now = new Date();
-    const startDate = parseISO(start);
-    const diffMs = startDate.getTime() - now.getTime();
-    if (diffMs < 0) return null;
-
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (days > 0) return { text: `${days} ngày ${hours}h`, urgent: days <= 1 };
-    if (hours > 0) return { text: `${hours} giờ ${mins}p`, urgent: hours <= 2 };
-    return { text: `${mins} phút`, urgent: true };
-}
-
 function getDayOfWeek(dateStr: string) {
     const date = parseISO(dateStr);
     const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
@@ -89,6 +76,8 @@ export default function EventDetailPage() {
     const [isRegistered, setIsRegistered] = useState(false);
     const [registrationId, setRegistrationId] = useState<number | null>(null);
     const [waitlistInfo, setWaitlistInfo] = useState<WaitlistInfo | null>(null);
+    const [countdown, setCountdown] = useState<{ text: string; urgent: boolean } | null>(null);
+    const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const fetchEventDetail = useCallback(async () => {
         try {
@@ -131,6 +120,59 @@ export default function EventDetailPage() {
         }
     }, [eventId, router, user?.role]);
 
+    // ── Live countdown timer ────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!event || event.status !== 'upcoming') {
+            setCountdown(null);
+            return;
+        }
+
+        const updateCountdown = () => {
+            const now = new Date();
+            const startDate = parseISO(event.start_time);
+            const diffMs = startDate.getTime() - now.getTime();
+
+            if (diffMs <= 0) {
+                setCountdown(null);
+                if (countdownIntervalRef.current) {
+                    clearInterval(countdownIntervalRef.current);
+                    countdownIntervalRef.current = null;
+                }
+                return;
+            }
+
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+            let text: string;
+            if (days > 0) {
+                text = `${days} ngày ${hours}h ${mins}p`;
+            } else if (hours > 0) {
+                text = `${hours}h ${mins}p ${secs}s`;
+            } else if (mins > 0) {
+                text = `${mins} phút ${secs} giây`;
+            } else {
+                text = `${secs} giây`;
+            }
+
+            setCountdown({
+                text,
+                urgent: diffMs < 2 * 60 * 60 * 1000, // < 2 hours
+            });
+        };
+
+        updateCountdown();
+        countdownIntervalRef.current = setInterval(updateCountdown, 1000);
+
+        return () => {
+            if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current);
+            }
+        };
+    }, [event?.start_time, event?.status]);
+
     useEffect(() => {
         if (!isHydrated) return;
         if (!isAuthenticated) {
@@ -147,13 +189,37 @@ export default function EventDetailPage() {
 
     const handleRegister = async () => {
         if (!event) return;
+
+        const eventCost = Number(event.event_cost);
+        const isPaidEvent = eventCost > 0;
+
         try {
             setRegistering(true);
-            await registrationService.register(event.id);
-            toast.success('Đăng ký sự kiện thành công!');
-            setIsRegistered(true);
-            setWaitlistInfo({ in_waitlist: false });
-            fetchEventDetail();
+
+            // Always register first (creates pending registration)
+            const result = await registrationService.register(event.id);
+
+            if (isPaidEvent) {
+                // For paid events: create payment and redirect to payment page
+                toast.info('Đang chuyển đến trang thanh toán...');
+                const payment = await paymentService.createPayment({
+                    event_id: event.id,
+                    registration_id: result.id,
+                });
+                // Open PayOS checkout in new tab
+                window.open(payment.checkoutUrl, '_blank');
+                setIsRegistered(true);
+                setRegistrationId(result.id);
+                // Redirect to payment status page
+                router.push(`/dashboard/payment/success?reg_id=${result.id}`);
+            } else {
+                // Free event: direct success
+                toast.success('Đăng ký sự kiện thành công!');
+                setIsRegistered(true);
+                setRegistrationId(result.id);
+                setWaitlistInfo({ in_waitlist: false });
+                fetchEventDetail();
+            }
         } catch (error: unknown) {
             toast.error(getErrorMessage(error, 'Đăng ký thất bại'));
         } finally {
@@ -276,6 +342,7 @@ export default function EventDetailPage() {
     const canManageEvent = isOrganizerOrAdmin && event?.status !== 'pending';
     const canDeleteEvent = isOrganizerOrAdmin;
     const canViewRegistrations = isOrganizerOrAdmin && event?.status !== 'pending';
+    const canManageTeam = isAdmin || isOrganizerOwner;
 
     const isEventFull = event ? (event.current_registrations || 0) >= event.capacity : false;
     const isUpcoming = event?.status === 'upcoming' || event?.status === 'approved';
@@ -324,8 +391,6 @@ export default function EventDetailPage() {
             </span>
         );
     };
-
-    const countdown = event ? getTimeUntilEvent(event.start_time) : null;
 
     if (loading) {
         return (
@@ -480,8 +545,19 @@ export default function EventDetailPage() {
                                         </button>
                                     ) : canRegister() ? (
                                         <button onClick={handleRegister} disabled={registering}
-                                            className="px-8 py-3 bg-linear-to-r from-(--color-brand-navy) to-[#1a5fc8] text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold shadow-brand">
-                                            {registering ? 'Đang đăng ký...' : 'Đăng ký ngay'}
+                                            className={`px-8 py-3 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold shadow-brand flex items-center gap-2 ${
+                                                Number(event.event_cost) > 0
+                                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600'
+                                                    : 'bg-gradient-to-r from-[var(--color-brand-navy)] to-[#1a5fc8]'
+                                            }`}>
+                                            {Number(event.event_cost) > 0 ? (
+                                                <>
+                                                    <CreditCard className="w-5 h-5" />
+                                                    {registering ? 'Đang xử lý...' : `Đăng ký & Thanh toán ${new Intl.NumberFormat('vi-VN').format(Number(event.event_cost))}đ`}
+                                                </>
+                                            ) : (
+                                                registering ? 'Đang đăng ký...' : 'Đăng ký ngay'
+                                            )}
                                         </button>
                                     ) : (
                                         <div className="px-5 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold text-center">
@@ -849,6 +925,34 @@ export default function EventDetailPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* ── Team Management Card ── */}
+                        {canManageTeam && (
+                            <Link
+                                href={`/dashboard/organizer/events/${event.id}/team`}
+                                className="relative overflow-hidden rounded-2xl border border-(--border-default) bg-white shadow-card hover:shadow-card-hover hover:border-[color-mix(in_srgb,var(--color-brand-navy)_30%,transparent)] transition-all group block"
+                            >
+                                <div className="px-5 py-5">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-11 h-11 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_12%,transparent)] flex items-center justify-center group-hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_20%,transparent)] transition-colors">
+                                                <Users className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-(--text-primary)">Quản lý Team</p>
+                                                <p className="text-xs text-(--text-muted)">Phân công & phân quyền</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-(--text-muted) group-hover:text-[var(--color-brand-navy)] group-hover:translate-x-0.5 transition-all" />
+                                    </div>
+                                    <div className="text-xs text-(--text-muted) bg-(--bg-muted) rounded-lg px-3 py-2">
+                                        <span className="font-medium text-[var(--color-brand-navy)]">Main Organizer</span>
+                                        {' '}•{' '}
+                                        <span className="text-(--text-secondary)">Helper</span>
+                                    </div>
+                                </div>
+                            </Link>
+                        )}
 
                         {/* ── My Registration Info ── */}
                         {isRegistered && (

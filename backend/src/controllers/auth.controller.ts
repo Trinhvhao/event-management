@@ -106,7 +106,8 @@ export const authController = {
         select: {
           id: true, email: true, full_name: true, student_id: true,
           role: true, is_active: true, email_verified: true,
-          department_id: true, created_at: true,
+          avatar_url: true, phone: true,
+          department_id: true, created_at: true, last_login: true,
           department: { select: { id: true, name: true } },
         },
       });
@@ -123,13 +124,20 @@ export const authController = {
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const currentUser = getAuthenticatedUser(req);
-      const { full_name, department_id } = req.body;
+      const { full_name, department_id, avatar_url, phone } = req.body;
       const updated = await prisma.user.update({
         where: { id: currentUser.id },
-        data: { full_name, department_id: parseOptionalPositiveInt(department_id, 'department_id') },
+        data: {
+          full_name,
+          department_id: parseOptionalPositiveInt(department_id, 'department_id'),
+          avatar_url: avatar_url ?? undefined,
+          phone: phone ?? null,
+        },
         select: {
           id: true, email: true, full_name: true, student_id: true,
-          role: true, is_active: true, department_id: true,
+          role: true, is_active: true, email_verified: true,
+          avatar_url: true, phone: true,
+          department_id: true,
           department: { select: { id: true, name: true } },
         },
       });
@@ -174,6 +182,19 @@ export const authController = {
       await prisma.user.update({ where: { id: currentUser.id }, data: { password_hash } });
 
       res.json(successResponse(null, 'Đổi mật khẩu thành công'));
+    } catch (error) {
+      next(error);
+    }
+  },
+  /**
+   * Xác minh mật khẩu (cho hành động nhạy cảm)
+   */
+  async verifyPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const currentUser = getAuthenticatedUser(req);
+      const { password } = req.body;
+      const isValid = await authService.verifyPassword(currentUser.id, password);
+      res.json(successResponse({ valid: isValid }));
     } catch (error) {
       next(error);
     }

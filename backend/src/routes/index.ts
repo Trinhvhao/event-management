@@ -5,6 +5,7 @@ const router = Router();
 // Import route modules
 import authRoutes from './auth.routes';
 import eventRoutes from './events.routes';
+import eventTeamRoutes from './event-team.routes';
 import registrationRoutes from './registrations.routes';
 import checkinRoutes from './checkin.routes';
 import trainingPointRoutes from './training-points.routes';
@@ -15,10 +16,13 @@ import analyticsRoutes from './analytics.routes';
 import adminRoutes from './admin.routes';
 import searchRoutes from './search.routes';
 import uploadRoutes from './upload.routes';
+import paymentRoutes from './payments.routes';
 
 // Mount routes
 router.use('/auth', authRoutes);
 router.use('/events', eventRoutes);
+// Event team routes are nested under /events/:eventId/team
+router.use('/events', eventTeamRoutes);
 router.use('/registrations', registrationRoutes);
 router.use('/checkin', checkinRoutes);
 router.use('/training-points', trainingPointRoutes);
@@ -29,6 +33,7 @@ router.use('/analytics', analyticsRoutes);
 router.use('/admin', adminRoutes);
 router.use('/search', searchRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/payments', paymentRoutes);
 
 // API info endpoint
 router.get('/', (_req, res) => {

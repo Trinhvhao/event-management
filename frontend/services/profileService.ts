@@ -7,8 +7,17 @@ export const profileService = {
         return response.data.data;
     },
 
-    async updateProfile(data: { full_name: string; department_id?: number }): Promise<User> {
+    async updateProfile(data: { full_name?: string; department_id?: number; avatar_url?: string; phone?: string }): Promise<User> {
         const response = await axios.put<ApiResponse<User>>('/auth/me', data);
+        return response.data.data;
+    },
+
+    async uploadAvatar(file: File): Promise<{ avatar_url: string }> {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await axios.post<ApiResponse<{ id: number; avatar_url: string }>>('/upload/avatar', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
         return response.data.data;
     },
 

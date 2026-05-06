@@ -30,17 +30,17 @@ import {
 } from 'lucide-react';
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
-    if (
-        typeof error === 'object' &&
-        error !== null &&
-        'response' in error &&
-        typeof (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error
-            ?.message === 'string'
-    ) {
-        return (error as { response?: { data?: { error?: { message?: string } } } }).response!.data!
-            .error!.message!;
-    }
-    return fallback;
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error
+      ?.message === 'string'
+  ) {
+    return (error as { response?: { data?: { error?: { message?: string } } } }).response!.data!
+      .error!.message!;
+  }
+  return fallback;
 }
 
 interface RejectModalProps {
@@ -238,12 +238,12 @@ function LoadingSkeleton() {
 }
 
 export default function PendingEventsPage() {
-    const [loading, setLoading] = useState(true);
-    const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
-    const [processingId, setProcessingId] = useState<number | null>(null);
+  const [processingId, setProcessingId] = useState<number | null>(null);
     const [rejectTarget, setRejectTarget] = useState<Event | null>(null);
-    const [bulkRejectTarget, setBulkRejectTarget] = useState<string[]>([]);
+    const [bulkRejectTarget, setBulkRejectTarget] = useState<number[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
     const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
@@ -251,45 +251,45 @@ export default function PendingEventsPage() {
     const [bulkProcessing, setBulkProcessing] = useState(false);
 
     const fetchData = useCallback(async () => {
-        try {
-            setLoading(true);
+      try {
+        setLoading(true);
             const response = await eventService.getPending({ limit: 50 });
-            setEvents(response.data.items || []);
+        setEvents(response.data.items || []);
 
             if (departments.length === 0) {
                 const deptRes = await eventService.getDepartments();
                 setDepartments(deptRes || []);
             }
-        } catch {
+      } catch {
             toast.error('Không thể tải danh sách sự kiện chờ duyệt');
-        } finally {
-            setLoading(false);
-        }
+      } finally {
+        setLoading(false);
+      }
     }, [departments.length]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    const handleApprove = async (event: Event) => {
-        try {
-            setProcessingId(event.id);
-            await eventService.approveEvent(event.id);
-            setEvents((prev) => prev.filter((item) => item.id !== event.id));
+  const handleApprove = async (event: Event) => {
+    try {
+      setProcessingId(event.id);
+      await eventService.approveEvent(event.id);
+      setEvents((prev) => prev.filter((item) => item.id !== event.id));
             setSelectedEvents((prev) => {
                 const next = new Set(prev);
                 next.delete(event.id);
                 return next;
             });
-            toast.success(`Đã duyệt: ${event.title}`);
-        } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error, 'Không thể duyệt sự kiện'));
-        } finally {
-            setProcessingId(null);
-        }
-    };
+      toast.success(`Đã duyệt: ${event.title}`);
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Không thể duyệt sự kiện'));
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
-    const handleReject = async (event: Event) => {
+  const handleReject = async (event: Event) => {
         setRejectTarget(event);
     };
 
@@ -305,10 +305,10 @@ export default function PendingEventsPage() {
                 return next;
             });
             toast.success(`Đã từ chối: ${rejectTarget.title}`);
-        } catch (error: unknown) {
-            toast.error(getApiErrorMessage(error, 'Không thể từ chối sự kiện'));
-        } finally {
-            setProcessingId(null);
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Không thể từ chối sự kiện'));
+    } finally {
+      setProcessingId(null);
             setRejectTarget(null);
         }
     };
@@ -435,8 +435,8 @@ export default function PendingEventsPage() {
     const isAllSelectedOnPage = filteredAndSortedEvents.length > 0 &&
         filteredAndSortedEvents.every((e) => selectedEvents.has(e.id));
 
-    return (
-        <DashboardLayout>
+  return (
+    <DashboardLayout>
             <div className="space-y-5 max-w-screen-2xl mx-auto">
                 {/* PAGE HEADER */}
                 <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
@@ -447,26 +447,26 @@ export default function PendingEventsPage() {
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)] shrink-0">
                                     <CheckSquare className="w-6 h-6 text-white" />
-                                </div>
-                                <div>
+              </div>
+              <div>
                                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)]">Admin</p>
                                     <h1 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">Phê duyệt sự kiện</h1>
                                     <p className="text-sm text-[var(--text-muted)]">Rà soát và phê duyệt các sự kiện mới được tạo</p>
-                                </div>
-                            </div>
+              </div>
+            </div>
                             <div className="flex items-center gap-2">
                                 <span className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs font-bold">
                                     {events.length} sự kiện chờ duyệt
                                 </span>
-                                <Link
-                                    href="/dashboard/events"
+            <Link
+              href="/dashboard/events"
                                     className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[var(--border-default)] rounded-xl text-[var(--text-secondary)] font-semibold hover:bg-[var(--bg-muted)] transition-all text-sm"
-                                >
+            >
                                     <Calendar className="w-4 h-4" />
                                     Danh sách sự kiện
-                                </Link>
-                            </div>
-                        </div>
+            </Link>
+          </div>
+        </div>
                     </div>
                 </div>
 
@@ -650,14 +650,14 @@ export default function PendingEventsPage() {
                 </AnimatePresence>
 
                 {/* EVENTS LIST */}
-                {loading ? (
+        {loading ? (
                     <LoadingSkeleton />
                 ) : filteredAndSortedEvents.length === 0 ? (
                     <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white p-16 text-center shadow-[var(--shadow-card)]">
                         <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
                         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center mx-auto mb-5 shadow-[var(--shadow-brand)]">
                             <CheckSquare className="w-8 h-8 text-white" />
-                        </div>
+          </div>
                         <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
                             {events.length === 0 ? 'Không có sự kiện chờ duyệt' : 'Không tìm thấy sự kiện nào'}
                         </h3>
@@ -675,13 +675,13 @@ export default function PendingEventsPage() {
                                 Xóa bộ lọc
                             </button>
                         )}
-                    </div>
-                ) : (
+          </div>
+        ) : (
                     <div className="space-y-4">
                         <AnimatePresence mode="popLayout">
                             {filteredAndSortedEvents.map((event, idx) => (
                                 <motion.div
-                                    key={event.id}
+                key={event.id}
                                     layout
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -720,9 +720,9 @@ export default function PendingEventsPage() {
                                                             {event.title}
                                                         </h2>
                                                         <span className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold shrink-0">
-                                                            Chờ duyệt
-                                                        </span>
-                                                    </div>
+                        Chờ duyệt
+                      </span>
+                    </div>
 
                                                     {/* Meta info */}
                                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--text-secondary)]">
@@ -764,7 +764,7 @@ export default function PendingEventsPage() {
                                                             <span className="font-medium">
                                                                 {format(parseISO(event.start_time), 'HH:mm', { locale: vi })}
                                                             </span>
-                                                        </span>
+                      </span>
 
                                                         {/* Location */}
                                                         <span className="inline-flex items-center gap-1.5">
@@ -772,24 +772,24 @@ export default function PendingEventsPage() {
                                                                 <MapPin className="w-3.5 h-3.5 text-red-500" />
                                                             </div>
                                                             <span className="font-medium truncate max-w-[200px]">{event.location}</span>
-                                                        </span>
-                                                    </div>
+                      </span>
+                    </div>
                                                 </div>
-                                            </div>
+                  </div>
 
                                             {/* Actions */}
                                             <div className="flex items-center gap-2 shrink-0 lg:flex-col lg:items-end lg:ml-4">
-                                                <Link
-                                                    href={`/dashboard/events/${event.id}`}
+                    <Link
+                      href={`/dashboard/events/${event.id}`}
                                                     className="inline-flex items-center gap-1.5 px-3 py-2 border-2 border-[var(--border-default)] rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] transition-all text-sm font-semibold"
-                                                >
+                    >
                                                     <FileText className="w-4 h-4" />
                                                     Chi tiết
-                                                </Link>
+                    </Link>
 
-                                                <button
-                                                    onClick={() => handleApprove(event)}
-                                                    disabled={processingId === event.id}
+                    <button
+                      onClick={() => handleApprove(event)}
+                      disabled={processingId === event.id}
                                                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 text-sm shadow-[var(--shadow-brand)]"
                                                 >
                                                     {processingId === event.id ? (
@@ -798,28 +798,28 @@ export default function PendingEventsPage() {
                                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                                         </svg>
                                                     ) : (
-                                                        <Check className="w-4 h-4" />
+                      <Check className="w-4 h-4" />
                                                     )}
-                                                    Duyệt
-                                                </button>
+                      Duyệt
+                    </button>
 
-                                                <button
-                                                    onClick={() => handleReject(event)}
-                                                    disabled={processingId === event.id}
+                    <button
+                      onClick={() => handleReject(event)}
+                      disabled={processingId === event.id}
                                                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 text-sm shadow-[var(--shadow-brand)]"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                    Từ chối
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                    >
+                      <X className="w-4 h-4" />
+                      Từ chối
+                    </button>
+                  </div>
+                </div>
+              </div>
                                 </motion.div>
-                            ))}
+            ))}
                         </AnimatePresence>
-                    </div>
-                )}
-            </div>
+          </div>
+        )}
+      </div>
 
             {/* Reject Modal */}
             <AnimatePresence>
@@ -844,6 +844,6 @@ export default function PendingEventsPage() {
                     />
                 )}
             </AnimatePresence>
-        </DashboardLayout>
-    );
+    </DashboardLayout>
+  );
 }

@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import QRCode from 'qrcode';
-import { sendEmail } from './email.service';
 import * as notificationsService from './notifications.service';
+import { eventTeamService } from './event-team.service';
 import {
     ConflictError,
     ForbiddenError,
@@ -56,6 +56,7 @@ export const registerForEvent = async (userId: number, eventId: number) => {
             location: true,
             capacity: true,
             training_points: true,
+            event_cost: true,
             registration_deadline: true,
             deleted_at: true,
         },
@@ -181,34 +182,18 @@ export const registerForEvent = async (userId: number, eventId: number) => {
         },
     });
 
-    // Send confirmation email
-    try {
-        const qrCodeString = updatedRegistration.qr_code;
-        await sendEmail({
-            to: updatedRegistration.user.email,
-            subject: `Xác nhận đăng ký: ${event.title}`,
-            html: `
-        <h2>Đăng ký thành công!</h2>
-        <p>Xin chào ${updatedRegistration.user.full_name},</p>
-        <p>Bạn đã đăng ký thành công sự kiện: <strong>${event.title}</strong></p>
-        <p><strong>Thời gian:</strong> ${event.start_time.toLocaleString('vi-VN')}</p>
-        <p><strong>Địa điểm:</strong> ${event.location}</p>
-        <p><strong>Điểm rèn luyện:</strong> ${event.training_points}</p>
-        <p>Vui lòng mang mã QR code khi tham dự sự kiện.</p>
-        <img src="${qrCodeString}" alt="QR Code" />
-      `
-        });
-    } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
-        // Don't throw error, registration is still successful
-    }
-
-    // Create notification
+    // Create notification + send confirmation email (consolidated via notifications service)
     try {
         await notificationsService.notifyRegistrationConfirm(
             userId,
             eventId,
-            event.title
+            event.title,
+            event.location,
+            event.start_time,
+            event.end_time,
+            event.training_points,
+            updatedRegistration.qr_code,
+            event.event_cost ? Number(event.event_cost) : undefined
         );
     } catch (notifError) {
         console.error('Failed to create notification:', notifError);
@@ -311,7 +296,7 @@ export const getEventRegistrations = async (
         throw new NotFoundError('Sự kiện không tồn tại');
     }
 
-    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+    if (requester.role === 'organizer' && !(await eventTeamService.canUserPerformAction(eventId, requester.id, requester.role, 'manage_registrations'))) {
         throw new ForbiddenError('Bạn không có quyền xem danh sách đăng ký của sự kiện này');
     }
 
@@ -378,7 +363,7 @@ export const getRegistrationByIdWithAccess = async (
 
     if (
         requester.role === 'organizer' &&
-        registration.event.organizer_id !== requester.id
+        !(await eventTeamService.canUserPerformAction(registration.event_id, requester.id, requester.role, 'manage_registrations'))
     ) {
         throw new ForbiddenError('Bạn không có quyền xem đăng ký này');
     }
@@ -637,7 +622,7 @@ export const getEventWaitlist = async (
         throw new NotFoundError('Sự kiện không tồn tại');
     }
 
-    if (requester.role === 'organizer' && event.organizer_id !== requester.id) {
+    if (requester.role === 'organizer' && !(await eventTeamService.canUserPerformAction(eventId, requester.id, requester.role, 'manage_registrations'))) {
         throw new ForbiddenError('Bạn không có quyền xem danh sách chờ của sự kiện này');
     }
 

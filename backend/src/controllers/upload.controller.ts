@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { saveFile, getAllowedMimeTypes, getMaxFileSize } from '../services/upload.service';
+import { saveFile, getAllowedMimeTypes, getMaxFileSize, deleteFile } from '../services/upload.service';
+import prisma from '../config/database';
+import { getAuthenticatedUser } from '../utils/request.util';
 
 // Multer configuration
 const storage = multer.memoryStorage();
@@ -81,6 +83,54 @@ export const uploadController = {
           mimetype: req.file.mimetype,
         },
         message: 'Image uploaded successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Upload and set user avatar
+   */
+  async uploadAvatar(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.file) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'NO_FILE', message: 'No image file provided' },
+        });
+        return;
+      }
+
+      const currentUser = getAuthenticatedUser(req);
+
+      // Get current avatar to delete old file
+      const currentUserData = await prisma.user.findUnique({
+        where: { id: currentUser.id },
+        select: { avatar_url: true },
+      });
+
+      const fileUrl = saveFile(req.file);
+
+      // Update user avatar
+      const updated = await prisma.user.update({
+        where: { id: currentUser.id },
+        data: { avatar_url: fileUrl },
+        select: {
+          id: true,
+          avatar_url: true,
+        },
+      });
+
+      // Delete old avatar file if exists
+      if (currentUserData?.avatar_url) {
+        deleteFile(currentUserData.avatar_url);
+      }
+
+      res.status(201).json({
+        success: true,
+        data: updated,
+        message: 'Avatar updated successfully',
       });
     } catch (error) {
       next(error);

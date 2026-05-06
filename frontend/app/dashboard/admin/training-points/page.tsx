@@ -6,6 +6,7 @@ import {
     Award, Users, Calendar, Trophy, Download, FileJson, BarChart3,
     Search, ChevronDown, RefreshCw, Plus, ArrowUpRight, X,
     ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Loader2,
+    RotateCcw,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
@@ -231,6 +232,9 @@ function SearchableDropdown<T>({
 function Pagination({ currentPage, totalPages, onPageChange }: {
     currentPage: number; totalPages: number; onPageChange: (page: number) => void;
 }) {
+    const [jumpValue, setJumpValue] = useState('');
+    const [showJump, setShowJump] = useState(false);
+
     if (totalPages <= 1) return null;
 
     const getPages = (): (number | '...')[] => {
@@ -248,6 +252,15 @@ function Pagination({ currentPage, totalPages, onPageChange }: {
             pages.push(totalPages);
         }
         return pages;
+    };
+
+    const handleJump = () => {
+        const n = parseInt(jumpValue, 10);
+        if (Number.isInteger(n) && n >= 1 && n <= totalPages) {
+            onPageChange(n);
+        }
+        setJumpValue('');
+        setShowJump(false);
     };
 
     return (
@@ -282,6 +295,36 @@ function Pagination({ currentPage, totalPages, onPageChange }: {
             >
                 <ChevronRight size={14} />
             </button>
+            {totalPages > 7 && (
+                showJump ? (
+                    <div className="flex items-center gap-1 ml-1">
+                        <input
+                            type="number"
+                            min={1}
+                            max={totalPages}
+                            value={jumpValue}
+                            onChange={(e) => setJumpValue(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleJump(); if (e.key === 'Escape') { setShowJump(false); setJumpValue(''); } }}
+                            autoFocus
+                            placeholder={`1–${totalPages}`}
+                            className="w-14 h-8 pl-2 pr-1 rounded-lg border-2 border-[var(--color-brand-navy)] bg-white text-xs font-semibold text-[var(--text-primary)] focus:outline-none"
+                        />
+                        <button
+                            onClick={handleJump}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-[var(--color-brand-navy)] text-white hover:opacity-90 transition-all text-xs font-bold"
+                        >
+                            <ChevronRight size={12} />
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setShowJump(true)}
+                        className="ml-1 px-2 h-8 rounded-lg border border-[var(--border-default)] text-[11px] font-semibold text-[var(--text-muted)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all"
+                    >
+                        → trang
+                    </button>
+                )
+            )}
         </div>
     );
 }
@@ -331,6 +374,12 @@ export default function AdminTrainingPointsPage() {
     // ── User lookup ──
     const [selectedUserPoints, setSelectedUserPoints] = useState<UserTrainingPointsResponse | null>(null);
     const [loadingUser, setLoadingUser] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<Array<{ user: { id: number; full_name: string; student_id: string | null; email: string }; total_points: number }>>([]);
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+    const [searchingUser, setSearchingUser] = useState(false);
+    const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchRef = useRef<HTMLDivElement>(null);
 
     // ── Export ──
     const [exporting, setExporting] = useState(false);
@@ -342,7 +391,7 @@ export default function AdminTrainingPointsPage() {
     // ── History table ──
     const [historyFilterSemester, setHistoryFilterSemester] = useState('');
     const [historyPage, setHistoryPage] = useState(1);
-    const [historyLimit] = useState(15);
+    const [historyLimit] = useState(10);
     const [historyTotal, setHistoryTotal] = useState(0);
     const [historyRecords, setHistoryRecords] = useState<PointsHistoryRecord[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -412,6 +461,39 @@ export default function AdminTrainingPointsPage() {
             setLoadingUser(false);
         }
     };
+
+    const debouncedSearch = useCallback(async (query: string) => {
+        if (!isAdmin || query.length < 2) {
+            setSearchResults([]);
+            setShowSearchDropdown(false);
+            return;
+        }
+        try {
+            setSearchingUser(true);
+            const data = await trainingPointsService.getStatistics();
+            const users = (data.top_users || []).filter(u =>
+                u.user.full_name.toLowerCase().includes(query.toLowerCase()) ||
+                (u.user.student_id || '').toLowerCase().includes(query.toLowerCase())
+            );
+            setSearchResults(users);
+            setShowSearchDropdown(true);
+        } catch {
+            setSearchResults([]);
+        } finally {
+            setSearchingUser(false);
+        }
+    }, [isAdmin]);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                setShowSearchDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const parseInt2 = (v: string) => {
         const n = parseInt(v, 10);
@@ -754,31 +836,107 @@ export default function AdminTrainingPointsPage() {
                             <SectionHeader
                                 label="Lookup"
                                 title="Tra cứu điểm sinh viên"
-                                subtitle="Click từ danh sách top bên trên hoặc tìm kiếm bên dưới"
+                                subtitle="Tìm theo tên hoặc mã sinh viên để xem chi tiết"
                                 action={<Search className="w-5 h-5" style={{ color: ACCENT.green.hex }} />}
                             />
                         </div>
-                        <div className="p-5">
-                            {!selectedUserPoints ? (
-                                <div className="flex flex-col items-center justify-center py-12 gap-3 border-2 border-dashed border-[var(--border-default)] rounded-xl">
-                                    <div className="w-12 h-12 rounded-2xl bg-[var(--bg-muted)] flex items-center justify-center">
-                                        <Users className="w-6 h-6 text-[var(--text-muted)]" />
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-sm font-semibold text-[var(--text-secondary)]">Chưa chọn người dùng</p>
-                                        <p className="text-xs text-[var(--text-muted)] mt-1">Chọn từ danh sách top sinh viên hoặc nhấn Tra cứu</p>
-                                    </div>
+                        <div className="p-5 space-y-4">
+
+                            {/* ── Search bar ── */}
+                            <div className="relative" ref={(el) => { searchRef.current = el; }}>
+                                <div className="relative flex items-center">
+                                    <Search className="absolute left-3.5 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            void debouncedSearch(e.target.value);
+                                        }}
+                                        onFocus={() => {
+                                            if (searchQuery.length > 0) setShowSearchDropdown(true);
+                                        }}
+                                        placeholder="Tìm theo tên hoặc mã sinh viên..."
+                                        className="w-full h-10 pl-10 pr-10 rounded-xl border-2 border-[var(--border-default)] bg-white text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all focus:outline-none focus:border-[var(--color-brand-navy)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] shadow-[var(--shadow-xs)]"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => {
+                                                setSearchQuery('');
+                                                setSearchResults([]);
+                                                setShowSearchDropdown(false);
+                                                setSelectedUserPoints(null);
+                                            }}
+                                            className="absolute right-3 w-5 h-5 rounded-full bg-[var(--bg-muted)] flex items-center justify-center hover:bg-[var(--border-default)] transition-colors"
+                                        >
+                                            <X className="w-3 h-3 text-[var(--text-muted)]" />
+                                        </button>
+                                    )}
+                                    {searchingUser && (
+                                        <Loader2 className="absolute right-3 w-4 h-4 text-[var(--text-muted)] animate-spin" />
+                                    )}
                                 </div>
-                            ) : (
+
+                                {/* Search results dropdown */}
+                                {showSearchDropdown && searchQuery.length > 0 && (
+                                    <div className="absolute z-50 mt-1.5 w-full rounded-xl border-2 border-[var(--border-default)] bg-white shadow-[var(--shadow-xl)] overflow-hidden">
+                                        {searchResults.length === 0 && !searchingUser ? (
+                                            <div className="flex flex-col items-center justify-center py-8 gap-2">
+                                                <Users className="w-6 h-6 text-[var(--text-muted)]" />
+                                                <p className="text-xs text-[var(--text-muted)]">Không tìm thấy sinh viên</p>
+                                            </div>
+                                        ) : (
+                                            <div className="max-h-72 overflow-y-auto divide-y divide-[var(--border-light)]">
+                                                {searchResults.map((r) => {
+                                                    const info = r.user;
+                                                    return (
+                                                        <button
+                                                            key={info.id}
+                                                            onClick={() => {
+                                                                void fetchUserPoints(info.id);
+                                                                setShowSearchDropdown(false);
+                                                                setSearchQuery('');
+                                                            }}
+                                                            className="w-full text-left px-4 py-3 hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_4%,transparent)] transition-colors flex items-center gap-3"
+                                                        >
+                                                            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-xs font-extrabold text-white" style={{ background: ACCENT.navy.hex }}>
+                                                                {info.full_name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{info.full_name}</p>
+                                                                <p className="text-[11px] text-[var(--text-muted)]">{info.student_id || info.email || `ID: ${info.id}`}</p>
+                                                            </div>
+                                                            <div className="shrink-0 text-right">
+                                                                <p className="text-sm font-extrabold" style={{ color: ACCENT.gold.hex }}>{r.total_points}</p>
+                                                                <p className="text-[10px] font-semibold text-[var(--text-muted)]">điểm</p>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ── Detail card (shown when a student is selected) ── */}
+                            {selectedUserPoints ? (
                                 <div className="border border-[var(--border-default)] rounded-xl overflow-hidden">
                                     <div className="flex items-center gap-4 px-5 py-4 border-b border-[var(--border-default)] bg-[var(--bg-muted)]/30">
-                                        <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ background: ACCENT.navy.tint }}>
-                                            <Users className="w-6 h-6" style={{ color: ACCENT.navy.hex }} />
+                                        <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-lg font-extrabold text-white" style={{ background: ACCENT.navy.hex }}>
+                                            {selectedUserPoints.user.full_name.charAt(0).toUpperCase()}
                                         </div>
-                                        <div>
+                                        <div className="flex-1 min-w-0">
                                             <p className="text-base font-bold text-[var(--text-primary)]">{selectedUserPoints.user.full_name}</p>
-                                            <p className="text-xs text-[var(--text-muted)]">{selectedUserPoints.user.student_id || selectedUserPoints.user.email}</p>
+                                            <p className="text-xs text-[var(--text-muted)]">{selectedUserPoints.user.student_id || selectedUserPoints.user.email || `ID: ${selectedUserPoints.user.id}`}</p>
                                         </div>
+                                        <button
+                                            onClick={() => setSelectedUserPoints(null)}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-brand-red)]/30 bg-[color-mix(in_srgb,var(--color-brand-red)_6%,transparent)] px-2.5 py-1.5 text-xs font-bold text-[var(--color-brand-red)] hover:bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)] transition-colors shrink-0"
+                                        >
+                                            <X className="w-3 h-3" />
+                                            Đóng
+                                        </button>
                                     </div>
 
                                     <div className="grid grid-cols-2 divide-x divide-[var(--border-default)]">
@@ -814,6 +972,16 @@ export default function AdminTrainingPointsPage() {
                                         </div>
                                     )}
                                 </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-10 gap-3 border-2 border-dashed border-[var(--border-default)] rounded-xl">
+                                    <div className="w-12 h-12 rounded-2xl bg-[var(--bg-muted)] flex items-center justify-center">
+                                        <Users className="w-6 h-6 text-[var(--text-muted)]" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-sm font-semibold text-[var(--text-secondary)]">Chưa chọn sinh viên</p>
+                                        <p className="text-xs text-[var(--text-muted)] mt-1">Tìm và chọn sinh viên bên trên để xem chi tiết điểm</p>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -823,82 +991,67 @@ export default function AdminTrainingPointsPage() {
                 {isAdmin && (
                     <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-white shadow-[var(--shadow-card)]">
                         <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: ACCENT.navy.hex }} />
-                        <div className="px-5 pt-5 pb-4 border-b border-[var(--border-light)]">
-                            <SectionHeader
-                                label="History"
-                                title="Lịch sử điểm rèn luyện"
-                                subtitle={`${historyTotal.toLocaleString('vi-VN')} bản ghi`}
-                                action={
-                                    <div className="flex items-center gap-2">
-                                        {/* Semester filter */}
+                        <div className="px-4 pt-4 pb-3 border-b border-[var(--border-light)]">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div>
                                         <div className="flex items-center gap-2">
-                                            <select
-                                                value={historyFilterSemester}
-                                                onChange={(e) => {
-                                                    setHistoryFilterSemester(e.target.value);
-                                                    setHistoryPage(1);
-                                                }}
-                                                className="h-9 pl-3 pr-8 rounded-xl border-2 border-[var(--border-default)] bg-white text-xs font-medium text-[var(--text-secondary)] transition-all focus:outline-none focus:border-[var(--color-brand-navy)] cursor-pointer"
-                                            >
-                                                <option value="">Tất cả học kỳ</option>
-                                                {availableSemesters.map(s => (
-                                                    <option key={s} value={s}>{s}</option>
-                                                ))}
-                                            </select>
-                                            {historyFilterSemester && (
-                                                <button
-                                                    onClick={() => {
-                                                        setHistoryFilterSemester('');
-                                                        setHistoryPage(1);
-                                                    }}
-                                                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-brand-red)]/30 bg-[color-mix(in_srgb,var(--color-brand-red)_6%,transparent)] px-2.5 py-1.5 text-xs font-bold text-[var(--color-brand-red)] hover:bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)] transition-colors"
-                                                >
-                                                    <RotateCcw className="h-3 w-3" />
-                                                    Xóa
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <SecondaryButton
-                                                onClick={() => void loadHistory(historyPage, historyFilterSemester)}
-                                                loading={loadingHistory}
-                                                icon={<RefreshCw className="w-3.5 h-3.5" />}
-                                                className="h-9 px-3"
-                                            >
-                                                Làm mới
-                                            </SecondaryButton>
-                                            <SecondaryButton
-                                                onClick={handleExportCsv}
-                                                loading={exporting}
-                                                icon={<Download className="w-3.5 h-3.5" />}
-                                                className="h-9 px-3"
-                                            >
-                                                CSV
-                                            </SecondaryButton>
-                                            <SecondaryButton
-                                                onClick={handlePreviewJson}
-                                                loading={previewing}
-                                                icon={<FileJson className="w-3.5 h-3.5" />}
-                                                variant="ghost"
-                                                className="h-9 px-3"
-                                            >
-                                                JSON
-                                            </SecondaryButton>
+                                            <h3 className="text-sm font-bold text-[var(--text-primary)]">Lịch sử điểm rèn luyện</h3>
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--bg-muted)] text-[var(--text-muted)]">{historyTotal.toLocaleString('vi-VN')} bản ghi</span>
                                         </div>
                                     </div>
-                                }
-                            />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <select
+                                        value={historyFilterSemester}
+                                        onChange={(e) => {
+                                            setHistoryFilterSemester(e.target.value);
+                                            setHistoryPage(1);
+                                        }}
+                                        className="h-8 pl-3 pr-7 rounded-lg border border-[var(--border-default)] bg-white text-[11px] font-medium text-[var(--text-secondary)] transition-all focus:outline-none focus:border-[var(--color-brand-navy)] cursor-pointer"
+                                    >
+                                        <option value="">Tất cả HK</option>
+                                        {availableSemesters.map(s => (
+                                            <option key={s} value={s}>{s}</option>
+                                        ))}
+                                    </select>
+                                    {historyFilterSemester && (
+                                        <button
+                                            onClick={() => { setHistoryFilterSemester(''); setHistoryPage(1); }}
+                                            className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-[var(--color-brand-red)]/30 bg-[color-mix(in_srgb,var(--color-brand-red)_6%,transparent)] text-[var(--color-brand-red)] hover:bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)] transition-colors"
+                                            title="Xóa lọc học kỳ"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => void loadHistory(historyPage, historyFilterSemester)}
+                                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all disabled:opacity-40"
+                                        disabled={loadingHistory}
+                                    >
+                                        <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? 'animate-spin' : ''}`} />
+                                    </button>
+                                    <button
+                                        onClick={handleExportCsv}
+                                        disabled={exporting}
+                                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[var(--border-default)] bg-white text-[11px] font-semibold text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all disabled:opacity-50"
+                                    >
+                                        <Download className="w-3.5 h-3.5" />
+                                        CSV
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div className="border-t border-[var(--border-default)]">
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto" style={{ maxHeight: '480px' }}>
                                 <table className="w-full text-sm">
-                                    <thead className="bg-[var(--bg-muted)]">
+                                    <thead className="bg-[var(--bg-muted)] sticky top-0 z-10 shadow-[var(--shadow-xs)]">
                                         <tr>
-                                            <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Sinh viên</th>
-                                            <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Sự kiện</th>
-                                            <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Điểm</th>
-                                            <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Học kỳ</th>
-                                            <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Ngày</th>
+                                            <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sinh viên</th>
+                                            <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sự kiện</th>
+                                            <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Điểm</th>
+                                            <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Học kỳ</th>
+                                            <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Ngày</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[var(--border-light)]">
@@ -906,17 +1059,17 @@ export default function AdminTrainingPointsPage() {
                                             Array.from({ length: 5 }).map((_, i) => (
                                                 <tr key={i}>
                                                     {Array.from({ length: 5 }).map((__, j) => (
-                                                        <td key={j} className="px-5 py-4">
-                                                            <div className="h-4 w-24 rounded animate-pulse bg-[var(--bg-muted)]" />
+                                                        <td key={j} className="px-4 py-2.5">
+                                                            <div className="h-3.5 w-20 rounded animate-pulse bg-[var(--bg-muted)]" />
                                                         </td>
                                                     ))}
                                                 </tr>
                                             ))
                                         ) : historyRecords.length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} className="px-5 py-12 text-center">
+                                                <td colSpan={5} className="px-4 py-8 text-center">
                                                     <div className="flex flex-col items-center gap-2">
-                                                        <Award className="w-8 h-8 text-[var(--text-muted)]" />
+                                                        <Award className="w-7 h-7 text-[var(--text-muted)]" />
                                                         <p className="text-sm text-[var(--text-muted)]">Chưa có bản ghi điểm rèn luyện</p>
                                                     </div>
                                                 </td>
@@ -928,24 +1081,24 @@ export default function AdminTrainingPointsPage() {
                                                     className="hover:bg-[color-mix(in_srgb,var(--color-brand-navy)_3%,transparent)] transition-colors cursor-pointer"
                                                     onClick={() => row.user_id && void fetchUserPoints(row.user_id)}
                                                 >
-                                                    <td className="px-5 py-3.5">
+                                                    <td className="px-4 py-2.5">
                                                         <div className="flex flex-col">
                                                             <span className="text-sm font-semibold text-[var(--text-primary)]">{row.full_name}</span>
                                                             <span className="text-[11px] text-[var(--text-muted)]">{row.student_id || '—'}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-5 py-3.5">
+                                                    <td className="px-4 py-2.5">
                                                         <span className="text-sm text-[var(--text-secondary)] truncate max-w-xs block">{row.event_title}</span>
                                                     </td>
-                                                    <td className="px-5 py-3.5 text-right">
+                                                    <td className="px-4 py-2.5 text-right">
                                                         <span className="text-base font-extrabold" style={{ color: ACCENT.gold.hex }}>{row.points}</span>
                                                     </td>
-                                                    <td className="px-5 py-3.5">
-                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold" style={{ background: ACCENT.navy.tint, color: ACCENT.navy.hex }}>
+                                                    <td className="px-4 py-2.5">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold" style={{ background: ACCENT.navy.tint, color: ACCENT.navy.hex }}>
                                                             {row.semester}
                                                         </span>
                                                     </td>
-                                                    <td className="px-5 py-3.5 text-xs text-[var(--text-muted)]">
+                                                    <td className="px-4 py-2.5 text-xs text-[var(--text-muted)]">
                                                         {new Date(row.earned_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                     </td>
                                                 </tr>
@@ -956,7 +1109,7 @@ export default function AdminTrainingPointsPage() {
                             </div>
 
                             {/* Pagination footer */}
-                            <div className="flex items-center justify-between gap-4 px-5 py-4 border-t border-[var(--border-default)] bg-[var(--bg-muted)]/20">
+                            <div className="flex items-center justify-between gap-4 px-4 py-3 border-t border-[var(--border-default)] bg-[var(--bg-muted)]/20">
                                 <p className="text-xs text-[var(--text-muted)]">
                                     Hiển thị <span className="font-semibold text-[var(--text-secondary)]">{historyRecords.length}</span> / <span className="font-semibold text-[var(--text-secondary)]">{historyTotal.toLocaleString('vi-VN')}</span> bản ghi
                                 </p>

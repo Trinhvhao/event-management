@@ -168,6 +168,8 @@ export const authService = {
         role: user.role,
         department: user.department,
         email_verified: user.email_verified,
+        avatar_url: user.avatar_url,
+        phone: user.phone,
       },
     };
   },
@@ -311,5 +313,21 @@ export const authService = {
     } catch (error) {
       throw new UnauthorizedError('Invalid refresh token');
     }
+  },
+
+  /**
+   * Verify current user's password (for confirming sensitive actions)
+   */
+  async verifyPassword(userId: number, password: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password_hash: true },
+    });
+
+    if (!user) {
+      return false;
+    }
+
+    return bcrypt.compare(password, user.password_hash);
   },
 };

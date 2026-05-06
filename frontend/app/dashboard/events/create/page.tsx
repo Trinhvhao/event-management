@@ -13,7 +13,7 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import ImageUpload from '@/components/ui/ImageUpload';
 import RichTextEditor from '@/components/ui/RichTextEditor';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
     ArrowLeft, ArrowRight, Calendar, MapPin, Users, Award,
     Send, CheckCircle, Sparkles, Clock, Tag, Building2,
@@ -54,7 +54,7 @@ const steps = [
     { id: 4, title: 'Xem trước', subtitle: 'Xác nhận thông tin', icon: CheckCircle },
 ];
 
-const stepVariants = {
+const stepVariants: Record<string, Variants> = {
     container: {
         hidden: { opacity: 0 },
         visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
@@ -262,7 +262,7 @@ export default function CreateEventPage() {
                                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                                         className="p-7"
                                     >
-                                        <motion.div variants={stepVariants} initial="hidden" animate="visible" className="space-y-6">
+                                        <motion.div variants={stepVariants.container} initial="hidden" animate="visible" className="space-y-6">
                                             {/* Section header */}
                                             <motion.div variants={stepVariants.item} className="flex items-center gap-3 pb-4 border-b border-[var(--border-light)]">
                                                 <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] flex items-center justify-center shrink-0">
@@ -326,7 +326,7 @@ export default function CreateEventPage() {
                                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                                         className="p-7"
                                     >
-                                        <motion.div variants={stepVariants} initial="hidden" animate="visible" className="space-y-6">
+                                        <motion.div variants={stepVariants.container} initial="hidden" animate="visible" className="space-y-6">
                                             <motion.div variants={stepVariants.item} className="flex items-center gap-3 pb-4 border-b border-[var(--border-light)]">
                                                 <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-orange)_12%,transparent)] flex items-center justify-center shrink-0">
                                                     <Calendar size={17} className="text-[var(--color-brand-orange)]" />
@@ -410,7 +410,7 @@ export default function CreateEventPage() {
                                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                                         className="p-7"
                                     >
-                                        <motion.div variants={stepVariants} initial="hidden" animate="visible" className="space-y-6">
+                                        <motion.div variants={stepVariants.container} initial="hidden" animate="visible" className="space-y-6">
                                             <motion.div variants={stepVariants.item} className="flex items-center gap-3 pb-4 border-b border-[var(--border-light)]">
                                                 <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-gold)_15%,transparent)] flex items-center justify-center shrink-0">
                                                     <Tag size={17} className="text-[#92700c]" />
@@ -498,7 +498,7 @@ export default function CreateEventPage() {
                                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                                         className="p-7"
                                     >
-                                        <motion.div variants={stepVariants} initial="hidden" animate="visible" className="space-y-5">
+                                        <motion.div variants={stepVariants.container} initial="hidden" animate="visible" className="space-y-5">
                                             <motion.div variants={stepVariants.item} className="flex items-center gap-3 pb-4 border-b border-[var(--border-light)]">
                                                 <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-green)_12%,transparent)] flex items-center justify-center shrink-0">
                                                     <CheckCircle size={17} className="text-[var(--color-brand-green)]" />

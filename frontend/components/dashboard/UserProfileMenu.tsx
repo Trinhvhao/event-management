@@ -67,7 +67,7 @@ export default function UserProfileMenu() {
                 className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[var(--bg-muted)] transition-all duration-200 group"
             >
                 <Avatar
-                    src={null}
+                    src={user?.avatar_url || null}
                     name={displayName}
                     size="md"
                     className="ring-2 ring-[var(--border-default)] group-hover:ring-[var(--color-brand-navy)] transition-all"
@@ -88,7 +88,7 @@ export default function UserProfileMenu() {
                     {/* Profile header */}
                     <div className="px-5 py-4 border-b border-[var(--border-default)] bg-gradient-to-r from-[var(--bg-muted)]/40 to-transparent">
                         <div className="flex items-center gap-3">
-                            <Avatar src={null} name={displayName} size="lg" className="ring-2 ring-[var(--color-brand-light)]" />
+                            <Avatar src={user?.avatar_url || null} name={displayName} size="lg" className="ring-2 ring-[var(--color-brand-light)]" />
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-[var(--text-primary)] truncate">{displayName}</p>
                                 <p className="text-xs text-[var(--text-muted)] truncate">{displayEmail}</p>

@@ -13,6 +13,7 @@ import { seedTrainingPoints } from './seeds/06-training-points';
 import { seedFeedback } from './seeds/07-feedback';
 import { seedNotifications } from './seeds/08-notifications';
 import { seedDemoExpansion } from './seeds/09-demo-expansion';
+import { seedEventTeamMembers } from './seeds/10-event-team';
 
 // Load environment variables
 dotenv.config();
@@ -56,6 +57,7 @@ async function resetDatabase(preserveUsers: boolean) {
             prisma.trainingPoint.deleteMany(),
             prisma.attendance.deleteMany(),
             prisma.registration.deleteMany(),
+            prisma.eventTeamMember.deleteMany(),
             prisma.event.deleteMany(),
             prisma.category.deleteMany(),
             prisma.department.deleteMany(),
@@ -90,6 +92,7 @@ async function printSummary() {
         feedbackCount,
         notificationCount,
         auditLogCount,
+        teamMemberCount,
         pendingEvents,
         approvedEvents,
         upcomingEvents,
@@ -107,6 +110,7 @@ async function printSummary() {
         prisma.feedback.count(),
         prisma.notification.count(),
         prisma.auditLog.count(),
+        prisma.eventTeamMember.count(),
         prisma.event.count({ where: { status: 'pending' } }),
         prisma.event.count({ where: { status: 'approved' } }),
         prisma.event.count({ where: { status: 'upcoming' } }),
@@ -133,6 +137,7 @@ async function printSummary() {
     console.log(`   - Feedback module: ${feedbackCount} feedback rows`);
     console.log(`   - Notifications module: ${notificationCount} notifications`);
     console.log(`   - Admin/Audit module: ${auditLogCount} audit logs`);
+    console.log(`   - Event Team module: ${teamMemberCount} team members`);
 }
 
 async function main() {
@@ -175,13 +180,26 @@ async function main() {
     await seedNotifications(prisma, registrations, attendances, trainingPoints, events, students);
 
     // 9. Expand into full demo dataset for all modules
-    await seedDemoExpansion(prisma, {
+    const expansionResult = await seedDemoExpansion(prisma, {
         departments,
         categories,
         organizers,
         students,
         anchorEvents: events,
     });
+
+    // 10. Seed Event Team Members
+    try {
+        await seedEventTeamMembers(prisma, {
+            departments,
+            organizers,
+            extraOrganizers: expansionResult.extraOrganizers,
+            anchorEvents: events,
+            extraEvents: expansionResult.extraEvents,
+        });
+    } catch (e) {
+        console.warn('⚠️  Event team seeding skipped:', (e as Error).message);
+    }
 
     await printSummary();
 

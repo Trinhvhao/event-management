@@ -35,6 +35,11 @@ const resetPasswordSchema = z.object({
     .max(100, 'Password is too long'),
 });
 
+// Verify Password Schema (for confirming sensitive actions)
+const verifyPasswordSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+});
+
 // Validate Register
 export const validateRegister = (
   req: Request,
@@ -105,6 +110,25 @@ export const validateResetPassword = (
   } catch (error) {
     if (error instanceof z.ZodError) {
       next(new ValidationError('Invalid reset password data', error.issues));
+    } else {
+      next(error);
+    }
+  }
+};
+
+// Validate Verify Password
+export const validateVerifyPassword = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) => {
+  try {
+    const validated = verifyPasswordSchema.parse(req.body);
+    req.body = validated;
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      next(new ValidationError('Invalid data', error.issues));
     } else {
       next(error);
     }

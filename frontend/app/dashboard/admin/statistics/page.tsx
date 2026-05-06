@@ -386,7 +386,7 @@ export default function AdminStatisticsPage() {
                                 <select
                                     value={filters.category_id}
                                     onChange={(e) => updateFilters({ category_id: e.target.value })}
-                                    className="input-base appearance-none pl-11 pr-10"
+                                    className="input-base appearance-none pl-12 pr-12"
                                 >
                                     <option value="">Tất cả danh mục</option>
                                     {categories.map((category) => (
@@ -406,7 +406,7 @@ export default function AdminStatisticsPage() {
                                 <select
                                     value={filters.department_id}
                                     onChange={(e) => updateFilters({ department_id: e.target.value })}
-                                    className="input-base appearance-none pl-11 pr-10"
+                                    className="input-base appearance-none pl-12 pr-12"
                                 >
                                     <option value="">Tất cả đơn vị</option>
                                     {departments.map((department) => (

@@ -9,7 +9,9 @@ import { DataTable } from '@/components/admin/shared/DataTable';
 import { StatusChip } from '@/components/admin/shared/StatusChip';
 import { BulkActionToolbar } from '@/components/admin/shared/BulkActionToolbar';
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
+import { PasswordConfirmDialog } from '@/components/admin/shared/PasswordConfirmDialog';
 import { UserDetailPanel } from '@/components/admin/users/UserDetailPanel';
+import { motion } from 'framer-motion';
 import {
     Lock,
     RotateCcw,
@@ -193,7 +195,7 @@ function ImportCSVModal({
             headers.forEach((header, index) => {
                 row[header] = values[index] || '';
             });
-            previewRows.push(row as CSVPreviewRow);
+            previewRows.push(row as unknown as CSVPreviewRow);
         }
         setPreview(previewRows);
     };
@@ -532,8 +534,6 @@ function ImportCSVModal({
     );
 }
 
-import { motion } from 'framer-motion';
-
 export default function UserManagementPage() {
     const {
         users, selectedUsers, filters, pagination, loading,
@@ -550,6 +550,11 @@ export default function UserManagementPage() {
     const [confirmDialog, setConfirmDialog] = useState<{
         isOpen: boolean;
         type: 'lock' | 'unlock' | 'bulkLock' | 'bulkUnlock' | null;
+        userId?: string;
+    }>({ isOpen: false, type: null });
+    const [passwordConfirmDialog, setPasswordConfirmDialog] = useState<{
+        isOpen: boolean;
+        type: 'lock' | 'unlock' | 'roleChange' | null;
         userId?: string;
     }>({ isOpen: false, type: null });
     const [showImportModal, setShowImportModal] = useState(false);
@@ -580,23 +585,16 @@ export default function UserManagementPage() {
     }, [searchInput, filters.search, updateFilters]);
 
     const handleLockClick = (userId: string) =>
-        setConfirmDialog({ isOpen: true, type: 'lock', userId });
+        setPasswordConfirmDialog({ isOpen: true, type: 'lock', userId });
 
     const handleUnlockClick = (userId: string) =>
         setConfirmDialog({ isOpen: true, type: 'unlock', userId });
 
     const handleConfirmAction = async () => {
         try {
-            if (confirmDialog.type === 'lock' && confirmDialog.userId) {
-                await lockUser(confirmDialog.userId);
-                toast.success('Đã khóa tài khoản người dùng');
-            } else if (confirmDialog.type === 'unlock' && confirmDialog.userId) {
+            if (confirmDialog.type === 'unlock' && confirmDialog.userId) {
                 await unlockUser(confirmDialog.userId);
                 toast.success('Đã mở khóa tài khoản người dùng');
-            } else if (confirmDialog.type === 'bulkLock') {
-                await bulkLock(Array.from(selectedUsers));
-                clearSelection();
-                toast.success('Đã khóa các tài khoản đã chọn');
             } else if (confirmDialog.type === 'bulkUnlock') {
                 await bulkUnlock(Array.from(selectedUsers));
                 clearSelection();
@@ -606,6 +604,24 @@ export default function UserManagementPage() {
             toast.error('Không thể thực hiện thao tác. Vui lòng thử lại.');
         }
     };
+
+    const handlePasswordConfirmedAction = async () => {
+        try {
+            if (passwordConfirmDialog.type === 'lock' && passwordConfirmDialog.userId) {
+                await lockUser(passwordConfirmDialog.userId);
+                toast.success('Đã khóa tài khoản người dùng');
+            } else if (passwordConfirmDialog.type === 'bulkLock') {
+                await bulkLock(Array.from(selectedUsers));
+                clearSelection();
+                toast.success('Đã khóa các tài khoản đã chọn');
+            }
+        } catch {
+            toast.error('Không thể thực hiện thao tác. Vui lòng thử lại.');
+        }
+    };
+
+    const handleBulkLockClick = () =>
+        setPasswordConfirmDialog({ isOpen: true, type: 'bulkLock' });
 
     const handleRowClick = (user: User) => {
         setSelectedUser(user);
@@ -629,7 +645,7 @@ export default function UserManagementPage() {
 
     const parseSortOption = (value: string) => {
         const [sortBy, sortOrder] = value.split('-');
-        return { sortBy, sortOrder };
+        return { sortBy, sortOrder: sortOrder as 'asc' | 'desc' };
     };
 
     const currentSortValue = `${filters.sortBy}-${filters.sortOrder}`;
@@ -1011,7 +1027,7 @@ export default function UserManagementPage() {
                     actions={[
                         {
                             label: 'Khóa đã chọn',
-                            onClick: () => setConfirmDialog({ isOpen: true, type: 'bulkLock' }),
+                            onClick: handleBulkLockClick,
                             variant: 'destructive',
                             icon: <Lock className="h-4 w-4" />,
                         },
@@ -1030,21 +1046,46 @@ export default function UserManagementPage() {
                     onClose={() => setConfirmDialog({ isOpen: false, type: null })}
                     onConfirm={handleConfirmAction}
                     title={
-                        confirmDialog.type === 'lock'
-                            ? 'Khóa tài khoản'
-                            : confirmDialog.type === 'unlock'
-                                ? 'Mở khóa tài khoản'
-                                : confirmDialog.type === 'bulkLock'
-                                    ? `Khóa ${selectedUsers.size} tài khoản`
-                                    : `Mở khóa ${selectedUsers.size} tài khoản`
+                        confirmDialog.type === 'unlock'
+                            ? 'Mở khóa tài khoản'
+                            : `Mở khóa ${selectedUsers.size} tài khoản`
                     }
                     description={
                         confirmDialog.type?.includes('bulk')
-                            ? `Bạn có chắc muốn ${confirmDialog.type === 'bulkLock' ? 'khóa' : 'mở khóa'} ${selectedUsers.size} tài khoản đã chọn?`
+                            ? `Bạn có chắc muốn mở khóa ${selectedUsers.size} tài khoản đã chọn?`
                             : 'Bạn có chắc muốn thực hiện thao tác này?'
                     }
-                    variant={confirmDialog.type?.includes('lock') ? 'destructive' : 'default'}
-                    confirmText={confirmDialog.type?.includes('lock') ? 'Xác nhận khóa' : 'Xác nhận mở khóa'}
+                    variant="default"
+                    confirmText="Xác nhận mở khóa"
+                    cancelText="Hủy"
+                />
+
+                {/* Password confirm dialog — for HIGH risk actions */}
+                <PasswordConfirmDialog
+                    isOpen={passwordConfirmDialog.isOpen}
+                    onClose={() => setPasswordConfirmDialog({ isOpen: false, type: null })}
+                    onConfirm={handlePasswordConfirmedAction}
+                    title={
+                        passwordConfirmDialog.type === 'lock'
+                            ? 'Xác minh trước khi khóa'
+                            : passwordConfirmDialog.type === 'bulkLock'
+                                ? `Xác minh trước khi khóa ${selectedUsers.size} tài khoản`
+                                : passwordConfirmDialog.type === 'roleChange'
+                                    ? 'Xác minh trước khi đổi vai trò'
+                                    : 'Xác minh hành động'
+                    }
+                    description={
+                        passwordConfirmDialog.type === 'bulkLock'
+                            ? `Bạn sắp khóa ${selectedUsers.size} tài khoản. Hành động này sẽ ngăn người dùng đăng nhập.`
+                            : passwordConfirmDialog.type === 'lock'
+                                ? 'Bạn sắp khóa tài khoản này. Người dùng sẽ không thể đăng nhập cho đến khi được mở khóa.'
+                                : 'Hành động này có thể ảnh hưởng đến người dùng. Vui lòng xác minh mật khẩu để tiếp tục.'
+                    }
+                    confirmText={
+                        passwordConfirmDialog.type === 'bulkLock'
+                            ? `Khóa ${selectedUsers.size} tài khoản`
+                            : 'Xác nhận khóa'
+                    }
                     cancelText="Hủy"
                 />
 

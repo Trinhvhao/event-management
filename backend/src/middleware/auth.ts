@@ -11,6 +11,8 @@ type JwtUserPayload = jwt.JwtPayload & {
   type?: string;
 };
 
+export type AuthRequest = Request & { user?: { id: number; email: string; role: UserRole } };
+
 const isUserRole = (role: unknown): role is UserRole => {
   return role === 'admin' || role === 'organizer' || role === 'student';
 };

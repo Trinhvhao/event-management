@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '@/types';
+import { authService } from '@/services/authService';
 
 const isJwtTokenValid = (token: string | null): boolean => {
   if (!token) {
@@ -36,6 +37,7 @@ interface AuthState {
   setAuth: (user: User, token: string, refreshToken?: string) => void;
   updateUser: (user: User) => void;
   logout: () => void;
+  verifyPassword: (password: string) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -83,6 +85,13 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         set({ user: null, token: null, isAuthenticated: false, isHydrated: true });
+      },
+      verifyPassword: async (password: string) => {
+        try {
+          return await authService.verifyPassword(password);
+        } catch {
+          return false;
+        }
       },
     }),
     {

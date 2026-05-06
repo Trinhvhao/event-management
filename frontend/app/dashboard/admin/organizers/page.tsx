@@ -7,6 +7,7 @@ import { categoryService } from '@/services/categoryService';
 import { DataTable } from '@/components/admin/shared/DataTable';
 import { StatusChip } from '@/components/admin/shared/StatusChip';
 import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
+import { PasswordConfirmDialog } from '@/components/admin/shared/PasswordConfirmDialog';
 import { KPIMetricsDisplay } from '@/components/admin/organizers/KPIMetricsDisplay';
 import { GrantOrganizerDialog } from '@/components/admin/organizers/GrantOrganizerDialog';
 import { Search, UserPlus, UserMinus, X, Users, RotateCcw, Building2, UserCog, TrendingUp, ChevronDown, SlidersHorizontal } from 'lucide-react';
@@ -76,6 +77,7 @@ export default function OrganizerManagementPage() {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [revokeDialog, setRevokeDialog] = useState<{ isOpen: boolean; organizerId?: string; organizerName?: string }>({ isOpen: false });
+    const [revokePasswordDialog, setRevokePasswordDialog] = useState<{ isOpen: boolean; organizerId?: string; organizerName?: string }>({ isOpen: false });
 
     useEffect(() => { fetchOrganizers(); }, [fetchOrganizers]);
 
@@ -125,13 +127,24 @@ export default function OrganizerManagementPage() {
     };
 
     const handleRevokeClick = (organizer: Organizer) =>
-        setRevokeDialog({ isOpen: true, organizerId: organizer.id, organizerName: organizer.full_name });
+        setRevokePasswordDialog({ isOpen: true, organizerId: organizer.id, organizerName: organizer.full_name });
 
     const handleRevokeConfirm = async () => {
         if (!revokeDialog.organizerId) return;
         try {
             await revokeOrganizerRights(revokeDialog.organizerId);
             setRevokeDialog({ isOpen: false });
+            toast.success('Đã thu hồi quyền organizer');
+        } catch {
+            toast.error('Không thể thu hồi quyền. Vui lòng thử lại.');
+        }
+    };
+
+    const handleRevokePasswordConfirm = async () => {
+        if (!revokePasswordDialog.organizerId) return;
+        try {
+            await revokeOrganizerRights(revokePasswordDialog.organizerId);
+            setRevokePasswordDialog({ isOpen: false });
             toast.success('Đã thu hồi quyền organizer');
         } catch {
             toast.error('Không thể thu hồi quyền. Vui lòng thử lại.');
@@ -497,15 +510,14 @@ export default function OrganizerManagementPage() {
 
                 {/* Dialogs */}
                 <GrantOrganizerDialog isOpen={showGrantDialog} onClose={() => setShowGrantDialog(false)} onGrant={handleGrantRights} />
-                <ConfirmDialog
-                    isOpen={revokeDialog.isOpen}
-                    onClose={() => setRevokeDialog({ isOpen: false })}
-                    onConfirm={handleRevokeConfirm}
-                    title="Thu hồi quyền Organizer"
-                    description={`Bạn có chắc muốn thu hồi quyền organizer của ${revokeDialog.organizerName}?`}
-                    confirmText="Thu hồi"
+                <PasswordConfirmDialog
+                    isOpen={revokePasswordDialog.isOpen}
+                    onClose={() => setRevokePasswordDialog({ isOpen: false })}
+                    onConfirm={handleRevokePasswordConfirm}
+                    title="Xác minh trước khi thu hồi quyền"
+                    description={`Bạn sắp thu hồi quyền organizer của ${revokePasswordDialog.organizerName}. Người này sẽ mất khả năng tạo và quản lý sự kiện.`}
+                    confirmText="Thu hồi quyền"
                     cancelText="Hủy"
-                    variant="destructive"
                 />
 
                 {/* KPI Drawer */}

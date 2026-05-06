@@ -38,7 +38,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         className={clsx(
                             'input-base',
                             error && 'border-[var(--color-brand-red)] focus:border-[var(--color-brand-red)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-red)_8%,transparent)]',
-                            (iconLeft || isSearch) && 'pl-10',
+                            (iconLeft || isSearch) && '!pl-11',
                             (iconRight || isPassword) && 'pr-10',
                             className
                         )}

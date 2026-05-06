@@ -4,6 +4,7 @@ import { EventStatus, UserRole, Prisma } from '@prisma/client';
 import { createNotification } from './notifications.service';
 import { transformEvents, transformEvent } from '../utils/event.util';
 import { getVietnamDateRange } from '../utils/date.util';
+import { eventTeamService } from './event-team.service';
 
 export const eventService = {
   /**
@@ -328,7 +329,7 @@ export const eventService = {
     }
 
     // Check ownership
-    if (event.organizer_id !== user.id && user.role !== 'admin') {
+    if (!(await eventTeamService.canUserPerformAction(id, user.id, user.role, 'manage_event'))) {
       throw new ForbiddenError('You can only update your own events');
     }
 
@@ -386,7 +387,7 @@ export const eventService = {
       where: { id, deleted_at: null },
     });
     if (!event) throw new NotFoundError('Event');
-    if (event.organizer_id !== user.id && user.role !== 'admin') {
+    if (!(await eventTeamService.canUserPerformAction(id, user.id, user.role, 'manage_event'))) {
       throw new ForbiddenError('Bạn chỉ có thể hủy sự kiện của mình');
     }
     if (event.status === 'cancelled') {
@@ -442,7 +443,7 @@ export const eventService = {
     }
 
     // Check ownership
-    if (event.organizer_id !== user.id && user.role !== 'admin') {
+    if (!(await eventTeamService.canUserPerformAction(id, user.id, user.role, 'manage_event'))) {
       throw new ForbiddenError('You can only delete your own events');
     }
 

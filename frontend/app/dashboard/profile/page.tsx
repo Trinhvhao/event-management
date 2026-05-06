@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { User, Calendar, Edit2, Save, X, Eye, EyeOff, Shield, Mail, Phone, Building2, Award, Ticket } from 'lucide-react';
+import { User, Calendar, Edit2, Save, X, Eye, EyeOff, Shield, Mail, Phone, Building2, Award, Ticket, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
@@ -25,6 +25,7 @@ interface UserProfile {
     full_name: string;
     student_id?: string;
     phone?: string;
+    avatar_url?: string;
     department?: {
         id: number;
         name: string;
@@ -103,6 +104,7 @@ export default function ProfilePage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editing, setEditing] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [user, setUser] = useState<UserProfile | null>(null);
     const [formData, setFormData] = useState({
         full_name: '',
@@ -156,6 +158,33 @@ export default function ProfilePage() {
         }
         fetchProfile();
     }, [router, token, fetchProfile, isAuthenticated, isHydrated]);
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Chỉ chấp nhận file ảnh (JPEG, PNG, WebP, GIF)');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Kích thước ảnh tối đa là 5MB');
+            return;
+        }
+
+        setUploadingAvatar(true);
+        try {
+            const result = await profileService.uploadAvatar(file);
+            setUser(prev => prev ? { ...prev, avatar_url: result.avatar_url } : prev);
+            useAuthStore.getState().updateUser({ ...user!, avatar_url: result.avatar_url });
+            toast.success('Cập nhật ảnh đại diện thành công!');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Tải ảnh thất bại'));
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!formData.full_name.trim()) {
@@ -316,335 +345,362 @@ export default function ProfilePage() {
                     )}
                 </div>
 
-                {/* Hero Card */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="relative overflow-hidden bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)]"
-                >
-                    {/* Gradient Background */}
-                    <div className="h-40 bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] relative">
-                        {/* Decorative Elements */}
-                        <div className="absolute inset-0 overflow-hidden">
-                            <div className="absolute -right-20 -top-20 w-64 h-64 rounded-full bg-white/5" />
-                            <div className="absolute -left-10 bottom-0 w-40 h-40 rounded-full bg-white/5" />
-                        </div>
-                        {/* Top Accent Line */}
-                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
-                    </div>
+                {/* Profile Hero - redesigned layout */}
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    {/* Left Column: Avatar + Info */}
+                    <div className="xl:col-span-1">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden"
+                        >
+                            {/* Top accent */}
+                            <div className="h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
 
-                    {/* Avatar */}
-                    <div className="absolute -bottom-16 left-8">
-                        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] border-4 border-white shadow-[var(--shadow-brand)] flex items-center justify-center">
-                            <span className="text-5xl font-bold text-white">
-                                {getInitials(user.full_name || 'User')}
-                            </span>
-                        </div>
-                    </div>
+                            {/* Avatar Section */}
+                            <div className="bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] px-6 pt-6 pb-8 relative overflow-hidden">
+                                <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/5" />
+                                <div className="absolute -left-4 bottom-0 w-24 h-24 rounded-full bg-white/5" />
 
-                    {/* Content */}
-                    <div className="pt-20 px-8 pb-8">
-                        <div className="flex items-start justify-between flex-wrap gap-4">
-                            <div>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    <h2 className="text-2xl font-bold text-[var(--text-primary)]">{user.full_name}</h2>
-                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${roleConfig.bg} ${roleConfig.text} ${roleConfig.border}`}>
-                                        <Shield className="w-3.5 h-3.5" />
+                                <div className="flex flex-col items-center text-center">
+                                    {/* Avatar with upload button */}
+                                    <div className="relative mb-4">
+                                        {user.avatar_url ? (
+                                            <img
+                                                src={user.avatar_url}
+                                                alt={user.full_name}
+                                                className="w-28 h-28 rounded-full object-cover border-[4px] border-white/30 shadow-[var(--shadow-brand)]"
+                                            />
+                                        ) : (
+                                            <div className="w-28 h-28 rounded-full bg-white border-[4px] border-white/30 shadow-[var(--shadow-brand)] flex items-center justify-center">
+                                                <span className="text-4xl font-bold text-[var(--color-brand-navy)]">
+                                                    {getInitials(user.full_name || 'User')}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {editing && (
+                                            <label className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[var(--color-brand-orange)] border-2 border-white shadow-md flex items-center justify-center cursor-pointer hover:bg-[var(--color-brand-orange)]/90 transition-colors">
+                                                <Camera className="w-4 h-4 text-white" />
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                                    className="hidden"
+                                                    onChange={handleAvatarChange}
+                                                    disabled={uploadingAvatar}
+                                                />
+                                            </label>
+                                        )}
+                                    </div>
+
+                                    {/* Name */}
+                                    <h2 className="text-xl font-bold text-white">{user.full_name}</h2>
+
+                                    {/* Role badge */}
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border mt-2 ${roleConfig.bg} ${roleConfig.text} ${roleConfig.border}`}>
+                                        <Shield className="w-3 h-3" />
                                         {roleLabels[user.role] || user.role}
                                     </span>
+
+                                    {/* Student ID */}
+                                    {user.student_id && (
+                                        <div className="mt-3 px-3 py-1.5 rounded-lg bg-white/15 border border-white/20">
+                                            <span className="text-xs font-bold text-white/70">MSSV:</span>
+                                            <span className="text-sm font-semibold text-white ml-1">{user.student_id}</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-2 mt-2 text-[var(--text-muted)]">
-                                    <Mail className="w-4 h-4" />
-                                    <span className="text-sm">{user.email}</span>
+                            </div>
+
+                            {/* Contact Info */}
+                            <div className="px-6 py-5 space-y-3">
+                                <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+                                    <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] flex items-center justify-center flex-shrink-0">
+                                        <Mail className="w-3.5 h-3.5 text-[var(--color-brand-navy)]" />
+                                    </div>
+                                    <span className="truncate">{user.email}</span>
                                 </div>
                                 {user.department && (
-                                    <div className="flex items-center gap-2 mt-1 text-[var(--text-muted)]">
-                                        <Building2 className="w-4 h-4" />
-                                        <span className="text-sm">{user.department.name}</span>
+                                    <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+                                        <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] flex items-center justify-center flex-shrink-0">
+                                            <Building2 className="w-3.5 h-3.5 text-[var(--color-brand-navy)]" />
+                                        </div>
+                                        <span className="truncate">{user.department.name}</span>
                                     </div>
                                 )}
-                                {user.student_id && (
-                                    <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-light)_20%,transparent)] border border-[var(--color-brand-light)]">
-                                        <span className="text-xs font-bold text-[var(--color-brand-navy)]">MSSV:</span>
-                                        <span className="text-sm font-semibold text-[var(--text-primary)]">{user.student_id}</span>
+                                {user.phone && (
+                                    <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
+                                        <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] flex items-center justify-center flex-shrink-0">
+                                            <Phone className="w-3.5 h-3.5 text-[var(--color-brand-navy)]" />
+                                        </div>
+                                        <span className="truncate">{user.phone}</span>
                                     </div>
                                 )}
                             </div>
-                        </div>
 
-                        {/* Stats Row */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
-                            <div className="bg-[var(--bg-muted)] rounded-2xl p-5 border border-[var(--border-light)]">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
-                                        <Calendar className="w-5.5 h-5.5 text-white" />
+                            {/* Account Meta */}
+                            <div className="px-6 pb-5">
+                                <div className="border-t border-[var(--border-light)] pt-4 space-y-2">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-[var(--text-muted)]">Ngày tham gia</span>
+                                        <span className="font-semibold text-[var(--text-secondary)]">
+                                            {new Date(user.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </span>
                                     </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{user.total_events_attended ?? 0}</p>
-                                        <p className="text-xs font-medium text-[var(--text-muted)]">Sự kiện đã tham dự</p>
-                                    </div>
+                                    {user.last_login && (
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-[var(--text-muted)]">Đăng nhập cuối</span>
+                                            <span className="font-semibold text-[var(--text-secondary)]">
+                                                {new Date(user.last_login).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div className="bg-[var(--bg-muted)] rounded-2xl p-5 border border-[var(--border-light)]">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
-                                        <Award className="w-5.5 h-5.5 text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{user.total_points ?? 0}</p>
-                                        <p className="text-xs font-medium text-[var(--text-muted)]">Tổng điểm rèn luyện</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-[var(--bg-muted)] rounded-2xl p-5 border border-[var(--border-light)]">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
-                                        <Ticket className="w-5.5 h-5.5 text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{user.registration_count ?? 0}</p>
-                                        <p className="text-xs font-medium text-[var(--text-muted)]">Lượt đăng ký</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        </motion.div>
                     </div>
-                </motion.div>
 
-                {/* Edit Form Card */}
-                {editing && (
-                    <motion.section
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="relative bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden"
-                    >
-                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
-
-                        <div className="p-8">
-                            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
-                                    <User className="w-4.5 h-4.5 text-white" />
-                                </div>
-                                Chỉnh sửa thông tin
-                            </h3>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Full Name */}
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                                        Họ và tên <span className="text-[var(--color-brand-red)]">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.full_name}
-                                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                        placeholder="Nhập họ và tên"
-                                        className="input-base"
-                                    />
-                                </div>
-
-                                {/* Email (readonly) */}
-                                <div>
-                                    <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                                        Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={user.email}
-                                        disabled
-                                        className="input-base bg-[var(--bg-muted)] cursor-not-allowed opacity-70"
-                                    />
-                                </div>
-
-                                {/* Phone */}
-                                <div>
-                                    <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                                        Số điện thoại
-                                    </label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
-                                        <input
-                                            type="tel"
-                                            value={formData.phone}
-                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            placeholder="Nhập số điện thoại"
-                                            className="input-base pl-11"
-                                        />
+                    {/* Right Column: Stats + Form */}
+                    <div className="xl:col-span-2 space-y-6">
+                        {/* Stats Cards */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                        >
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-white rounded-2xl p-5 border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] transition-all">
+                                    <div className="w-11 h-11 rounded-xl bg-[color-mix(in_srgb,#00358F_12%,transparent)] flex items-center justify-center mb-3">
+                                        <Calendar className="w-5 h-5 text-[#00358F]" />
                                     </div>
+                                    <p className="text-2xl font-extrabold text-[var(--text-primary)] leading-none mb-1">
+                                        {user.total_events_attended ?? 0}
+                                    </p>
+                                    <p className="text-xs text-[var(--text-muted)] font-medium leading-tight">Sự kiện<br />đã tham dự</p>
+                                </div>
+                                <div className="bg-white rounded-2xl p-5 border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] transition-all">
+                                    <div className="w-11 h-11 rounded-xl bg-[color-mix(in_srgb,#F26600_12%,transparent)] flex items-center justify-center mb-3">
+                                        <Award className="w-5 h-5 text-[#F26600]" />
+                                    </div>
+                                    <p className="text-2xl font-extrabold text-[var(--text-primary)] leading-none mb-1">
+                                        {user.total_points ?? 0}
+                                    </p>
+                                    <p className="text-xs text-[var(--text-muted)] font-medium leading-tight">Điểm<br />rèn luyện</p>
+                                </div>
+                                <div className="bg-white rounded-2xl p-5 border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] transition-all">
+                                    <div className="w-11 h-11 rounded-xl bg-[color-mix(in_srgb,#00A651_12%,transparent)] flex items-center justify-center mb-3">
+                                        <Ticket className="w-5 h-5 text-[#00A651]" />
+                                    </div>
+                                    <p className="text-2xl font-extrabold text-[var(--text-primary)] leading-none mb-1">
+                                        {user.registration_count ?? 0}
+                                    </p>
+                                    <p className="text-xs text-[var(--text-muted)] font-medium leading-tight">Lượt<br />đăng ký</p>
                                 </div>
                             </div>
+                        </motion.div>
 
-                            {/* Password Section */}
-                            <div className="mt-8 pt-8 border-t border-[var(--border-default)]">
-                                <h4 className="text-base font-bold text-[var(--text-primary)] mb-5 flex items-center gap-2">
-                                    <Shield className="w-5 h-5 text-[var(--color-brand-navy)]" />
-                                    Đổi mật khẩu
-                                    <span className="text-xs font-medium text-[var(--text-muted)]">(Để trống nếu không đổi)</span>
-                                </h4>
+                        {/* Edit Form */}
+                        {editing && (
+                            <motion.section
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden"
+                            >
+                                <div className="h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    {/* Current Password */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                                            Mật khẩu hiện tại
-                                        </label>
-                                        <div className="relative">
+                                <div className="p-8">
+                                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
+                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                                            <User className="w-4.5 h-4.5 text-white" />
+                                        </div>
+                                        Chỉnh sửa thông tin
+                                    </h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Full Name */}
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
+                                                Họ và tên <span className="text-[var(--color-brand-red)]">*</span>
+                                            </label>
                                             <input
-                                                type={showPasswords.current ? 'text' : 'password'}
-                                                value={formData.current_password}
-                                                onChange={(e) => setFormData({ ...formData, current_password: e.target.value })}
-                                                placeholder="••••••••"
-                                                className="input-base pr-11"
+                                                type="text"
+                                                value={formData.full_name}
+                                                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                                placeholder="Nhập họ và tên"
+                                                className="input-base"
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-                                            >
-                                                {showPasswords.current ? (
-                                                    <EyeOff className="w-4.5 h-4.5" />
-                                                ) : (
-                                                    <Eye className="w-4.5 h-4.5" />
-                                                )}
-                                            </button>
+                                        </div>
+
+                                        {/* Email (readonly) */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">Email</label>
+                                            <input
+                                                type="email"
+                                                value={user.email}
+                                                disabled
+                                                className="input-base bg-[var(--bg-muted)] cursor-not-allowed opacity-70"
+                                            />
+                                        </div>
+
+                                        {/* Phone */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">Số điện thoại</label>
+                                            <div className="relative">
+                                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
+                                                <input
+                                                    type="tel"
+                                                    value={formData.phone}
+                                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                    placeholder="Nhập số điện thoại"
+                                                    className="input-base pl-12"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* New Password */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                                            Mật khẩu mới
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type={showPasswords.new ? 'text' : 'password'}
-                                                value={formData.new_password}
-                                                onChange={(e) => setFormData({ ...formData, new_password: e.target.value })}
-                                                placeholder="Tối thiểu 8 ký tự"
-                                                className="input-base pr-11"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-                                            >
-                                                {showPasswords.new ? (
-                                                    <EyeOff className="w-4.5 h-4.5" />
-                                                ) : (
-                                                    <Eye className="w-4.5 h-4.5" />
-                                                )}
-                                            </button>
+                                    {/* Password Section */}
+                                    <div className="mt-8 pt-8 border-t border-[var(--border-default)]">
+                                        <h4 className="text-base font-bold text-[var(--text-primary)] mb-5 flex items-center gap-2">
+                                            <Shield className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                                            Đổi mật khẩu
+                                            <span className="text-xs font-medium text-[var(--text-muted)]">(Để trống nếu không đổi)</span>
+                                        </h4>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            {/* Current Password */}
+                                            <div>
+                                                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">Mật khẩu hiện tại</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showPasswords.current ? 'text' : 'password'}
+                                                        value={formData.current_password}
+                                                        onChange={(e) => setFormData({ ...formData, current_password: e.target.value })}
+                                                        placeholder="••••••••"
+                                                        className="input-base pr-11"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+                                                    >
+                                                        {showPasswords.current ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* New Password */}
+                                            <div>
+                                                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">Mật khẩu mới</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showPasswords.new ? 'text' : 'password'}
+                                                        value={formData.new_password}
+                                                        onChange={(e) => setFormData({ ...formData, new_password: e.target.value })}
+                                                        placeholder="Tối thiểu 8 ký tự"
+                                                        className="input-base pr-11"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+                                                    >
+                                                        {showPasswords.new ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Confirm Password */}
+                                            <div>
+                                                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">Xác nhận mật khẩu</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showPasswords.confirm ? 'text' : 'password'}
+                                                        value={formData.confirm_password}
+                                                        onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
+                                                        placeholder="Nhập lại mật khẩu"
+                                                        className="input-base pr-11"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+                                                    >
+                                                        {showPasswords.confirm ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+                                </div>
+                            </motion.section>
+                        )}
 
-                                    {/* Confirm Password */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                                            Xác nhận mật khẩu
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type={showPasswords.confirm ? 'text' : 'password'}
-                                                value={formData.confirm_password}
-                                                onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
-                                                placeholder="Nhập lại mật khẩu"
-                                                className="input-base pr-11"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-                                            >
-                                                {showPasswords.confirm ? (
-                                                    <EyeOff className="w-4.5 h-4.5" />
-                                                ) : (
-                                                    <Eye className="w-4.5 h-4.5" />
-                                                )}
-                                            </button>
+                        {/* Account Info Card */}
+                        {!editing && (
+                            <motion.section
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden"
+                            >
+                                <div className="h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+
+                                <div className="p-8">
+                                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
+                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                                            <Shield className="w-4.5 h-4.5 text-white" />
+                                        </div>
+                                        Thông tin tài khoản
+                                    </h3>
+
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Shield className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Vai trò</span>
+                                            </div>
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${roleConfig.bg} ${roleConfig.text} ${roleConfig.border}`}>
+                                                {roleLabels[user.role] || user.role}
+                                            </span>
+                                        </div>
+
+                                        <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Building2 className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Khoa</span>
+                                            </div>
+                                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                                                {user.department?.name || 'Chưa xác định'}
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Calendar className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Ngày tham gia</span>
+                                            </div>
+                                            <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                                {new Date(user.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Calendar className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Đăng nhập cuối</span>
+                                            </div>
+                                            <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                                {user.last_login
+                                                    ? new Date(user.last_login).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                    : 'Gần đây'}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </motion.section>
-                )}
-
-                {/* Account Info Card */}
-                <motion.section
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="relative bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden"
-                >
-                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
-
-                    <div className="p-8">
-                        <h3 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
-                                <Shield className="w-4.5 h-4.5 text-white" />
-                            </div>
-                            Thông tin tài khoản
-                        </h3>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {/* Role */}
-                            <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Shield className="w-4 h-4 text-[var(--color-brand-navy)]" />
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Vai trò</span>
-                                </div>
-                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${roleConfig.bg} ${roleConfig.text} ${roleConfig.border}`}>
-                                    {roleLabels[user.role] || user.role}
-                                </span>
-                            </div>
-
-                            {/* Department */}
-                            <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Building2 className="w-4 h-4 text-[var(--color-brand-navy)]" />
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Khoa</span>
-                                </div>
-                                <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                                    {user.department?.name || 'Chưa xác định'}
-                                </p>
-                            </div>
-
-                            {/* Join Date */}
-                            <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Calendar className="w-4 h-4 text-[var(--color-brand-navy)]" />
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Ngày tham gia</span>
-                                </div>
-                                <p className="text-sm font-semibold text-[var(--text-primary)]">
-                                    {new Date(user.created_at).toLocaleDateString('vi-VN', {
-                                        day: '2-digit',
-                                        month: 'short',
-                                        year: 'numeric'
-                                    })}
-                                </p>
-                            </div>
-
-                            {/* Last Login */}
-                            <div className="bg-[var(--bg-muted)] rounded-xl p-4 border border-[var(--border-light)]">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Calendar className="w-4 h-4 text-[var(--color-brand-navy)]" />
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Đăng nhập cuối</span>
-                                </div>
-                                <p className="text-sm font-semibold text-[var(--text-primary)]">
-                                    {user.last_login
-                                        ? new Date(user.last_login).toLocaleDateString('vi-VN', {
-                                            day: '2-digit',
-                                            month: 'short',
-                                            year: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })
-                                        : 'Gần đây'}
-                                </p>
-                            </div>
-                        </div>
+                            </motion.section>
+                        )}
                     </div>
-                </motion.section>
+                </div>
             </div>
         </DashboardLayout>
     );

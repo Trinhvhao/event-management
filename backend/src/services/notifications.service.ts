@@ -1,6 +1,12 @@
 import prisma from '../config/database';
 import { NotificationType } from '@prisma/client';
 import { ForbiddenError, NotFoundError } from '../middleware/errorHandler';
+import {
+    sendEventReminder,
+    sendEventUpdate,
+    sendEventCancellation,
+    sendRegistrationConfirmation,
+} from './email.service';
 
 interface CreateNotificationData {
     user_id: number;
@@ -8,6 +14,19 @@ interface CreateNotificationData {
     title: string;
     message: string;
     event_id?: number;
+    /** Optional email payload -- only sent if user has email notifications enabled */
+    email_data?: {
+        eventTitle: string;
+        eventLocation?: string;
+        eventStartTime?: Date;
+        eventEndTime?: Date;
+        hoursUntil?: number;
+        changes?: string;
+        points?: number;
+        reason?: string;
+        qrCodeDataUrl?: string;
+        eventCost?: number;
+    };
 }
 
 export const createNotification = async (data: CreateNotificationData) => {
@@ -22,8 +41,95 @@ export const createNotification = async (data: CreateNotificationData) => {
         },
     });
 
+    // Send email notification if email_data is provided
+    if (data.email_data) {
+        const user = await prisma.user.findUnique({
+            where: { id: data.user_id },
+            select: { email: true, full_name: true, notification_enabled: true },
+        });
+
+        if (user && user.notification_enabled !== false) {
+            try {
+                await sendNotificationEmail(
+                    data.type,
+                    user.email,
+                    user.full_name,
+                    data.email_data,
+                    data.email_data.qrCodeDataUrl
+                );
+            } catch (emailError) {
+                console.error(`[Notification] Failed to send email to ${user.email}:`, emailError);
+            }
+        }
+    }
+
     return notification;
 };
+
+async function sendNotificationEmail(
+    type: NotificationType,
+    email: string,
+    fullName: string,
+    data: NonNullable<CreateNotificationData['email_data']>,
+    qrCodeDataUrl?: string
+): Promise<void> {
+    switch (type) {
+        case 'registration_confirm':
+            if (data.eventStartTime && data.eventEndTime) {
+                await sendRegistrationConfirmation({
+                    email,
+                    fullName,
+                    eventTitle: data.eventTitle,
+                    eventLocation: data.eventLocation || '',
+                    eventStartTime: data.eventStartTime,
+                    eventEndTime: data.eventEndTime,
+                    trainingPoints: data.points || 0,
+                    qrCodeDataUrl: qrCodeDataUrl || '',
+                    eventCost: data.eventCost,
+                });
+            }
+            break;
+
+        case 'event_reminder':
+            if (data.eventStartTime) {
+                await sendEventReminder(
+                    email,
+                    fullName,
+                    data.eventTitle,
+                    data.eventStartTime,
+                    data.eventLocation || ''
+                );
+            }
+            break;
+
+        case 'event_update':
+            await sendEventUpdate(
+                email,
+                fullName,
+                data.eventTitle,
+                data.changes || '',
+                data.eventStartTime,
+                data.eventLocation
+            );
+            break;
+
+        case 'event_cancelled':
+            await sendEventCancellation(
+                email,
+                fullName,
+                data.eventTitle,
+                data.reason
+            );
+            break;
+
+        case 'checkin_success':
+        case 'points_awarded':
+            break;
+
+        default:
+            break;
+    }
+}
 
 export const getMyNotifications = async (
     userId: number,
@@ -145,7 +251,13 @@ export const deleteNotification = async (userId: number, notificationId: number)
 export const notifyRegistrationConfirm = async (
     userId: number,
     eventId: number,
-    eventTitle: string
+    eventTitle: string,
+    eventLocation: string,
+    eventStartTime: Date,
+    eventEndTime: Date,
+    trainingPoints: number,
+    qrCodeDataUrl?: string,
+    eventCost?: number
 ) => {
     return createNotification({
         user_id: userId,
@@ -153,6 +265,15 @@ export const notifyRegistrationConfirm = async (
         title: 'Đăng ký thành công',
         message: `Bạn đã đăng ký thành công sự kiện "${eventTitle}". Vui lòng mang QR code khi tham dự.`,
         event_id: eventId,
+        email_data: {
+            eventTitle,
+            eventLocation,
+            eventStartTime,
+            eventEndTime,
+            points: trainingPoints,
+            qrCodeDataUrl,
+            eventCost,
+        },
     });
 };
 
@@ -160,7 +281,9 @@ export const notifyEventReminder = async (
     userId: number,
     eventId: number,
     eventTitle: string,
-    hoursUntil: number
+    hoursUntil: number,
+    eventLocation: string,
+    eventStartTime: Date
 ) => {
     return createNotification({
         user_id: userId,
@@ -168,6 +291,12 @@ export const notifyEventReminder = async (
         title: 'Nhắc nhở sự kiện',
         message: `Sự kiện "${eventTitle}" sẽ diễn ra sau ${hoursUntil} giờ nữa. Đừng quên tham dự!`,
         event_id: eventId,
+        email_data: {
+            eventTitle,
+            eventLocation,
+            eventStartTime,
+            hoursUntil,
+        },
     });
 };
 
@@ -175,7 +304,9 @@ export const notifyEventUpdate = async (
     userId: number,
     eventId: number,
     eventTitle: string,
-    changes: string
+    changes: string,
+    eventStartTime?: Date,
+    eventLocation?: string
 ) => {
     return createNotification({
         user_id: userId,
@@ -183,13 +314,20 @@ export const notifyEventUpdate = async (
         title: 'Cập nhật sự kiện',
         message: `Sự kiện "${eventTitle}" đã có thay đổi: ${changes}`,
         event_id: eventId,
+        email_data: {
+            eventTitle,
+            changes,
+            eventStartTime,
+            eventLocation,
+        },
     });
 };
 
 export const notifyEventCancelled = async (
     userId: number,
     eventId: number,
-    eventTitle: string
+    eventTitle: string,
+    reason?: string
 ) => {
     return createNotification({
         user_id: userId,
@@ -197,6 +335,10 @@ export const notifyEventCancelled = async (
         title: 'Sự kiện bị hủy',
         message: `Sự kiện "${eventTitle}" đã bị hủy. Xin lỗi vì sự bất tiện này.`,
         event_id: eventId,
+        email_data: {
+            eventTitle,
+            reason,
+        },
     });
 };
 

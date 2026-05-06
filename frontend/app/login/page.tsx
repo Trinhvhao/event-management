@@ -15,6 +15,10 @@ const DEMO_ACCOUNTS = {
         email: 'student1@dnu.edu.vn',
         password: 'student123',
     },
+    organizer: {
+        email: 'organizer.cntt@dnu.edu.vn',
+        password: 'organizer123',
+    },
     admin: {
         email: 'admin@dnu.edu.vn',
         password: 'admin123',
@@ -57,7 +61,7 @@ export default function LoginPage() {
         }
     };
 
-    const handleQuickLogin = (accountType: 'student' | 'admin') => {
+    const handleQuickLogin = (accountType: 'student' | 'organizer' | 'admin') => {
         const account = DEMO_ACCOUNTS[accountType];
         setFormData({
             email: account.email,
@@ -214,7 +218,7 @@ export default function LoginPage() {
                         {/* Quick Login Demo Accounts */}
                         <div className="mb-4">
                             <p className="text-xs text-slate-500 mb-2 text-center font-medium">Demo nhanh - Click để tự động điền</p>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 {/* Student Account */}
                                 <motion.button
                                     type="button"
@@ -229,6 +233,23 @@ export default function LoginPage() {
                                     <div className="text-left">
                                         <div className="font-semibold text-primary text-xs">Student</div>
                                         <div className="text-xs text-slate-500">Sinh viên</div>
+                                    </div>
+                                </motion.button>
+
+                                {/* Organizer Account */}
+                                <motion.button
+                                    type="button"
+                                    onClick={() => handleQuickLogin('organizer')}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    className="flex items-center gap-2 p-2.5 rounded-lg border border-cyan-400/30 bg-cyan-500/10 hover:bg-cyan-500/20 hover:border-cyan-400/50 transition-all group"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center group-hover:bg-cyan-500/30 transition-colors flex-shrink-0">
+                                        <UserCog className="text-cyan-600" size={16} />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-semibold text-primary text-xs">Organizer</div>
+                                        <div className="text-xs text-slate-500">BTC</div>
                                     </div>
                                 </motion.button>
 

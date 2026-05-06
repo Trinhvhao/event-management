@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { X, Mail, Building, Calendar, Shield, Activity, Lock, Unlock, User } from 'lucide-react';
 import { AuditLogViewer } from '../shared/AuditLogViewer';
-import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { PasswordConfirmDialog } from '../shared/PasswordConfirmDialog';
 import { adminService } from '@/services/adminService';
 
 interface User {
@@ -64,8 +64,11 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, o
     const [auditLoading, setAuditLoading] = useState(false);
     const [auditActionType, setAuditActionType] = useState('');
     const [auditPagination, setAuditPagination] = useState({ page: 1, limit: 20, total: 0 });
-    const [showRoleDialog, setShowRoleDialog] = useState(false);
-    const [selectedRole, setSelectedRole] = useState('');
+    const [passwordConfirmDialog, setPasswordConfirmDialog] = useState<{
+        isOpen: boolean;
+        type: 'roleChange' | null;
+        roleValue?: string;
+    }>({ isOpen: false });
 
     const fetchAuditLogs = useCallback(async () => {
         if (!user) return;
@@ -103,14 +106,15 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, o
     }, [user, activeTab, fetchAuditLogs]);
 
     const handleRoleChangeClick = (role: string) => {
-        setSelectedRole(role);
-        setShowRoleDialog(true);
+        setPasswordConfirmDialog({ isOpen: true, type: 'roleChange', roleValue: role });
     };
 
-    const handleRoleChangeConfirm = async () => {
+    const handlePasswordConfirmed = async () => {
         if (!user) return;
-        await onRoleChange(user.id, selectedRole);
-        setShowRoleDialog(false);
+        if (passwordConfirmDialog.type === 'roleChange' && passwordConfirmDialog.roleValue) {
+            await onRoleChange(user.id, passwordConfirmDialog.roleValue);
+        }
+        setPasswordConfirmDialog({ isOpen: false });
     };
 
     if (!isOpen || !user) return null;
@@ -360,14 +364,14 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, o
                 </div>
             </div>
 
-            <ConfirmDialog
-                isOpen={showRoleDialog}
-                onClose={() => setShowRoleDialog(false)}
-                onConfirm={handleRoleChangeConfirm}
-                title="Xác nhận thay đổi vai trò"
-                description={`Bạn có chắc muốn thay đổi vai trò của ${user.full_name} thành ${ROLE_OPTIONS.find((r) => r.role === selectedRole)?.label}?`}
-                confirmText="Xác nhận thay đổi"
-                variant="default"
+            <PasswordConfirmDialog
+                isOpen={passwordConfirmDialog.isOpen}
+                onClose={() => setPasswordConfirmDialog({ isOpen: false })}
+                onConfirm={handlePasswordConfirmed}
+                title="Xác minh trước khi đổi vai trò"
+                description={`Bạn sắp đổi vai trò của ${user.full_name} thành ${ROLE_OPTIONS.find((r) => r.role === passwordConfirmDialog.roleValue)?.label}. Hành động này sẽ thay đổi quyền truy cập của người dùng.`}
+                confirmText="Xác nhận đổi vai trò"
+                cancelText="Hủy"
             />
         </>
     );

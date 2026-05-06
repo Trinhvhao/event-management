@@ -21,7 +21,8 @@ import {
     Shield,
     Activity,
     LayoutDashboard,
-    ClipboardList
+    ClipboardList,
+    CreditCard
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import NotificationBell from '../dashboard/NotificationBell';
@@ -93,6 +94,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             { href: '/dashboard', icon: LayoutDashboard, label: 'Trang chủ' },
             { href: '/dashboard/events', icon: Calendar, label: 'Khám phá sự kiện' },
             { href: '/dashboard/my-registrations', icon: CheckSquare, label: 'Sự kiện đã đăng ký' },
+            { href: '/dashboard/payment/history', icon: CreditCard, label: 'Lịch sử thanh toán' },
             { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
         ];
     };

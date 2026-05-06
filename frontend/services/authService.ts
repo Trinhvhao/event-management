@@ -46,4 +46,12 @@ export const authService = {
     );
     return response.data.data;
   },
+
+  async verifyPassword(password: string): Promise<boolean> {
+    const response = await axios.post<ApiResponse<{ valid: boolean }>>(
+      '/auth/verify-password',
+      { password }
+    );
+    return response.data.data.valid;
+  },
 };

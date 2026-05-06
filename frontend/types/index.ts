@@ -1,6 +1,35 @@
 // User types
 export type UserRole = 'student' | 'organizer' | 'admin';
 
+// Event Team Role types
+export type EventTeamRole = 'main_organizer' | 'helper';
+
+export interface TeamMember {
+  id: number;
+  event_id: number;
+  user_id: number;
+  role: EventTeamRole;
+  added_by: number;
+  created_at: string;
+  user: {
+    id: number;
+    full_name: string;
+    email: string;
+    student_id: string | null;
+    role: string;
+    department: {
+      id: number;
+      name: string;
+      code: string;
+    } | null;
+  };
+  added_by_user: {
+    id: number;
+    full_name: string;
+    email: string;
+  };
+}
+
 export interface User {
   id: number;
   email: string;
@@ -11,6 +40,8 @@ export interface User {
   department?: Department;
   is_active: boolean;
   email_verified: boolean;
+  avatar_url?: string;
+  phone?: string;
   created_at: string;
 }
 
@@ -110,6 +141,30 @@ export interface Registration {
   qr_code: string;
   cancelled_at?: string;
   cancellation_reason?: string;
+}
+
+// Payment types
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'expired' | 'refunded';
+
+export interface Payment {
+  id: number;
+  registration_id: number;
+  event_id: number;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  method: string;
+  payos_order_id?: string;
+  transaction_id?: string;
+  paid_at?: string;
+  expires_at?: string;
+  created_at: string;
+  event?: {
+    id: number;
+    title: string;
+    start_time: string;
+    location: string;
+  };
 }
 
 // Feedback types

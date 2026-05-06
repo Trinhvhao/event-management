@@ -193,10 +193,10 @@ function TopEventsBarChart({ data, loading }: {
                 />
                 <Bar 
                     dataKey="registrations" 
-                    radius={[0, 6, 6, 0]} 
+                    radius={[0, 6, 6, 0] as any} 
                     barSize={18} 
                     animationDuration={1500}
-                    background={{ fill: '#f8fafc', radius: [0, 6, 6, 0] }}
+                    background={{ fill: '#f8fafc', radius: [0, 6, 6, 0] as any }}
                 >
                     {data.slice(0, 10).map((entry, i) => (
                         <Cell key={i} fill={`url(#eventGrad${i})`} />
@@ -731,10 +731,10 @@ export default function StatisticsPage() {
                                         <Bar 
                                             dataKey="value" 
                                             name="Số sự kiện"
-                                            radius={[0, 6, 6, 0]} 
+                                            radius={[0, 6, 6, 0] as any} 
                                             barSize={20} 
                                             animationDuration={1500}
-                                            background={{ fill: '#f8fafc', radius: [0, 6, 6, 0] }}
+                                            background={{ fill: '#f8fafc', radius: [0, 6, 6, 0] as any }}
                                         >
                                             {deptChartData.map((entry, i) => (
                                                 <Cell key={i} fill={`url(#deptGrad${i})`} />
