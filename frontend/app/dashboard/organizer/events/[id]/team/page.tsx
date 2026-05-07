@@ -48,7 +48,7 @@ export default function EventTeamPage() {
 
     useEffect(() => {
         if (isHydrated) {
-            if (!isAuthenticated || user?.role === 'student') {
+            if (!isAuthenticated || user?.role === 'participant') {
                 router.push('/login');
                 return;
             }

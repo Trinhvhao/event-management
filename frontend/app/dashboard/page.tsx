@@ -37,6 +37,7 @@ import { eventService } from '@/services/eventService';
 import { statisticsService } from '@/services/statisticsService';
 import { notificationService } from '@/services/notificationService';
 import { trainingPointsService } from '@/services/trainingPointsService';
+import { registrationService } from '@/services/registrationService';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -277,7 +278,7 @@ interface DashboardStats {
   ongoingEvents: number;
   completedEvents: number;
   totalUsers: number;
-  totalStudents: number;
+  totalParticipants: number;
   totalOrganizers: number;
   totalRegistrations: number;
   totalAttendances: number;
@@ -481,7 +482,7 @@ export default function DashboardPage() {
           ongoingEvents: eventsByStatusMap.ongoing || 0,
           completedEvents: eventsByStatusMap.completed || 0,
           totalUsers: dashboardStats.totalUsers || 0,
-          totalStudents: findRoleCount('student'),
+          totalParticipants: findRoleCount('participant'),
           totalOrganizers: findRoleCount('organizer'),
           totalRegistrations: dashboardStats.totalRegistrations || 0,
           totalAttendances: dashboardStats.totalAttendances || 0,
@@ -508,7 +509,7 @@ export default function DashboardPage() {
           ongoingEvents: orgEventsByStatus.ongoing || myEvents.filter((e) => e.status === 'ongoing').length,
           completedEvents: orgEventsByStatus.completed || myEvents.filter((e) => e.status === 'completed').length,
           totalUsers: 0,
-          totalStudents: 0,
+          totalParticipants: 0,
           totalOrganizers: 0,
           totalRegistrations: organizerStats.totalRegistrations || 0,
           totalAttendances: organizerStats.totalAttendances || 0,
@@ -520,28 +521,40 @@ export default function DashboardPage() {
           unreadNotifications: 0,
         });
       } else {
-        const [eventsRes, myPointsRes, unreadNotifs] = await Promise.all([
+        const [eventsRes, myPointsRes, unreadNotifs, myRegsRes] = await Promise.all([
           eventService.getAll({ status: 'upcoming', limit: 5 }),
           trainingPointsService.getMyPoints().catch(() => ({ grand_total: 0 })),
           notificationService.getUnreadCount().catch(() => 0),
+          registrationService.getMyRegistrations().catch(() => []),
         ]);
 
         const events: Event[] = eventsRes.items || (eventsRes as any).data?.items || (eventsRes as any).data || [];
+        const myRegistrations: any[] = Array.isArray(myRegsRes) ? myRegsRes : (myRegsRes as any).data || [];
+        
+        // Chỉ đếm registrations có status 'registered' (không tính cancelled, attended)
+        const registeredCount = myRegistrations.filter(r => r.status === 'registered').length;
+        
+        // Lọc bỏ các sự kiện đã đăng ký (còn hiệu lực, chưa cancelled)
+        const registeredEventIds = new Set(
+          myRegistrations.filter(r => !r.cancelled_at).map(r => r.event_id)
+        );
+        const filteredEvents = events.filter(e => !registeredEventIds.has(e.id));
+        
         const pointsData = (myPointsRes as any)?.data ?? myPointsRes ?? {};
         const unreadCount = typeof unreadNotifs === 'number' ? unreadNotifs : (unreadNotifs as any)?.unread_count ?? (unreadNotifs as any)?.count ?? 0;
         setStats({
-          totalEvents: events.length,
-          upcomingEvents: events.length,
+          totalEvents: filteredEvents.length,
+          upcomingEvents: filteredEvents.length,
           ongoingEvents: 0,
           completedEvents: 0,
           totalUsers: 0,
-          totalStudents: 0,
+          totalParticipants: 0,
           totalOrganizers: 0,
-          totalRegistrations: 0,
+          totalRegistrations: registeredCount,
           totalAttendances: 0,
           totalDepartments: 0,
           pendingEvents: 0,
-          recentEvents: events,
+          recentEvents: filteredEvents,
           recentNotifications: [],
           trainingPoints: pointsData.grand_total || 0,
           unreadNotifications: unreadCount,
@@ -710,8 +723,8 @@ export default function DashboardPage() {
               hint={`${stats?.upcomingEvents || 0} sự kiện sắp diễn ra`}
             />
             <StatCard
-              label="Sinh viên"
-              value={stats?.totalStudents || 0}
+              label="Người tham gia"
+              value={stats?.totalParticipants || 0}
               icon={<Users size={22} />}
               color="#00A651"
               hint={`${stats?.totalOrganizers || 0} ban tổ chức đang hoạt động`}

@@ -317,6 +317,14 @@ export const getMyRegistrations = async (userId: number, status?: string, approv
                         }
                     }
                 }
+            },
+            // Include payment if exists
+            payment: {
+                select: {
+                    id: true,
+                    status: true,
+                    amount: true,
+                }
             }
         },
         orderBy: {
@@ -324,7 +332,11 @@ export const getMyRegistrations = async (userId: number, status?: string, approv
         }
     });
 
-    return registrations;
+    // Map payment status to registration
+    return registrations.map(reg => ({
+        ...reg,
+        payment_status: reg.payment?.status || null,
+    }));
 };
 
 export const cancelRegistration = async (userId: number, registrationId: number) => {
@@ -719,7 +731,7 @@ export const getRegistrationByIdWithAccess = async (
 ) => {
     const registration = await getRegistrationById(registrationId);
 
-    if (requester.role === 'student' && registration.user_id !== requester.id) {
+    if (requester.role === 'participant' && registration.user_id !== requester.id) {
         throw new ForbiddenError('Bạn không có quyền xem đăng ký này');
     }
 

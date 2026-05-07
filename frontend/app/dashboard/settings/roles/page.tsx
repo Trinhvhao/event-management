@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adminService } from '@/services/adminService';
 import { User, UserRole } from '@/types';
-import { ShieldCheck, Users, Shield, GraduationCap, Activity, BookOpen, Briefcase, ChevronDown } from 'lucide-react';
+import { ShieldCheck, Users, Shield, GraduationCap, Activity, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 type RoleSummary = {
@@ -19,14 +19,12 @@ type RoleMatrixState = Record<UserRole, { permissions: string[] }>;
 const DEFAULT_ROLE_SUMMARY: Record<UserRole, RoleSummary> = {
   admin: { total: 0, active: 0, inactive: 0, percentage: 0 },
   organizer: { total: 0, active: 0, inactive: 0, percentage: 0 },
-  student: { total: 0, active: 0, inactive: 0, percentage: 0 },
-  teacher: { total: 0, active: 0, inactive: 0, percentage: 0 },
-  external: { total: 0, active: 0, inactive: 0, percentage: 0 },
+  participant: { total: 0, active: 0, inactive: 0, percentage: 0 },
 };
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
   admin: {
-    label: 'Admin',
+    label: 'Quản trị viên',
     color: '#00358F',
     bgColor: 'from-[#00358F]/10 to-[#1a5fc8]/5',
     icon: <Shield className="w-5 h-5" />,
@@ -37,23 +35,11 @@ const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: str
     bgColor: 'from-[#F26600]/10 to-[#F26600]/5',
     icon: <Activity className="w-5 h-5" />,
   },
-  student: {
-    label: 'Sinh viên',
+  participant: {
+    label: 'Người tham gia',
     color: '#00A651',
     bgColor: 'from-[#00A651]/10 to-[#00A651]/5',
     icon: <GraduationCap className="w-5 h-5" />,
-  },
-  teacher: {
-    label: 'Giảng viên',
-    color: '#7C3AED',
-    bgColor: 'from-purple-500/10 to-purple-500/5',
-    icon: <BookOpen className="w-5 h-5" />,
-  },
-  external: {
-    label: 'Đơn vị bên ngoài',
-    color: '#0891B2',
-    bgColor: 'from-cyan-500/10 to-cyan-500/5',
-    icon: <Briefcase className="w-5 h-5" />,
   },
 };
 
@@ -84,9 +70,7 @@ export default function SettingsRolesPage() {
       const nextStats: Record<UserRole, RoleSummary> = {
         admin: { ...DEFAULT_ROLE_SUMMARY.admin },
         organizer: { ...DEFAULT_ROLE_SUMMARY.organizer },
-        student: { ...DEFAULT_ROLE_SUMMARY.student },
-        teacher: { ...DEFAULT_ROLE_SUMMARY.teacher },
-        external: { ...DEFAULT_ROLE_SUMMARY.external },
+        participant: { ...DEFAULT_ROLE_SUMMARY.participant },
       };
 
       for (const row of roleStatistics.byRole || []) {
@@ -145,7 +129,7 @@ export default function SettingsRolesPage() {
 
         {/* Role statistics cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {(['admin', 'organizer', 'student', 'teacher', 'external'] as UserRole[]).map((role) => {
+          {(['admin', 'organizer', 'participant'] as UserRole[]).map((role) => {
             const config = ROLE_CONFIG[role];
             const stats = roleStats[role];
             return (
@@ -222,7 +206,7 @@ export default function SettingsRolesPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {(['admin', 'organizer', 'student', 'teacher', 'external'] as UserRole[]).map((role) => {
+            {(['admin', 'organizer', 'participant'] as UserRole[]).map((role) => {
               const config = ROLE_CONFIG[role];
               const permissions = roleMatrix?.[role]?.permissions || [];
               return (
@@ -311,7 +295,7 @@ export default function SettingsRolesPage() {
                               onChange={(e) => updateRole(user, e.target.value as UserRole)}
                               className="select-base"
                             >
-                              <option value="student">Sinh viên</option>
+                              <option value="participant">Người tham gia</option>
                               <option value="organizer">Ban tổ chức</option>
                               <option value="admin">Admin</option>
                             </select>

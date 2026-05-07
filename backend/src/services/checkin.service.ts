@@ -186,9 +186,9 @@ const completeCheckin = async (registration: RegistrationWithRelations, checkedB
         });
 
         const currentSemester = getCurrentSemester();
-        // Chỉ cấp điểm rèn luyện cho sinh viên
-        const attendee = await tx.user.findUnique({ where: { id: registration.user_id }, select: { role: true } });
-        if (attendee?.role === 'student' && registration.event.training_points > 0) {
+        // Chỉ cấp điểm rèn luyện cho sinh viên (participant + participant_type=student)
+        const attendee = await tx.user.findUnique({ where: { id: registration.user_id }, select: { role: true, participant_type: true } });
+        if (attendee?.role === 'participant' && attendee?.participant_type === 'student' && registration.event.training_points > 0) {
             await tx.trainingPoint.upsert({
                 where: {
                     user_id_event_id: {
@@ -324,13 +324,13 @@ export const checkinManual = async (
         const student = await prisma.user.findFirst({
             where: {
                 student_id: studentId,
-                role: 'student',
+                role: 'participant',
             },
             select: { id: true },
         });
 
         if (!student) {
-            throw new NotFoundError('Không tìm thấy sinh viên với MSSV này');
+            throw new NotFoundError('Không tìm thấy người dùng với MSSV này');
         }
 
         registration = (await prisma.registration.findFirst({

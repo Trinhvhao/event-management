@@ -262,7 +262,7 @@ export const organizerService = {
             userId,
             entityType: 'user',
             entityId: userId,
-            oldValue: { role: 'student' },
+            oldValue: { role: 'participant' },
             newValue: { role: 'organizer' },
             ipAddress,
             userAgent,
@@ -308,10 +308,10 @@ export const organizerService = {
             throw new Error('Cannot revoke rights while user has ongoing events');
         }
 
-        // Update user role back to student
+        // Update user role back to participant
         const updatedUser = await prisma.user.update({
             where: { id: userId },
-            data: { role: 'student' },
+            data: { role: 'participant' },
             include: {
                 department: true,
             },
@@ -325,7 +325,7 @@ export const organizerService = {
             entityType: 'user',
             entityId: userId,
             oldValue: { role: 'organizer' },
-            newValue: { role: 'student' },
+            newValue: { role: 'participant' },
             ipAddress,
             userAgent,
         });

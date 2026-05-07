@@ -183,7 +183,7 @@ export const adminController = {
                 return;
             }
 
-            if (!['admin', 'organizer', 'student'].includes(role)) {
+            if (!['admin', 'organizer', 'participant'].includes(role)) {
                 res.status(400).json({
                     success: false,
                     message: 'Invalid role',

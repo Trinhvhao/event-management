@@ -5,20 +5,20 @@ import * as paymentController from '../controllers/payment.controller';
 
 const router = Router();
 
-// Student: Create payment for a registration
-router.post('/', authenticate, authorize('student'), paymentController.createPayment);
+// Participant: Create payment for a registration
+router.post('/', authenticate, authorize('participant'), paymentController.createPayment);
 
-// Student: Get my payments list
-router.get('/my', authenticate, authorize('student'), paymentController.getMyPayments);
+// Participant: Get my payments list
+router.get('/my', authenticate, authorize('participant'), paymentController.getMyPayments);
 
-// Student: Get single payment detail
-router.get('/:id', authenticate, authorize('student', 'admin'), paymentController.getPaymentById);
+// Participant: Get single payment detail
+router.get('/:id', authenticate, authorize('participant', 'admin'), paymentController.getPaymentById);
 
-// Student: Cancel pending payment
-router.delete('/:id', authenticate, authorize('student'), paymentController.cancelPayment);
+// Participant: Cancel pending payment
+router.delete('/:id', authenticate, authorize('participant'), paymentController.cancelPayment);
 
-// Student: Poll payment status (for waiting screen)
-router.get('/:id/status', authenticate, authorize('student'), paymentController.pollPaymentStatus);
+// Participant: Poll payment status (for waiting screen)
+router.get('/:id/status', authenticate, authorize('participant'), paymentController.pollPaymentStatus);
 
 // SePay Webhook (no auth - SePay sends its own authentication headers)
 router.post('/webhook', (req: Request, res: Response) => paymentController.handleWebhook(req, res));

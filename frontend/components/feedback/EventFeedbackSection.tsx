@@ -236,7 +236,7 @@ export default function EventFeedbackSection({ eventId, eventStatus }: EventFeed
         );
     }
 
-    const canSubmitFeedback = eventStatus === 'completed' && user?.role === 'student' && myFeedback === null;
+    const canSubmitFeedback = eventStatus === 'completed' && user?.role === 'participant' && myFeedback === null;
     const hasSubmitted = myFeedback !== null && myFeedback !== undefined;
 
     return (

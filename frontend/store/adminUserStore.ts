@@ -5,7 +5,7 @@ interface User {
     id: string;
     full_name: string;
     email: string;
-    role: 'admin' | 'organizer' | 'student';
+    role: 'participant';
     department_id: string;
     department?: {
         id: string;
@@ -33,7 +33,7 @@ interface Pagination {
 }
 
 const toUserRole = (role: string): User['role'] | null => {
-    if (role === 'admin' || role === 'organizer' || role === 'student') {
+    if (role === 'admin' || role === 'organizer' || role === 'participant') {
         return role;
     }
 

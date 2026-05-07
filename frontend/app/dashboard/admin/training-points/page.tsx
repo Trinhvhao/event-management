@@ -596,7 +596,7 @@ export default function AdminTrainingPointsPage() {
 
     // ── Dropdown data fetchers ──
     const loadStudents = async (query: string) => {
-        const result = await adminService.getUsers({ limit: 100, role: 'student', search: query });
+            const result = await adminService.getUsers({ limit: 100, role: 'participant', search: query });
         return (result.data?.items || result.data || []) as Array<{ id: number; full_name: string; student_id: string | null }>;
     };
 

@@ -8,13 +8,14 @@ type JwtUserPayload = jwt.JwtPayload & {
   id: number;
   email?: string;
   role: UserRole;
+  participant_type?: string;
   type?: string;
 };
 
-export type AuthRequest = Request & { user?: { id: number; email: string; role: UserRole } };
+export type AuthRequest = Request & { user?: { id: number; email: string; role: UserRole; participant_type?: string } };
 
 const isUserRole = (role: unknown): role is UserRole => {
-  return role === 'admin' || role === 'organizer' || role === 'student';
+  return role === 'admin' || role === 'organizer' || role === 'participant';
 };
 
 const isJwtUserPayload = (payload: string | jwt.JwtPayload): payload is JwtUserPayload => {
@@ -50,10 +51,11 @@ export const authenticate = (
       throw new UnauthorizedError('Invalid token type');
     }
 
-    req.user = {
+    (req as AuthRequest).user = {
       id: decoded.id,
       email: typeof decoded.email === 'string' ? decoded.email : '',
       role: decoded.role,
+      participant_type: decoded.participant_type,
     };
     next();
   } catch (error) {
@@ -88,10 +90,11 @@ export const authenticateOptional = (
       return;
     }
 
-    req.user = {
+    (req as AuthRequest).user = {
       id: decoded.id,
       email: typeof decoded.email === 'string' ? decoded.email : '',
       role: decoded.role,
+      participant_type: decoded.participant_type,
     };
     next();
   } catch {

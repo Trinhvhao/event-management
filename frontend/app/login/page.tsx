@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 // Demo accounts
 const DEMO_ACCOUNTS = {
-    student: {
+    participant: {
         email: 'student1@dnu.edu.vn',
         password: 'student123',
     },
@@ -61,7 +61,7 @@ export default function LoginPage() {
         }
     };
 
-    const handleQuickLogin = (accountType: 'student' | 'organizer' | 'admin') => {
+    const handleQuickLogin = (accountType: 'participant' | 'organizer' | 'admin') => {
         const account = DEMO_ACCOUNTS[accountType];
         setFormData({
             email: account.email,
@@ -219,10 +219,10 @@ export default function LoginPage() {
                         <div className="mb-4">
                             <p className="text-xs text-slate-500 mb-2 text-center font-medium">Demo nhanh - Click để tự động điền</p>
                             <div className="grid grid-cols-3 gap-2">
-                                {/* Student Account */}
+                                {/* Participant Account */}
                                 <motion.button
                                     type="button"
-                                    onClick={() => handleQuickLogin('student')}
+                                    onClick={() => handleQuickLogin('participant')}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     className="flex items-center gap-2 p-2.5 rounded-lg border border-brandBlue/20 bg-brandBlue/5 hover:bg-brandBlue/10 hover:border-brandBlue/40 transition-all group"
@@ -231,8 +231,8 @@ export default function LoginPage() {
                                         <GraduationCap className="text-brandBlue" size={16} />
                                     </div>
                                     <div className="text-left">
-                                        <div className="font-semibold text-primary text-xs">Student</div>
-                                        <div className="text-xs text-slate-500">Sinh viên</div>
+                                        <div className="font-semibold text-primary text-xs">Participant</div>
+                                        <div className="text-xs text-slate-500">Người tham gia</div>
                                     </div>
                                 </motion.button>
 

@@ -12,7 +12,8 @@ const registerSchema = z.object({
     .min(2, 'Full name must be at least 2 characters')
     .max(255, 'Full name is too long'),
   student_id: z.string().optional(),
-  role: z.enum(['student', 'organizer', 'admin'] as const),
+  role: z.enum(['participant', 'organizer', 'admin'] as const),
+  participant_type: z.enum(['student', 'teacher', 'external'] as const).optional(),
   department_id: z.number().int().positive().optional(),
 });
 

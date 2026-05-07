@@ -101,7 +101,7 @@ export const eventTeamService = {
             throw new Error('User not found');
         }
 
-        if (user.role === 'student') {
+        if (user.role === 'participant') {
             throw new Error('User must be an organizer to be added to event team');
         }
 

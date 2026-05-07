@@ -106,13 +106,13 @@ export const adminService = {
 
                 // Get optional fields
                 const studentId = row['student_id']?.trim() || null;
-                const role = (row['role']?.trim()?.toLowerCase() || 'student') as UserRole;
+                const role = (row['role']?.trim()?.toLowerCase() || 'participant') as UserRole;
                 const departmentId = row['department_id']?.trim()
                     ? parseInt(row['department_id'], 10)
                     : null;
 
                 // Validate role
-                if (!['admin', 'organizer', 'student'].includes(role)) {
+                if (!['admin', 'organizer', 'participant'].includes(role)) {
                     results.failed++;
                     results.errors.push({ row: rowNumber, email, error: `Invalid role: ${role}. Must be admin, organizer, or student` });
                     continue;
@@ -487,7 +487,7 @@ export const adminService = {
                     'statistics:read_own',
                 ],
             },
-            student: {
+            participant: {
                 permissions: [
                     'events:read',
                     'registrations:create',
@@ -520,7 +520,7 @@ export const adminService = {
         const totalsMap = new Map(roleTotals.map((row) => [row.role, row._count._all]));
         const activeMap = new Map(activeRoleTotals.map((row) => [row.role, row._count._all]));
         // All known roles — dynamically included so new roles appear automatically
-        const roles: UserRole[] = ['admin', 'organizer', 'student', 'teacher', 'external'];
+        const roles: UserRole[] = ['admin', 'organizer', 'participant'];
 
         const byRole = roles.map((role) => {
             const total = totalsMap.get(role) || 0;

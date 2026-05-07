@@ -4,20 +4,32 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Clock, X, Award, QrCode, Ticket, ChevronRight, RefreshCw, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, Clock, X, Award, QrCode, Ticket, ChevronRight, RefreshCw, Sparkles, CheckCircle, AlertCircle, AlertTriangle, CreditCard } from 'lucide-react';
 import { registrationService } from '@/services/registrationService';
 import { Registration } from '@/types';
 import { formatDate } from '@/utils/formatDate';
 import { toast } from 'sonner';
 
-type Status = 'registered' | 'cancelled' | 'attended' | 'pending';
+// Trạng thái kết hợp Registration + Payment
+type CombinedStatus = 'pending_payment' | 'paid' | 'registered' | 'attended' | 'cancelled';
 
-const STATUS_CONFIG: Record<Status, { label: string; badge: string; color: string; bg: string; icon: React.ReactNode }> = {
-    registered: { label: 'Đã đăng ký', badge: 'Mới', color: '#00358F', bg: 'rgba(0,53,143,0.08)', icon: <CheckCircle className="w-4 h-4" style={{ color: '#00358F' }} /> },
-    attended:   { label: 'Đã tham gia', badge: 'Hoàn thành', color: '#00A651', bg: 'rgba(0,166,81,0.08)', icon: <CheckCircle className="w-4 h-4" style={{ color: '#00A651' }} /> },
-    pending:    { label: 'Đang chờ', badge: 'Chờ', color: '#FFB800', bg: 'rgba(255,184,0,0.10)', icon: <AlertCircle className="w-4 h-4" style={{ color: '#FFB800' }} /> },
-    cancelled:  { label: 'Đã hủy', badge: 'Đã hủy', color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', icon: <X className="w-4 h-4" style={{ color: '#94a3b8' }} /> },
+const STATUS_CONFIG: Record<CombinedStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+    pending_payment: { label: 'Chờ thanh toán', color: '#FFB800', bg: 'rgba(255,184,0,0.10)', icon: <CreditCard className="w-4 h-4" style={{ color: '#FFB800' }} /> },
+    paid:           { label: 'Đã thanh toán', color: '#00A651', bg: 'rgba(0,166,81,0.08)', icon: <CheckCircle className="w-4 h-4" style={{ color: '#00A651' }} /> },
+    registered:     { label: 'Đã đăng ký', color: '#00358F', bg: 'rgba(0,53,143,0.08)', icon: <CheckCircle className="w-4 h-4" style={{ color: '#00358F' }} /> },
+    attended:       { label: 'Đã tham gia', color: '#00A651', bg: 'rgba(0,166,81,0.08)', icon: <CheckCircle className="w-4 h-4" style={{ color: '#00A651' }} /> },
+    cancelled:      { label: 'Đã hủy', color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', icon: <X className="w-4 h-4" style={{ color: '#94a3b8' }} /> },
 };
+
+// Tính trạng thái kết hợp từ registration + payment
+function getCombinedStatus(reg: Registration): CombinedStatus {
+    if (reg.status === 'cancelled') return 'cancelled';
+    if (reg.status === 'attended') return 'attended';
+    if (reg.payment_status === 'paid') return 'paid';
+    if (reg.payment_status === 'pending') return 'pending_payment';
+    // Free event hoặc chưa tạo payment
+    return 'registered';
+}
 
 function SummaryCard({ label, value, accent }: { label: string; value: number; accent: string }) {
     return (
@@ -29,22 +41,27 @@ function SummaryCard({ label, value, accent }: { label: string; value: number; a
     );
 }
 
-function RegistrationCard({ reg, onCancel, onQR }: {
+function RegistrationCard({ reg, onCancel, onQR, onPay, onView }: {
     reg: Registration;
-    onCancel: (id: number) => void;
+    onCancel: (reg: Registration) => void;
     onQR: (reg: Registration) => void;
+    onPay?: (reg: Registration) => void;
+    onView?: (reg: Registration) => void;
 }) {
-    const isCancelled = reg.status === 'cancelled';
-    const statusKey = (reg.status || 'registered') as Status;
-    const status = STATUS_CONFIG[statusKey] || STATUS_CONFIG.registered;
+    const combinedStatus = getCombinedStatus(reg);
+    const status = STATUS_CONFIG[combinedStatus];
     const hasQR = !!reg.qr_code && reg.qr_code.length > 0;
     const isUpcoming = reg.event && new Date(reg.event.start_time) > new Date();
+    const isPendingPayment = combinedStatus === 'pending_payment';
+    const isPaid = combinedStatus === 'paid';
+    const isCancelled = combinedStatus === 'cancelled';
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative overflow-hidden rounded-2xl border transition-all duration-200 group ${
+            onClick={() => onView?.(reg)}
+            className={`relative overflow-hidden rounded-2xl border transition-all duration-200 group cursor-pointer ${
                 isCancelled
                     ? 'border-[var(--border-light)] bg-[var(--bg-muted)]/30 opacity-75'
                     : 'border-[var(--border-default)] bg-white shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5'
@@ -56,9 +73,13 @@ function RegistrationCard({ reg, onCancel, onQR }: {
             <div className="p-4 sm:p-5">
                 <div className="flex items-start gap-4">
                     {/* QR / Icon */}
-                    {!isCancelled ? (
+                    {isCancelled ? (
+                        <div className="w-14 h-14 rounded-xl bg-red-50 border-2 border-dashed border-red-200 flex items-center justify-center shrink-0">
+                            <X className="w-6 h-6 text-red-400" />
+                        </div>
+                    ) : (
                         <button
-                            onClick={() => hasQR ? onQR(reg) : toast.error('Chưa có mã QR. Vui lòng đợi ban tổ chức cấp phát.')}
+                            onClick={(e) => { e.stopPropagation(); hasQR ? onQR(reg) : toast.error('Chưa có mã QR. Vui lòng đợi ban tổ chức cấp phát.'); }}
                             disabled={!hasQR}
                             className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                                 hasQR
@@ -75,10 +96,6 @@ function RegistrationCard({ reg, onCancel, onQR }: {
                                 <QrCode className="w-5 h-5 text-[var(--text-muted)]" />
                             )}
                         </button>
-                    ) : (
-                        <div className="w-14 h-14 rounded-xl bg-[var(--bg-muted)] flex items-center justify-center shrink-0">
-                            <Calendar className="w-6 h-6 text-[var(--text-muted)]" />
-                        </div>
                     )}
 
                     {/* Info */}
@@ -105,23 +122,25 @@ function RegistrationCard({ reg, onCancel, onQR }: {
                             </div>
 
                             {/* Right side actions */}
-                            <div className="flex items-center gap-2 shrink-0">
-                                {/* Points badge */}
-                                {reg.event?.training_points ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold" style={{ background: 'rgba(242,102,0,0.08)', color: '#c45500' }}>
-                                        <Award className="w-3.5 h-3.5" />
-                                        +{reg.event.training_points} điểm
-                                    </span>
-                                ) : null}
+                            {!isCancelled && (
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {/* Points badge */}
+                                    {reg.event?.training_points ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold" style={{ background: 'rgba(242,102,0,0.08)', color: '#c45500' }}>
+                                            <Award className="w-3.5 h-3.5" />
+                                            +{reg.event.training_points} điểm
+                                        </span>
+                                    ) : null}
 
-                                {/* Upcoming badge */}
-                                {!isCancelled && isUpcoming && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wide" style={{ background: 'rgba(0,53,143,0.06)', color: '#00358F' }}>
-                                        <Sparkles className="w-3 h-3" />
-                                        Sắp tới
-                                    </span>
-                                )}
-                            </div>
+                                    {/* Upcoming badge */}
+                                    {isUpcoming && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wide" style={{ background: 'rgba(0,53,143,0.06)', color: '#00358F' }}>
+                                            <Sparkles className="w-3 h-3" />
+                                            Sắp tới
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Bottom row */}
@@ -138,22 +157,38 @@ function RegistrationCard({ reg, onCancel, onQR }: {
                             {/* Actions */}
                             {!isCancelled && (
                                 <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => hasQR ? onQR(reg) : toast.error('Chưa có mã QR')}
-                                        disabled={!hasQR}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:bg-[var(--bg-muted)] disabled:opacity-40 disabled:cursor-not-allowed"
-                                        style={{ color: '#00358F' }}
-                                    >
-                                        <QrCode className="w-3.5 h-3.5" />
-                                        QR
-                                    </button>
-                                    <button
-                                        onClick={() => onCancel(reg.id)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-muted)] hover:bg-red-50 hover:text-[var(--color-brand-red)] transition-all"
-                                    >
-                                        <X className="w-3.5 h-3.5" />
-                                        Hủy
-                                    </button>
+                                    {isPendingPayment && onPay && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onPay(reg); }}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all"
+                                        >
+                                            <CreditCard className="w-3.5 h-3.5" />
+                                            Thanh toán ngay
+                                        </button>
+                                    )}
+                                    
+                                    {(isPaid || combinedStatus === 'registered') && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); hasQR ? onQR(reg) : toast.error('Chưa có mã QR'); }}
+                                            disabled={!hasQR}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:bg-[var(--bg-muted)] disabled:opacity-40 disabled:cursor-not-allowed"
+                                            style={{ color: '#00358F' }}
+                                        >
+                                            <QrCode className="w-3.5 h-3.5" />
+                                            QR
+                                        </button>
+                                    )}
+
+                                    {/* Nút hủy cho sự kiện đã thanh toán hoặc free event */}
+                                    {(isPaid || combinedStatus === 'registered') && onCancel && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onCancel(reg); }}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-50 transition-all"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                            Hủy
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -170,6 +205,7 @@ export default function MyRegistrationsPage() {
     const [loading, setLoading] = useState(true);
     const [qrModal, setQrModal] = useState<{ reg: Registration; qr_code: string } | null>(null);
     const [cancellingId, setCancellingId] = useState<number | null>(null);
+    const [cancelModal, setCancelModal] = useState<{ reg: Registration; hasPayment: boolean; paymentPending: boolean } | null>(null);
 
     const loadRegistrations = useCallback(async () => {
         try {
@@ -198,26 +234,63 @@ export default function MyRegistrationsPage() {
         }
     };
 
-    const handleCancel = async (regId: number) => {
-        setCancellingId(regId);
+    const handleOpenCancelModal = (reg: Registration) => {
+        const hasPendingPayment = reg.payment_status === 'pending';
+        setCancelModal({ reg, hasPayment: hasPendingPayment, paymentPending: hasPendingPayment });
+    };
+
+    const handlePay = (reg: Registration) => {
+        router.push(`/dashboard/payment/checkout?reg_id=${reg.id}&event_id=${reg.event_id}`);
+    };
+
+    const handleView = (reg: Registration) => {
+        if (reg.event_id) {
+            router.push(`/dashboard/events/${reg.event_id}`);
+        }
+    };
+
+    const handleCancel = async () => {
+        if (!cancelModal) return;
+        const { reg, paymentPending } = cancelModal;
+
+        setCancellingId(reg.id);
         try {
-            await registrationService.cancel(regId);
-            toast.success('Đã hủy đăng ký');
+            if (paymentPending) {
+                // Có payment pending → chỉ hủy payment, KHÔNG hủy registration
+                const { payments } = await paymentService.getMyPayments();
+                const payment = payments.find(p => p.registration_id === reg.id);
+                if (payment) {
+                    await paymentService.cancelPayment(payment.id);
+                }
+                toast.success('Đã hủy thanh toán');
+            } else {
+                // Không có payment → hủy registration
+                await registrationService.cancel(reg.id);
+                toast.success('Đã hủy đăng ký');
+            }
+            setCancelModal(null);
             await loadRegistrations();
         } catch (err: unknown) {
             const msg = (err && typeof err === 'object' && 'response' in err)
-                ? ((err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Hủy đăng ký thất bại')
-                : 'Hủy đăng ký thất bại';
+                ? ((err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message || 'Hủy thất bại')
+                : 'Hủy thất bại';
             toast.error(msg);
         } finally {
             setCancellingId(null);
         }
     };
 
-    const activeRegs    = registrations.filter(r => r.status === 'registered');
+    // Đếm theo trạng thái
+    const paidCount = registrations.filter(r => r.payment_status === 'paid').length;
+    const pendingCount = registrations.filter(r => r.payment_status === 'pending').length;
+    const registeredCount = registrations.filter(r => r.status === 'registered' && !r.payment_status).length;
+    const activeRegs = registrations.filter(r => 
+        r.status !== 'cancelled' && r.status !== 'attended'
+    );
+    const allActiveRegs = activeRegs;
     const cancelledRegs  = registrations.filter(r => r.status === 'cancelled');
     const totalPoints   = registrations.reduce((sum, r) => sum + (r.event?.training_points || 0), 0);
-    const upcomingCount = registrations.filter(r => r.status === 'registered' && r.event && new Date(r.event.start_time) > new Date()).length;
+    const upcomingCount = allActiveRegs.filter(r => r.event && new Date(r.event.start_time) > new Date()).length;
 
     return (
         <DashboardLayout>
@@ -263,7 +336,7 @@ export default function MyRegistrationsPage() {
                 {/* ─── SUMMARY STRIP ─── */}
                 {!loading && registrations.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <SummaryCard label="Tổng đăng ký" value={registrations.length} accent="#00358F" />
+                        <SummaryCard label="Đang hoạt động" value={allActiveRegs.length} accent="#00358F" />
                         <SummaryCard label="Sắp tới" value={upcomingCount} accent="#F26600" />
                         <SummaryCard label="Đã hủy" value={cancelledRegs.length} accent="#94a3b8" />
                         <SummaryCard label="Tổng điểm tiềm năng" value={totalPoints} accent="#FFB800" />
@@ -305,20 +378,22 @@ export default function MyRegistrationsPage() {
                     </div>
                 ) : (
                     <div className="space-y-8">
-                                {/* Đã đăng ký */}
-                                {activeRegs.length > 0 && (
+                                {/* Đang hoạt động */}
+                                {allActiveRegs.length > 0 && (
                             <div>
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-2 h-2 rounded-full bg-[var(--color-brand-navy)]" />
-                                    <h2 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide">Đã đăng ký ({activeRegs.length})</h2>
+                                    <h2 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide">Đang hoạt động ({allActiveRegs.length})</h2>
                                 </div>
                                 <div className="space-y-3">
-                                    {activeRegs.map(reg => (
+                                    {allActiveRegs.map(reg => (
                                         <RegistrationCard
                                             key={reg.id}
                                             reg={reg}
-                                            onCancel={handleCancel}
+                                            onCancel={handleOpenCancelModal}
                                             onQR={handleOpenQR}
+                                            onPay={handlePay}
+                                            onView={handleView}
                                         />
                                     ))}
                                 </div>
@@ -337,8 +412,9 @@ export default function MyRegistrationsPage() {
                                         <RegistrationCard
                                             key={reg.id}
                                             reg={reg}
-                                            onCancel={handleCancel}
+                                            onCancel={handleOpenCancelModal}
                                             onQR={handleOpenQR}
+                                            onView={handleView}
                                         />
                                     ))}
                                 </div>
@@ -410,6 +486,92 @@ export default function MyRegistrationsPage() {
                                         {formatDate(qrModal.reg.event.start_time)}
                                     </div>
                                 )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* ─── CANCEL CONFIRMATION MODAL ─── */}
+                {cancelModal && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        onClick={(e) => e.target === e.currentTarget && setCancelModal(null)}
+                    >
+                        <div className="absolute inset-0 bg-[var(--bg-overlay)] backdrop-blur-sm" />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            className="relative z-10 bg-white rounded-2xl shadow-[var(--shadow-xl)] max-w-sm w-full overflow-hidden"
+                        >
+                            {/* Warning accent */}
+                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-red-500 to-orange-500" />
+
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[var(--border-light)]">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
+                                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                                    </div>
+                                    <p className="text-sm font-bold text-[var(--text-primary)]">Xác nhận hủy đăng ký</p>
+                                </div>
+                                <button
+                                    onClick={() => setCancelModal(null)}
+                                    className="w-8 h-8 rounded-lg hover:bg-[var(--bg-muted)] flex items-center justify-center transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-[var(--text-muted)]" />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-6">
+                                {cancelModal.paymentPending ? (
+                                    <>
+                                        <p className="text-sm text-[var(--text-secondary)] mb-4">
+                                            Hủy thanh toán cho sự kiện <span className="font-semibold text-[var(--text-primary)]">{cancelModal.reg.event?.title}</span>?
+                                        </p>
+                                        <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                                            <div className="flex items-start gap-2">
+                                                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                                <div className="text-xs text-amber-700">
+                                                    <p className="font-semibold">Thanh toán đang chờ xử lý</p>
+                                                    <p className="mt-1">Sau khi hủy, bạn có thể đăng ký lại thanh toán sự kiện này. Đăng ký của bạn vẫn được giữ nguyên.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-[var(--text-secondary)] mb-4">
+                                            Bạn có chắc muốn hủy đăng ký sự kiện <span className="font-semibold text-[var(--text-primary)]">{cancelModal.reg.event?.title}</span>?
+                                        </p>
+                                        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200">
+                                            <div className="flex items-start gap-2">
+                                                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                                                <div className="text-xs text-red-700">
+                                                    <p className="font-semibold">Hành động này không thể hoàn tác</p>
+                                                    <p className="mt-1">Bạn sẽ mất slot đã đăng ký và có thể cần đăng ký lại nếu còn chỗ.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setCancelModal(null)}
+                                        className="flex-1 px-4 py-2.5 rounded-xl border-2 border-[var(--border-default)] text-sm font-semibold text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)] hover:text-[var(--color-brand-navy)] transition-all"
+                                    >
+                                        Không
+                                    </button>
+                                    <button
+                                        onClick={handleCancel}
+                                        disabled={cancellingId !== null}
+                                        className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {cancellingId !== null && <RefreshCw className="w-4 h-4 animate-spin" />}
+                                        {cancelModal.paymentPending ? 'Hủy thanh toán' : 'Xác nhận hủy'}
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     </div>

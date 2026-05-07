@@ -34,7 +34,7 @@ export function GrantOrganizerDialog({ isOpen, onClose, onGrant }: GrantOrganize
         try {
             const response = await adminService.getUsers({
                 search: normalizedQuery,
-                role: 'student',
+                role: 'participant',
                 limit: 10,
             });
             setSearchResults(response.data || []);

@@ -158,7 +158,7 @@ async function main() {
     const categories = await seedCategories(prisma);
 
     // 3. Seed Users
-    const { organizers, teachers, students } = await seedUsers(prisma, departments);
+    const { organizers, teachers: _teachers, students } = await seedUsers(prisma, departments);
 
     // 4. Seed Events
     const events = await seedEvents(prisma, categories, departments, organizers);

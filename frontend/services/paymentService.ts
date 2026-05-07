@@ -15,6 +15,7 @@ export interface PaymentRecord {
     paid_at: string | null;
     expires_at: string | null;
     created_at: string;
+    paymentCode?: string;
     event?: {
         id: number;
         title: string;
@@ -37,6 +38,7 @@ export interface CreatePaymentResponse {
     amount: number;
     transferNote: string;
     checkoutUrl?: string;
+    vietQrUrl?: string;
 }
 
 export const paymentService = {

@@ -43,7 +43,8 @@ describe('Auth Module Tests', () => {
           password: 'password123',
           full_name: 'Test Student',
           student_id: 'SV001',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
           department_id: departmentId,
         });
 
@@ -62,7 +63,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.duplicate@university.edu.vn',
           password: 'password123',
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         });
 
       // Try to create duplicate
@@ -72,7 +74,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.duplicate@university.edu.vn',
           password: 'password456',
           full_name: 'Another User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         });
 
       expect(response.status).toBe(409);
@@ -87,7 +90,8 @@ describe('Auth Module Tests', () => {
           email: 'invalid-email',
           password: 'password123',
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         });
 
       expect(response.status).toBe(400);
@@ -101,7 +105,8 @@ describe('Auth Module Tests', () => {
           email: 'test@university.edu.vn',
           password: '123',
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         });
 
       expect(response.status).toBe(400);
@@ -116,7 +121,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.hash@university.edu.vn',
           password,
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         });
 
       const user = await prisma.user.findUnique({
@@ -139,7 +145,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.login@university.edu.vn',
           password_hash,
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
           is_active: true,
         },
       });
@@ -192,7 +199,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.inactive@university.edu.vn',
           password_hash,
           full_name: 'Inactive User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
           is_active: false,
         },
       });
@@ -234,7 +242,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.forgot@university.edu.vn',
           password_hash,
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         },
       });
     });
@@ -274,7 +283,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.reset@university.edu.vn',
           password_hash,
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         },
       });
       userId = user.id;
@@ -348,7 +358,8 @@ describe('Auth Module Tests', () => {
           email: 'auth.test.refresh@university.edu.vn',
           password_hash,
           full_name: 'Test User',
-          role: 'student',
+          role: 'participant',
+          participant_type: 'student',
         },
       });
 

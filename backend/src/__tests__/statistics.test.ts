@@ -65,7 +65,8 @@ describe('Statistics Module Tests', () => {
                 password_hash: hashedPassword,
                 full_name: 'Student Stats',
                 student_id: 'ST001',
-                role: 'student',
+                role: 'participant',
+                participant_type: 'student',
                 department_id: department.id,
             },
         });

@@ -8,7 +8,13 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { authService } from '@/services/authService';
 import { eventService } from '@/services/eventService';
-import type { Department, RegisterData } from '@/types';
+import type { Department, RegisterData, ParticipantType } from '@/types';
+
+const PARTICIPANT_TYPE_OPTIONS: { value: ParticipantType; label: string; desc: string }[] = [
+  { value: 'student', label: 'Sinh viên', desc: 'Học sinh, sinh viên trong trường' },
+  { value: 'teacher', label: 'Giảng viên', desc: 'Giáo viên, giảng viên trong trường' },
+  { value: 'external', label: 'Người ngoài', desc: 'Người ngoài trường hoặc đơn vị khác' },
+];
 
 const toErrorMessage = (error: unknown, fallback: string): string => {
     if (error && typeof error === 'object' && 'response' in error) {
@@ -30,6 +36,7 @@ export default function RegisterPage() {
         email: '',
         studentId: '',
         departmentId: '',
+        participantType: 'student' as ParticipantType,
         password: '',
         confirmPassword: '',
     });
@@ -66,7 +73,8 @@ export default function RegisterPage() {
                 password: formData.password,
                 full_name: formData.fullName.trim(),
                 student_id: formData.studentId.trim() || undefined,
-                role: 'student',
+                role: 'participant',
+                participant_type: formData.participantType,
                 department_id: formData.departmentId ? Number(formData.departmentId) : undefined,
             };
 
@@ -184,7 +192,7 @@ export default function RegisterPage() {
                             </div>
 
                             {/* Student ID & Department */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
                                     <label htmlFor="studentId" className="block text-sm font-semibold text-primary">
                                         MSSV
@@ -221,6 +229,51 @@ export default function RegisterPage() {
                                             ))}
                                         </select>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Participant Type */}
+                            <div className="space-y-2">
+                                <label htmlFor="participantType" className="block text-sm font-semibold text-primary">
+                                    Loại tài khoản
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    {PARTICIPANT_TYPE_OPTIONS.map((option) => (
+                                        <label
+                                            key={option.value}
+                                            className={`relative flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
+                                                formData.participantType === option.value
+                                                    ? 'border-brandBlue bg-brandBlue/5 ring-2 ring-brandBlue/20'
+                                                    : 'border-slate-200 hover:border-brandBlue/50 hover:bg-brandBlue/5'
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="participantType"
+                                                value={option.value}
+                                                checked={formData.participantType === option.value}
+                                                onChange={(e) => setFormData({ ...formData, participantType: e.target.value as ParticipantType })}
+                                                className="sr-only"
+                                            />
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                                formData.participantType === option.value
+                                                    ? 'border-brandBlue bg-brandBlue'
+                                                    : 'border-slate-300'
+                                            }`}>
+                                                {formData.participantType === option.value && (
+                                                    <div className="w-2 h-2 rounded-full bg-white" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className={`text-sm font-semibold transition-colors ${
+                                                    formData.participantType === option.value ? 'text-brandBlue' : 'text-primary'
+                                                }`}>
+                                                    {option.label}
+                                                </p>
+                                                <p className="text-xs text-slate-500 leading-tight mt-0.5">{option.desc}</p>
+                                            </div>
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
 

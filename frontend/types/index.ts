@@ -1,5 +1,6 @@
 // User types
-export type UserRole = 'student' | 'organizer' | 'admin' | 'teacher' | 'external';
+export type UserRole = 'participant' | 'organizer' | 'admin';
+export type ParticipantType = 'student' | 'teacher' | 'external';
 
 // Event Team Role types
 export type EventTeamRole = 'main_organizer' | 'helper';
@@ -36,6 +37,7 @@ export interface User {
   full_name: string;
   student_id?: string;
   role: UserRole;
+  participant_type?: ParticipantType;
   department_id?: number;
   department?: Department;
   is_active: boolean;
@@ -57,6 +59,7 @@ export interface RegisterData {
   full_name: string;
   student_id?: string;
   role: UserRole;
+  participant_type?: ParticipantType;
   department_id?: number;
 }
 
@@ -152,6 +155,8 @@ export interface Registration {
   qr_code: string;
   cancellation_reason?: string;
   cancelled_at?: string;
+  // Payment status (from joined payment)
+  payment_status?: 'pending' | 'paid' | 'cancelled' | 'expired';
   // Approval fields
   approval_status: ApprovalStatus;
   approval_note?: string;

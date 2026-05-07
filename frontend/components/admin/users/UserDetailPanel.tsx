@@ -53,12 +53,10 @@ const AUDIT_ACTION_OPTIONS = [
     { value: 'organizer_revoked', label: 'Thu hồi organizer' },
 ];
 
-const ROLE_OPTIONS = [
-    { role: 'student',    label: 'Sinh viên',          color: 'green',  icon: '👨‍🎓', badge: 'bg-[#00A651]/10 text-[#00A651]' },
-    { role: 'organizer',   label: 'Ban tổ chức',          color: 'orange', icon: '👔',  badge: 'bg-[#F26600]/10 text-[#F26600]' },
-    { role: 'admin',       label: 'Quản trị viên',        color: 'purple', icon: '⚡',  badge: 'bg-[#7C3AED]/10 text-[#7C3AED]' },
-    { role: 'teacher',    label: 'Giảng viên',           color: 'purple', icon: '📚',  badge: 'bg-[#7C3AED]/10 text-[#7C3AED]' },
-    { role: 'external',   label: 'Đơn vị bên ngoài',   color: 'cyan',   icon: '🏢',  badge: 'bg-[#0891B2]/10 text-[#0891B2]' },
+const ROLE_OPTIONS: { role: UserRole; label: string; color: string; icon: string; badge: string }[] = [
+    { role: 'participant', label: 'Người tham gia', color: 'green',  icon: '👨‍🎓', badge: 'bg-[#00A651]/10 text-[#00A651]' },
+    { role: 'organizer',   label: 'Ban tổ chức',     color: 'orange', icon: '👔',  badge: 'bg-[#F26600]/10 text-[#F26600]' },
+    { role: 'admin',       label: 'Quản trị viên',   color: 'purple', icon: '⚡',  badge: 'bg-[#7C3AED]/10 text-[#7C3AED]' },
 ];
 
 export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, onUnlock }: UserDetailPanelProps) {

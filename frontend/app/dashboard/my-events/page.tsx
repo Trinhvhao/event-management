@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -86,8 +87,20 @@ const EventCard: React.FC<EventCardProps> = ({
     const registrationPercent = event.capacity > 0 ? (event.current_registrations / event.capacity) * 100 : 0;
 
     return (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg hover:border-[#00358F]/20 transition-all duration-300 group">
-            <div className="flex flex-col lg:flex-row gap-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-[#00358F]/20 transition-all duration-300 group overflow-hidden">
+            {event.image_url && (
+                <div className="relative h-40 bg-gradient-to-br from-[#00358F] to-[#1a5fc8] overflow-hidden">
+                    <Image
+                        src={event.image_url}
+                        alt={event.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 600px"
+                        className="object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent" />
+                </div>
+            )}
+            <div className="flex flex-col lg:flex-row gap-6 p-6">
                 <div className="flex-1">
                     <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
@@ -169,7 +182,7 @@ const EventCard: React.FC<EventCardProps> = ({
                             Xem chi tiết
                         </button>
 
-                        {role === 'student' && registration && registration.status === 'registered' && isUpcoming && (
+                        {role === 'participant' && registration && registration.status === 'registered' && isUpcoming && (
                             <>
                                 <button
                                     onClick={() => onShowQR?.(registration)}
@@ -213,10 +226,10 @@ const EventCard: React.FC<EventCardProps> = ({
         </div>
     );
 };
-
 const EventSkeleton: React.FC = () => (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse">
-        <div className="flex flex-col lg:flex-row gap-6">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 animate-pulse overflow-hidden">
+        <div className="relative h-40 bg-gray-200"></div>
+        <div className="flex flex-col lg:flex-row gap-6 p-6">
             <div className="flex-1">
                 <div className="h-7 w-3/4 bg-gray-200 rounded-lg mb-3"></div>
                 <div className="flex gap-2 mb-4">
@@ -254,7 +267,7 @@ export default function MyEventsPage() {
     const [qrLoadingId, setQrLoadingId] = useState<number | null>(null);
 
     const isOrganizer = user?.role === 'organizer';
-    const isStudent = user?.role === 'student';
+    const isParticipant = user?.role === 'participant';
 
     const fetchData = useCallback(async () => {
         try {
@@ -385,13 +398,13 @@ export default function MyEventsPage() {
         { key: 'rejected', label: 'Bị từ chối' },
     ];
 
-    const studentTabs: { key: StudentTab; label: string }[] = [
+    const participantTabs: { key: StudentTab; label: string }[] = [
         { key: 'all', label: 'Tất cả' },
         { key: 'upcoming', label: 'Sắp tới' },
         { key: 'completed', label: 'Đã tham gia' },
     ];
 
-    const tabs = isOrganizer ? organizerTabs : studentTabs;
+    const tabs = isOrganizer ? organizerTabs : participantTabs;
     const totalCount = isOrganizer ? filteredEvents.length : filteredRegistrations.length;
 
     if (!isHydrated) {
@@ -549,7 +562,7 @@ export default function MyEventsPage() {
                             <EventCard
                                 key={registration.id}
                                 event={registration.event!}
-                                role="student"
+                                role="participant"
                                 registration={registration}
                                 onCancelRegistration={handleCancelRegistration}
                                 onShowQR={handleOpenQrModal}

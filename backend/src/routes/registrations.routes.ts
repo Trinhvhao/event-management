@@ -5,16 +5,16 @@ import * as registrationsController from '../controllers/registrations.controlle
 
 const router = Router();
 
-// Student routes
-router.post('/', authenticate, authorize('student'), registrationsController.registerForEvent);
-router.get('/my', authenticate, authorize('student'), registrationsController.getMyRegistrations);
-router.get('/my-registrations', authenticate, authorize('student'), registrationsController.getMyRegistrations);
-router.delete('/:id', authenticate, authorize('student'), registrationsController.cancelRegistration);
+// Participant routes
+router.post('/', authenticate, authorize('participant'), registrationsController.registerForEvent);
+router.get('/my', authenticate, authorize('participant'), registrationsController.getMyRegistrations);
+router.get('/my-registrations', authenticate, authorize('participant'), registrationsController.getMyRegistrations);
+router.delete('/:id', authenticate, authorize('participant'), registrationsController.cancelRegistration);
 
 // Waitlist routes
-router.post('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.joinWaitlist);
-router.delete('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.leaveWaitlist);
-router.get('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.getMyWaitlistPosition);
+router.post('/waitlist/:eventId', authenticate, authorize('participant'), registrationsController.joinWaitlist);
+router.delete('/waitlist/:eventId', authenticate, authorize('participant'), registrationsController.leaveWaitlist);
+router.get('/waitlist/:eventId', authenticate, authorize('participant'), registrationsController.getMyWaitlistPosition);
 
 // Approval routes (Organizer/Admin)
 router.get('/pending', authenticate, authorize('organizer', 'admin'), registrationsController.getPendingRegistrations);

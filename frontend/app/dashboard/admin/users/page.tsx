@@ -81,13 +81,13 @@ const SORT_OPTIONS = [
 const ROLE_LABELS: Record<User['role'], string> = {
     admin: 'Quản trị viên',
     organizer: 'Ban tổ chức',
-    student: 'Sinh viên',
+    participant: 'Người tham gia',
 };
 
 const ROLE_BADGE_VARIANTS: Record<User['role'], 'info' | 'warning' | 'success'> = {
     admin: 'info',
     organizer: 'warning',
-    student: 'success',
+    participant: 'success',
 };
 
 const SORTABLE_FIELD_MAP: Record<string, string> = {
@@ -118,8 +118,8 @@ const getInitials = (fullName: string) =>
     fullName.trim().split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('');
 
 const CSV_TEMPLATE = `email,full_name,student_id,role,department_id
-student1@email.com,Nguyen Van A,SV001,student,1
-student2@email.com,Tran Thi B,SV002,student,2
+student1@email.com,Nguyen Van A,SV001,participant,1
+student2@email.com,Tran Thi B,SV002,participant,2
 organizer1@email.com,Le Van C,,organizer,1`;
 
 function ImportCSVModal({
@@ -323,7 +323,7 @@ function ImportCSVModal({
                                     <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-lg">full_name</span>
                                 </div>
                                 <p className="text-xs text-blue-600 mt-2">
-                                    Các cột tùy chọn: <span className="font-medium">student_id</span>, <span className="font-medium">role</span> (mặc định: student), <span className="font-medium">department_id</span>
+                                    Các cột tùy chọn: <span className="font-medium">student_id</span>, <span className="font-medium">role</span> (mặc định: participant), <span className="font-medium">department_id</span>
                                 </p>
                             </div>
                         </div>
@@ -874,7 +874,7 @@ export default function UserManagementPage() {
                                         className="input-base appearance-none pr-10"
                                     >
                                         <option value="">Tất cả vai trò</option>
-                                        <option value="student">Sinh viên</option>
+                                        <option value="participant">Người tham gia</option>
                                         <option value="organizer">Ban tổ chức</option>
                                         <option value="admin">Quản trị viên</option>
                                     </select>

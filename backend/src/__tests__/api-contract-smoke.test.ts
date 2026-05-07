@@ -34,7 +34,8 @@ describe('API Contract Smoke - Registrations and Notifications', () => {
         email,
         password_hash: passwordHash,
         full_name: 'Contract Smoke Student',
-        role: 'student',
+                role: 'participant',
+                participant_type: 'student',
       },
     });
 

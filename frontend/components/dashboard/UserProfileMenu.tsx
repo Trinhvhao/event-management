@@ -10,9 +10,9 @@ import { useAuthStore } from '@/store/authStore';
 import type { UserRole } from '@/types';
 
 const ROLE_CONFIG: Record<UserRole, { label: string; badge: string; icon: string }> = {
-    admin:     { label: 'Quản trị viên',      badge: 'bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] text-[var(--color-brand-navy)]',  icon: '⚡' },
-    organizer: { label: 'Ban tổ chức',         badge: 'bg-[color-mix(in_srgb,var(--color-brand-orange)_10%,transparent)] text-[var(--color-brand-orange)]', icon: '👔' },
-    student:   { label: 'Sinh viên',           badge: 'bg-[color-mix(in_srgb,var(--color-brand-green)_10%,transparent)] text-[var(--color-brand-green)]',   icon: '👨‍🎓' },
+    admin:      { label: 'Quản trị viên',      badge: 'bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] text-[var(--color-brand-navy)]',  icon: '⚡' },
+    organizer:  { label: 'Ban tổ chức',         badge: 'bg-[color-mix(in_srgb,var(--color-brand-orange)_10%,transparent)] text-[var(--color-brand-orange)]', icon: '👔' },
+    participant: { label: 'Người tham gia',      badge: 'bg-[color-mix(in_srgb,var(--color-brand-green)_10%,transparent)] text-[var(--color-brand-green)]',   icon: '👨‍🎓' },
 };
 
 export default function UserProfileMenu() {
@@ -21,8 +21,8 @@ export default function UserProfileMenu() {
     const router = useRouter();
     const { user, updateUser, logout } = useAuthStore();
 
-    const role = user?.role || 'student';
-    const roleInfo = ROLE_CONFIG[role];
+    const role = user?.role || 'participant';
+    const roleInfo = ROLE_CONFIG[role] || ROLE_CONFIG.participant;
 
     useEffect(() => {
         const handler = (event: MouseEvent) => {

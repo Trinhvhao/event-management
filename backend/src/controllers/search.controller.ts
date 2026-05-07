@@ -44,7 +44,7 @@ export const globalSearch = async (req: Request, res: Response) => {
                         { email: { contains: query, mode: 'insensitive' } }
                     ],
                     is_active: true,
-                    ...(currentUser.role === 'organizer' ? { role: 'student' } : {}),
+                    ...(currentUser.role === 'organizer' ? { role: 'participant' } : {}),
                 },
                 select: {
                     id: true,
@@ -66,11 +66,12 @@ export const globalSearch = async (req: Request, res: Response) => {
                 status: event.status
             })),
             ...users.map(user => ({
-                type: user.role === 'student' ? 'student' : 'user',
+                type: user.role === 'participant' && (user as any).participant_type === 'student' ? 'student' : 'user',
                 id: user.id,
                 title: user.full_name,
                 subtitle: user.student_id || user.email,
-                role: user.role
+                role: user.role,
+                participant_type: (user as any).participant_type
             }))
         ];
 

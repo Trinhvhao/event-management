@@ -166,7 +166,7 @@ export const statisticsService = {
     async getStudentStats() {
         // Top 10 sinh viên theo số sự kiện tham gia
         const topStudentsByEvents = await prisma.user.findMany({
-            where: { role: 'student' },
+            where: { role: 'participant' },
             select: {
                 id: true,
                 full_name: true,

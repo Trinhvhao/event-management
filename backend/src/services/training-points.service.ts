@@ -264,6 +264,7 @@ export const awardTrainingPoints = async (
                 student_id: true,
                 email: true,
                 role: true,
+                participant_type: true,
             },
         }),
         prisma.event.findUnique({
@@ -282,8 +283,8 @@ export const awardTrainingPoints = async (
         throw new NotFoundError('User');
     }
 
-    if (student.role !== 'student') {
-        throw new ValidationError('Chỉ sinh viên mới được nhận điểm rèn luyện. Giảng viên và đơn vị bên ngoài không được cấp điểm.');
+    if (student.role !== 'participant' || student.participant_type !== 'student') {
+        throw new ValidationError('Chỉ sinh viên (participant_type=student) mới được nhận điểm rèn luyện. Giảng viên và đơn vị bên ngoài không được cấp điểm.');
     }
 
     if (!event || event.deleted_at) {

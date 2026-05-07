@@ -20,6 +20,7 @@ export const authService = {
     full_name: string;
     student_id?: string;
     role: UserRole;
+    participant_type?: 'student' | 'teacher' | 'external';
     department_id?: number;
   }) {
     // Check if email already exists
@@ -64,6 +65,7 @@ export const authService = {
         full_name: data.full_name,
         student_id: data.student_id,
         role: data.role,
+        participant_type: data.participant_type,
         department_id: data.department_id,
         email_verified: false,
       },
@@ -73,6 +75,7 @@ export const authService = {
         full_name: true,
         student_id: true,
         role: true,
+        participant_type: true,
         department_id: true,
         created_at: true,
       },
@@ -139,6 +142,7 @@ export const authService = {
         id: user.id,
         email: user.email,
         role: user.role,
+        participant_type: user.participant_type,
       },
       jwtConfig.secret,
       { expiresIn: jwtConfig.expiresIn } as jwt.SignOptions
@@ -150,6 +154,7 @@ export const authService = {
         id: user.id,
         email: user.email,
         role: user.role,
+        participant_type: user.participant_type,
         type: 'refresh',
       },
       jwtConfig.secret,
@@ -166,6 +171,7 @@ export const authService = {
         full_name: user.full_name,
         student_id: user.student_id,
         role: user.role,
+        participant_type: user.participant_type,
         department: user.department,
         email_verified: user.email_verified,
         avatar_url: user.avatar_url,
@@ -269,6 +275,7 @@ export const authService = {
         id: number;
         email: string;
         role: UserRole;
+        participant_type?: string;
         type?: string;
       };
 
@@ -278,7 +285,7 @@ export const authService = {
 
       const user = await prisma.user.findUnique({
         where: { id: decoded.id },
-        select: { id: true, email: true, role: true, is_active: true },
+        select: { id: true, email: true, role: true, participant_type: true, is_active: true },
       });
 
       if (!user || !user.is_active) {
@@ -291,6 +298,7 @@ export const authService = {
           id: user.id,
           email: user.email,
           role: user.role,
+          participant_type: user.participant_type,
         },
         jwtConfig.secret,
         { expiresIn: jwtConfig.expiresIn } as jwt.SignOptions
@@ -302,6 +310,7 @@ export const authService = {
           id: user.id,
           email: user.email,
           role: user.role,
+          participant_type: user.participant_type,
           type: 'refresh',
         },
         jwtConfig.secret,

@@ -122,7 +122,7 @@ interface ExportTrainingPointsResponse {
         semester?: string;
         event_id?: number;
         user_id?: number;
-        scope: 'admin' | 'organizer' | 'student';
+        scope: 'admin' | 'organizer' | 'participant';
     };
     records: ExportTrainingPointsRecord[];
 }

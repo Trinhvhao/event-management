@@ -71,7 +71,12 @@ function TicketCard({ ticket, onView, onDownload, onResend }: {
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
 
+    // Check if registration is cancelled
+    const isRegistrationCancelled = ticket.registration.status === 'cancelled';
+    const isTicketInvalid = isRegistrationCancelled || ticket.status === 'cancelled' || ticket.status === 'expired';
+
     const handleResend = async () => {
+        if (isTicketInvalid) return;
         setResending(true);
         try {
             await onResend();
@@ -88,34 +93,52 @@ function TicketCard({ ticket, onView, onDownload, onResend }: {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-            className={`relative overflow-hidden rounded-2xl border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] ${
-                ticket.is_past
-                    ? 'border-[var(--border-default)] shadow-[var(--shadow-card)]'
-                    : 'border-[var(--color-brand-navy)]/20 shadow-[var(--shadow-card)]'
+            className={`relative overflow-hidden rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 ${
+                isTicketInvalid
+                    ? 'border-red-200 bg-red-50/30 shadow-none opacity-75'
+                    : ticket.is_past
+                        ? 'border-[var(--border-default)] shadow-[var(--shadow-card)]'
+                        : 'border-[var(--color-brand-navy)]/20 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]'
             }`}
         >
-            {/* Top gradient bar */}
-            {!ticket.is_past && (
+            {/* Top gradient bar - red strikethrough for invalid tickets */}
+            {isTicketInvalid ? (
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-red-400" />
+            ) : !ticket.is_past ? (
                 <div className="absolute top-0 left-0 right-0 h-[3px]" style={{
                     background: `linear-gradient(90deg, ${ACCENT.navy.hex}, ${ACCENT.orange.hex})`
                 }} />
-            )}
+            ) : null}
 
             <div className="p-5">
                 {/* Header row */}
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                            ticket.is_past ? 'bg-[var(--bg-muted)]' : 'bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8]'
+                            isTicketInvalid
+                                ? 'bg-red-100 border-2 border-dashed border-red-300'
+                                : ticket.is_past
+                                    ? 'bg-[var(--bg-muted)]'
+                                    : 'bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8]'
                         }`}>
-                            <TicketIcon className={`w-5 h-5 ${ticket.is_past ? 'text-[var(--text-muted)]' : 'text-white'}`} />
+                            {isTicketInvalid ? (
+                                <X className="w-5 h-5 text-red-400" />
+                            ) : (
+                                <TicketIcon className={`w-5 h-5 ${ticket.is_past ? 'text-[var(--text-muted)]' : 'text-white'}`} />
+                            )}
                         </div>
                         <div>
                             <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--color-brand-orange)]">Mã Ticket</p>
-                            <p className="font-bold text-[var(--text-primary)] tracking-tight">{ticket.ticket_code}</p>
+                            <p className={`font-bold tracking-tight ${isTicketInvalid ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>{ticket.ticket_code}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                        {isTicketInvalid && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200 whitespace-nowrap">
+                                <X className="w-3 h-3" />
+                                Vô hiệu lực
+                            </span>
+                        )}
                         <StatusBadge status={ticket.status} />
                     </div>
                 </div>
@@ -123,10 +146,10 @@ function TicketCard({ ticket, onView, onDownload, onResend }: {
                 {/* Event info */}
                 <div className="mb-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 flex-1">
+                        <h3 className={`font-semibold leading-snug line-clamp-2 flex-1 ${isTicketInvalid ? 'text-[var(--text-muted)] line-through' : 'text-[var(--text-primary)]'}`}>
                             {event.title}
                         </h3>
-                        <EventTypeBadge ticket={ticket} />
+                        {!isTicketInvalid && <EventTypeBadge ticket={ticket} />}
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -171,29 +194,38 @@ function TicketCard({ ticket, onView, onDownload, onResend }: {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-3 border-t border-[var(--border-light)]">
-                    <button
-                        onClick={onView}
-                        className="flex-1 h-10 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-bold shadow-[var(--shadow-brand)] hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        <QrCode className="w-4 h-4" />
-                        Xem chi tiết
-                    </button>
-                    <button
-                        onClick={onDownload}
-                        className="h-10 px-4 rounded-xl bg-[var(--bg-muted)] text-[var(--text-secondary)] text-sm font-semibold border border-[var(--border-default)] hover:bg-[var(--border-light)] transition-all active:scale-95 flex items-center justify-center gap-2"
-                        title="Tải PDF"
-                    >
-                        <Download className="w-4 h-4" />
-                    </button>
-                    {ticket.is_upcoming && (
-                        <button
-                            onClick={handleResend}
-                            disabled={resending}
-                            className="h-10 px-4 rounded-xl bg-[var(--bg-muted)] text-[var(--text-secondary)] text-sm font-semibold border border-[var(--border-default)] hover:bg-[var(--border-light)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Gửi lại email"
-                        >
-                            <Mail className={`w-4 h-4 ${resending ? 'animate-pulse' : ''}`} />
-                        </button>
+                    {isTicketInvalid ? (
+                        <div className="flex-1 h-10 rounded-xl bg-red-100 text-red-500 text-sm font-semibold flex items-center justify-center gap-2 shrink-0">
+                            <X className="w-4 h-4 shrink-0" />
+                            <span className="whitespace-nowrap">Vé đã bị vô hiệu lực</span>
+                        </div>
+                    ) : (
+                        <>
+                            <button
+                                onClick={onView}
+                                className="flex-1 h-10 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-bold shadow-[var(--shadow-brand)] hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"
+                            >
+                                <QrCode className="w-4 h-4 shrink-0" />
+                                <span className="whitespace-nowrap">Xem chi tiết</span>
+                            </button>
+                            <button
+                                onClick={onDownload}
+                                className="h-10 px-4 rounded-xl bg-[var(--bg-muted)] text-[var(--text-secondary)] text-sm font-semibold border border-[var(--border-default)] hover:bg-[var(--border-light)] transition-all active:scale-95 flex items-center justify-center gap-2"
+                                title="Tải PDF"
+                            >
+                                <Download className="w-4 h-4 shrink-0" />
+                            </button>
+                            {ticket.is_upcoming && (
+                                <button
+                                    onClick={handleResend}
+                                    disabled={resending}
+                                    className="h-10 px-4 rounded-xl bg-[var(--bg-muted)] text-[var(--text-secondary)] text-sm font-semibold border border-[var(--border-default)] hover:bg-[var(--border-light)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Gửi lại email"
+                                >
+                                    <Mail className={`w-4 h-4 shrink-0 ${resending ? 'animate-pulse' : ''}`} />
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -213,13 +245,19 @@ function TicketDetailModal({ ticket, onClose, onDownload, onResend }: {
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
 
+    // Check if registration is cancelled
+    const isRegistrationCancelled = ticket.registration.status === 'cancelled';
+    const isTicketInvalid = isRegistrationCancelled || ticket.status === 'cancelled' || ticket.status === 'expired';
+
     const handleCopy = () => {
+        if (isTicketInvalid) return;
         navigator.clipboard.writeText(ticket.ticket_code);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
     const handleResend = async () => {
+        if (isTicketInvalid) return;
         setResending(true);
         try {
             await onResend();
@@ -248,34 +286,50 @@ function TicketDetailModal({ ticket, onClose, onDownload, onResend }: {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                className="relative bg-white rounded-2xl shadow-[var(--shadow-xl)] w-full max-w-lg max-h-[90vh] overflow-y-auto"
+                className={`relative bg-white rounded-2xl shadow-[var(--shadow-xl)] w-full max-w-lg max-h-[90vh] overflow-y-auto ${
+                    isTicketInvalid ? 'border-2 border-red-300' : ''
+                }`}
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Top gradient */}
-                <div className="h-1.5 bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+                {/* Top gradient - red for invalid */}
+                {isTicketInvalid ? (
+                    <div className="h-1.5 bg-red-500" />
+                ) : (
+                    <div className="h-1.5 bg-gradient-to-r from-[var(--color-brand-navy)] via-[var(--color-brand-orange)] to-[var(--color-brand-gold)]" />
+                )}
 
                 <div className="p-6">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] flex items-center justify-center shadow-[var(--shadow-brand)]">
-                                <TicketIcon className="w-5 h-5 text-white" />
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-[var(--shadow-brand)] ${
+                                isTicketInvalid
+                                    ? 'bg-red-100 border-2 border-dashed border-red-300'
+                                    : 'bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8]'
+                            }`}>
+                                {isTicketInvalid ? (
+                                    <X className="w-5 h-5 text-red-400" />
+                                ) : (
+                                    <TicketIcon className="w-5 h-5 text-white" />
+                                )}
                             </div>
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--color-brand-orange)]">Chi tiết Ticket</p>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="font-bold text-[var(--text-primary)]">{ticket.ticket_code}</h2>
-                                    <button
-                                        onClick={handleCopy}
-                                        className="p-1 rounded hover:bg-[var(--bg-muted)] transition-colors"
-                                        title="Sao chép mã"
-                                    >
-                                        {copied ? (
-                                            <CheckCircle className="w-4 h-4 text-[var(--color-brand-green)]" />
-                                        ) : (
-                                            <Copy className="w-4 h-4 text-[var(--text-muted)]" />
-                                        )}
-                                    </button>
+                                    <h2 className={`font-bold ${isTicketInvalid ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>{ticket.ticket_code}</h2>
+                                    {!isTicketInvalid && (
+                                        <button
+                                            onClick={handleCopy}
+                                            className="p-1 rounded hover:bg-[var(--bg-muted)] transition-colors"
+                                            title="Sao chép mã"
+                                        >
+                                            {copied ? (
+                                                <CheckCircle className="w-4 h-4 text-[var(--color-brand-green)]" />
+                                            ) : (
+                                                <Copy className="w-4 h-4 text-[var(--text-muted)]" />
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -287,12 +341,40 @@ function TicketDetailModal({ ticket, onClose, onDownload, onResend }: {
                         </button>
                     </div>
 
+                    {/* Invalid ticket warning */}
+                    {isTicketInvalid && (
+                        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-5">
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                    <X className="w-5 h-5 text-red-500" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-red-700 mb-1">Vé đã bị vô hiệu lực</h3>
+                                    <p className="text-sm text-red-600">
+                                        {isRegistrationCancelled
+                                            ? 'Đăng ký sự kiện này đã bị hủy. Bạn không thể sử dụng vé này.'
+                                            : 'Vé này không còn hiệu lực và không thể sử dụng để check-in.'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* QR + Info */}
-                    <div className="bg-gradient-to-br from-[var(--color-brand-navy)]/[0.04] to-[var(--color-brand-orange)]/[0.04] rounded-2xl p-5 mb-5 border border-[var(--border-light)]">
+                    <div className={`rounded-2xl p-5 mb-5 border ${
+                        isTicketInvalid
+                            ? 'bg-red-50/50 border-red-200'
+                            : 'bg-gradient-to-br from-[var(--color-brand-navy)]/[0.04] to-[var(--color-brand-orange)]/[0.04] border-[var(--border-light)]'
+                    }`}>
                         <div className="flex items-start gap-5">
                             {/* QR Code */}
                             <div className="shrink-0">
-                                {ticket.qr_image ? (
+                                {isTicketInvalid ? (
+                                    <div className="w-32 h-32 rounded-xl bg-red-100 border-2 border-dashed border-red-300 flex flex-col items-center justify-center">
+                                        <X className="w-10 h-10 text-red-400" />
+                                        <span className="text-xs text-red-500 mt-1 font-semibold">Không hợp lệ</span>
+                                    </div>
+                                ) : ticket.qr_image ? (
                                     <img
                                         src={ticket.qr_image}
                                         alt="QR Code"
@@ -307,14 +389,14 @@ function TicketDetailModal({ ticket, onClose, onDownload, onResend }: {
 
                             {/* Event info */}
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-[var(--text-primary)] text-base leading-snug mb-3">
+                                <h3 className={`font-bold text-base leading-snug mb-3 ${isTicketInvalid ? 'text-[var(--text-muted)] line-through' : 'text-[var(--text-primary)]'}`}>
                                     {event.title}
                                 </h3>
                                 <div className="space-y-1.5 text-sm">
                                     <div className="flex items-start gap-2">
-                                        <Calendar className="w-4 h-4 text-[var(--color-brand-navy)] mt-0.5 shrink-0" />
+                                        <Calendar className={`w-4 h-4 mt-0.5 shrink-0 ${isTicketInvalid ? 'text-red-400' : 'text-[var(--color-brand-navy)]'}`} />
                                         <div>
-                                            <p className="font-semibold text-[var(--text-secondary)]">
+                                            <p className={`font-semibold ${isTicketInvalid ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'}`}>
                                                 {startDate.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                             </p>
                                             <p className="text-xs text-[var(--text-muted)]">
@@ -323,12 +405,19 @@ function TicketDetailModal({ ticket, onClose, onDownload, onResend }: {
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
-                                        <MapPin className="w-4 h-4 text-[var(--color-brand-navy)] mt-0.5 shrink-0" />
+                                        <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${isTicketInvalid ? 'text-red-400' : 'text-[var(--color-brand-navy)]'}`} />
                                         <p className="text-xs text-[var(--text-muted)]">{event.location || 'Chưa xác định'}</p>
                                     </div>
                                 </div>
                                 <div className="mt-3">
-                                    <StatusBadge status={ticket.status} />
+                                    {isTicketInvalid ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                            Vô hiệu lực
+                                        </span>
+                                    ) : (
+                                        <StatusBadge status={ticket.status} />
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -359,37 +448,48 @@ function TicketDetailModal({ ticket, onClose, onDownload, onResend }: {
                     </div>
 
                     {/* Instructions */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
-                        <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle className="w-4 h-4 text-amber-600" />
-                            <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Hướng dẫn</p>
+                    {!isTicketInvalid && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+                            <div className="flex items-center gap-2 mb-2">
+                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Hướng dẫn</p>
+                            </div>
+                            <ul className="text-xs text-amber-700 space-y-1">
+                                <li>• Đến trước giờ bắt đầu ít nhất <strong>15 phút</strong></li>
+                                <li>• Xuất trình ticket này hoặc mã QR khi check-in tại cổng</li>
+                                <li>• Không chia sẻ ticket với người khác</li>
+                                <li>• Ticket có giá trị trong suốt thời gian diễn ra sự kiện</li>
+                            </ul>
                         </div>
-                        <ul className="text-xs text-amber-700 space-y-1">
-                            <li>• Đến trước giờ bắt đầu ít nhất <strong>15 phút</strong></li>
-                            <li>• Xuất trình ticket này hoặc mã QR khi check-in tại cổng</li>
-                            <li>• Không chia sẻ ticket với người khác</li>
-                            <li>• Ticket có giá trị trong suốt thời gian diễn ra sự kiện</li>
-                        </ul>
-                    </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex gap-3">
-                        <button
-                            onClick={onDownload}
-                            className="flex-1 h-11 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-bold shadow-[var(--shadow-brand)] hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <Download className="w-4 h-4" />
-                            Tải PDF Ticket
-                        </button>
-                        {ticket.is_upcoming && (
-                            <button
-                                onClick={handleResend}
-                                disabled={resending}
-                                className="h-11 px-5 rounded-xl bg-[var(--bg-muted)] text-[var(--text-secondary)] text-sm font-semibold border border-[var(--border-default)] hover:bg-[var(--border-light)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                <Mail className={`w-4 h-4 ${resending ? 'animate-pulse' : ''}`} />
-                                Gửi lại Email
-                            </button>
+                        {isTicketInvalid ? (
+                            <div className="flex-1 h-11 rounded-xl bg-red-100 text-red-600 text-sm font-bold flex items-center justify-center gap-2">
+                                <X className="w-4 h-4" />
+                                Vé đã bị vô hiệu lực
+                            </div>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={onDownload}
+                                    className="flex-1 h-11 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-bold shadow-[var(--shadow-brand)] hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Tải PDF Ticket
+                                </button>
+                                {ticket.is_upcoming && (
+                                    <button
+                                        onClick={handleResend}
+                                        disabled={resending}
+                                        className="h-11 px-5 rounded-xl bg-[var(--bg-muted)] text-[var(--text-secondary)] text-sm font-semibold border border-[var(--border-default)] hover:bg-[var(--border-light)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        <Mail className={`w-4 h-4 ${resending ? 'animate-pulse' : ''}`} />
+                                        Gửi lại Email
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>

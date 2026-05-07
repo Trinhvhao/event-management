@@ -216,14 +216,12 @@ export const handleSePayWebhook = async (payload: {
 
     // 2. Fallback: try payos_order_id without dashes (old payments created before this fix)
     if (!payment) {
-        const rawCode = normalizedContent.replace(/^EVT/, ''); // "337136557376"
-        const allPending = await prisma.payment.findMany({
-            where: { status: 'pending', payos_order_id: { not: null } },
-            select: { id: true, payos_order_id: true },
+        payment = await prisma.payment.findFirst({
+            where: {
+                payos_order_id: { endsWith: normalizedContent.replace(/^EVT/, '') },
+                status: 'pending',
+            },
         });
-        payment = allPending.find(p =>
-            (p.payos_order_id?.replace(/-/g, '') ?? '').endsWith(rawCode)
-        ) ?? undefined;
     }
 
     if (!payment) return { success: true, message: 'Payment not found' };

@@ -32,11 +32,11 @@ interface UserAuditLogsQuery {
 interface RoleMatrix {
     admin: { permissions: string[] };
     organizer: { permissions: string[] };
-    student: { permissions: string[] };
+    participant: { permissions: string[] };
 }
 
 interface RoleStatisticsRow {
-    role: 'admin' | 'organizer' | 'student';
+    role: 'admin' | 'organizer' | 'participant';
     total: number;
     active: number;
     inactive: number;
