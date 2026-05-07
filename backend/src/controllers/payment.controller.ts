@@ -47,6 +47,7 @@ export const createPayment = async (req: AuthRequest, res: Response, next: NextF
                 bankName: result.bankName,
                 amount: result.amount,
                 transferNote: result.transferNote,
+                vietQrUrl: result.vietQrUrl,
             },
         });
     } catch (error: unknown) {

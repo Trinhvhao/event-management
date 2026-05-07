@@ -13,6 +13,47 @@ const getSePayConfig = () => ({
     bankName: process.env.SEPAY_BANK_NAME || '',
 });
 
+// VietQR bank ID mapping
+const BANK_ID_MAP: Record<string, string> = {
+    'vietinbank': 'ICB',
+    'ctg': 'ICB',
+    'vietcombank': 'VCB',
+    'vcb': 'VCB',
+    'bidv': 'BID',
+    'agribank': 'AGR',
+    'mbbank': 'MB',
+    'mb': 'MB',
+    'acb': 'ACB',
+    'techcombank': 'TCB',
+    'tpbank': 'TPB',
+    'vpbank': 'VPB',
+    'shinhanbank': 'SHB',
+    'ocb': 'OCB',
+    'pvcombank': 'PVB',
+    'sacombank': 'STB',
+    'hdbank': 'HDB',
+    'vietcapitalbank': 'VCCB',
+    'seabank': 'MSB',
+    'kienlongbank': 'KLB',
+    'dongabank': 'DAB',
+    'pgbank': 'PGB',
+    'publicbank': 'BID',
+    'baovietbank': 'BVB',
+    'nama': 'NAMA',
+};
+
+function getBankId(bankName: string): string {
+    const normalized = bankName.toLowerCase().replace(/\s+/g, '');
+    return BANK_ID_MAP[normalized] || 'VCB'; // fallback to VCB
+}
+
+function buildVietQrUrl(accountNumber: string, bankName: string, amount: number, paymentCode: string): string {
+    const bankId = getBankId(bankName);
+    const template = 'compact2';
+    const encodedAddInfo = encodeURIComponent(paymentCode);
+    return `https://img.vietqr.io/image/${bankId}-${accountNumber}-${template}.png?amount=${amount}&addInfo=${encodedAddInfo}`;
+}
+
 const PAYMENT_CODE_PREFIX = 'EVT';
 const PAYMENT_CODE_EXPIRY_HOURS = 24;
 
@@ -57,7 +98,7 @@ export interface PaymentRecord {
         full_name: string;
         email: string;
     };
-    payment_code?: string;
+    paymentCode?: string;
 }
 
 function toRecord(p: {
@@ -67,7 +108,7 @@ function toRecord(p: {
     paid_at: Date | null; expires_at: Date | null; created_at: Date;
     event?: { id: number; title: string; start_time: Date; end_time: Date; location: string; training_points: number } | null;
     user?: { id: number; full_name: string; email: string } | null;
-    payos_order_id_code?: string;
+    paymentCode?: string;
 }): PaymentRecord {
     return {
         id: p.id,
@@ -86,7 +127,7 @@ function toRecord(p: {
         created_at: p.created_at,
         event: p.event ?? undefined,
         user: p.user ?? undefined,
-        payment_code: p.payos_order_id_code ?? p.payos_order_id ?? undefined,
+        paymentCode: p.paymentCode ?? p.payos_order_id ?? undefined,
     };
 }
 
@@ -118,6 +159,9 @@ export const createPayment = async (params: CreatePaymentParams) => {
     const amount = Math.round(Number(event.event_cost));
     const expiresAt = new Date(Date.now() + PAYMENT_CODE_EXPIRY_HOURS * 60 * 60 * 1000);
     const sepayCfg = getSePayConfig();
+    if (!sepayCfg.accountNumber) throw new ValidationError('SEPAY chua duoc cau hinh');
+    if (!sepayCfg.bankName) throw new ValidationError('SEPAY_BANK_NAME chua duoc cau hinh');
+    const vietQrUrl = buildVietQrUrl(sepayCfg.accountNumber, sepayCfg.bankName, amount, paymentCode);
 
     const payment = existing
         ? await prisma.payment.update({
@@ -140,6 +184,7 @@ export const createPayment = async (params: CreatePaymentParams) => {
         bankName: sepayCfg.bankName,
         amount,
         transferNote: paymentCode,
+        vietQrUrl,
     };
 };
 
@@ -160,22 +205,28 @@ export const handleSePayWebhook = async (payload: {
     if (payload.transferType !== 'in') return { success: true, message: 'Ignored: not incoming' };
     if (!payload.content || !payload.transferAmount) return { success: false, message: 'Missing fields' };
 
-    const match = payload.content.match(/EVT(\d+)-(\d+)-(\d+)/);
+    // Normalize: remove all dashes from content (some banks strip dashes when sending)
+    const normalizedContent = payload.content.replace(/-/g, '');
+
+    // Parse payment code: EVT{eventId}{registrationId}{timestamp} (no dashes)
+    const match = normalizedContent.match(/^EVT(\d+)(\d+)(\d+)$/);
     if (!match) return { success: true, message: 'No payment code in content' };
 
     const eventId = parseInt(match[1]);
     const registrationId = parseInt(match[2]);
 
-    // Find payment by pattern in payos_order_id (status filter removed to catch already-paid payments)
-    const payments = await prisma.payment.findMany({
-        where: { event_id: eventId, registration_id: registrationId },
+    // Match by event_id + registration_id (unique per payment)
+    const payment = await prisma.payment.findFirst({
+        where: {
+            event_id: eventId,
+            registration_id: registrationId,
+            status: 'pending',
+        },
     });
 
-    const payment = payments.find(p => p.payos_order_id?.startsWith(`EVT${eventId}-${registrationId}-`));
     if (!payment) return { success: true, message: 'Payment not found' };
 
     if (payment.status === 'paid') return { success: true, message: 'Already confirmed' };
-
     if (payment.status !== 'pending') return { success: false, message: `Payment status is ${payment.status}` };
 
     const expected = Number(payment.amount);
@@ -201,7 +252,7 @@ export const confirmPayment = async (
     const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
     if (!payment) throw new NotFoundError('Thanh toan khong ton tai');
     if (payment.status === 'paid') {
-        return toRecord({ ...payment, payos_order_id_code: payment.payos_order_id ?? undefined });
+        return toRecord({ ...payment, paymentCode: payment.payos_order_id ?? undefined });
     }
 
     const [user, event] = await Promise.all([
@@ -217,6 +268,11 @@ export const confirmPayment = async (
         expires_at: event?.start_time.toISOString(),
     }));
 
+    const sepayCfg = getSePayConfig();
+    const amount = Number(payment.amount);
+    const paymentCode = payment.payos_order_id || '';
+    const vietQrUrl = buildVietQrUrl(sepayCfg.accountNumber, sepayCfg.bankName, amount, paymentCode);
+
     const metadata: Record<string, string | number | boolean | null> = { method: 'sepay' };
     if (extraData?.gateway) metadata.gateway = extraData.gateway;
     if (extraData?.transactionDate) metadata.transaction_date = extraData.transactionDate;
@@ -230,7 +286,7 @@ export const confirmPayment = async (
                 status: 'paid', paid_at: new Date(),
                 transaction_id: transactionId || `SE-${paymentId}-${Date.now()}`,
                 payos_payment_id: String(transactionId || paymentId),
-                metadata,
+                metadata: { ...metadata, viet_qr_url: vietQrUrl },
             },
         }),
         prisma.registration.update({
@@ -257,7 +313,7 @@ export const confirmPayment = async (
         } catch (e) { console.error('[Payment] Notification error:', e); }
     }
 
-    return toRecord({ ...updated, event, user, payos_order_id_code: updated.payos_order_id ?? undefined });
+    return toRecord({ ...updated, event, user, paymentCode: updated.payos_order_id ?? undefined });
 };
 
 export const getPaymentById = async (paymentId: number, userId: number) => {
@@ -270,7 +326,7 @@ export const getPaymentById = async (paymentId: number, userId: number) => {
         prisma.event.findUnique({ where: { id: payment.event_id }, select: { id: true, title: true, start_time: true, end_time: true, location: true, training_points: true } }),
     ]);
 
-    return toRecord({ ...payment, event, user, payos_order_id_code: payment.payos_order_id ?? undefined });
+    return toRecord({ ...payment, event, user, paymentCode: payment.payos_order_id ?? undefined });
 };
 
 export const getMyPayments = async (userId: number, limit = 20, offset = 0) => {
@@ -296,7 +352,7 @@ export const getMyPayments = async (userId: number, limit = 20, offset = 0) => {
             amount: Number(p.amount), currency: p.currency, status: p.status, method: p.method,
             payos_order_id: p.payos_order_id, payos_payment_id: p.payos_payment_id,
             transaction_id: p.transaction_id, paid_at: p.paid_at, expires_at: p.expires_at,
-            created_at: p.created_at, event: eventMap.get(p.event_id), payment_code: p.payos_order_id,
+            created_at: p.created_at, event: eventMap.get(p.event_id), paymentCode: p.payos_order_id,
         })),
         total, limit, offset, has_more: offset + limit < total,
     };
@@ -307,6 +363,9 @@ export const cancelPayment = async (paymentId: number, userId: number) => {
     if (!payment) throw new NotFoundError('Thanh toan khong ton tai');
     if (payment.user_id !== userId) throw new ForbiddenError('Ban khong co quyen huy thanh toan nay');
     if (payment.status !== 'pending') throw new ConflictError('Chi co the huy thanh toan dang cho xu ly');
+    
+    // Chỉ hủi payment, KHÔNG hủi registration
+    // User vẫn giữ nguyên đăng ký và có thể thanh toán lại sau
     await prisma.payment.update({ where: { id: paymentId }, data: { status: 'cancelled' } });
 };
 
