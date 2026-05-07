@@ -94,7 +94,7 @@ const KANBAN_COLUMNS = [
 function getStatusBadge(status: string) {
     const badge = STATUS_BADGES[status] || STATUS_BADGES.upcoming;
     return (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${badge.bg} ${badge.text}`}>
+        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${badge.bg} ${badge.text}`}>
             {badge.label}
         </span>
     );
@@ -993,7 +993,7 @@ export default function EventsPage() {
                                                 <div className={`bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden mb-3`}>
                                                     <div className={`px-4 py-3 border-b-2 ${col.color} flex items-center justify-between`}>
                                                         <div className="flex items-center gap-2">
-                                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${badge.bg} ${badge.text}`}>
+                                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border whitespace-nowrap ${badge.bg} ${badge.text}`}>
                                                                 {badge.label}
                                                             </span>
                                                         </div>

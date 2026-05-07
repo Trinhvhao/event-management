@@ -2,6 +2,8 @@ import prisma from '../config/database';
 import QRCode from 'qrcode';
 import * as notificationsService from './notifications.service';
 import { eventTeamService } from './event-team.service';
+import * as emailService from './email.service';
+import { ticketService } from './ticket.service';
 import {
     ConflictError,
     ForbiddenError,
@@ -44,7 +46,13 @@ const generateRegistrationQrCode = async (params: {
     return QRCode.toDataURL(JSON.stringify(qrData));
 };
 
-export const registerForEvent = async (userId: number, eventId: number) => {
+export const registerForEvent = async (
+    userId: number,
+    eventId: number,
+    options?: { reason?: string; agreed?: boolean }
+) => {
+    const { reason, agreed } = options || {};
+
     const event = await prisma.event.findUnique({
         where: { id: eventId },
         select: {
@@ -59,11 +67,29 @@ export const registerForEvent = async (userId: number, eventId: number) => {
             event_cost: true,
             registration_deadline: true,
             deleted_at: true,
+            approval_type: true,
+            require_reason: true,
+            require_agreement: true,
         },
     });
 
     if (!event || event.deleted_at) {
         throw new NotFoundError('Sự kiện không tồn tại');
+    }
+
+    // Check approval type
+    if (event.approval_type === 'no_registration') {
+        throw new ValidationError('Sự kiện này không yêu cầu đăng ký');
+    }
+
+    // Check if agreement is required
+    if (event.require_agreement && !agreed) {
+        throw new ValidationError('Bạn cần đồng ý với nội quy và cam kết của sự kiện');
+    }
+
+    // Check if reason is required
+    if (event.require_reason && (!reason || reason.trim() === '')) {
+        throw new ValidationError('Bạn cần nhập lý do đăng ký sự kiện này');
     }
 
     const now = new Date();
@@ -84,14 +110,15 @@ export const registerForEvent = async (userId: number, eventId: number) => {
         throw new ValidationError('Đã quá hạn đăng ký sự kiện');
     }
 
+    // For require_approval type, count only approved registrations
+    const activeWhere: { event_id: number; status: 'registered'; approval_status?: 'approved' } = event.approval_type === 'require_approval'
+        ? { event_id: eventId, status: 'registered', approval_status: 'approved' }
+        : { event_id: eventId, status: 'registered' };
+
     const activeRegistrations = await prisma.registration.count({
-        where: {
-            event_id: eventId,
-            status: 'registered',
-        },
+        where: activeWhere,
     });
 
-    // Capacity should only count active registrations.
     if (activeRegistrations >= event.capacity) {
         throw new ConflictError('Sự kiện đã đầy');
     }
@@ -106,16 +133,16 @@ export const registerForEvent = async (userId: number, eventId: number) => {
         select: {
             id: true,
             status: true,
+            approval_status: true,
         },
     });
 
-    if (existingRegistration?.status === 'registered') {
+    if (existingRegistration?.status === 'registered' || existingRegistration?.status === 'attended') {
         throw new ConflictError('Bạn đã đăng ký sự kiện này rồi');
     }
 
-    if (existingRegistration?.status === 'attended') {
-        throw new ConflictError('Bạn đã tham dự sự kiện này rồi');
-    }
+    // Determine approval status based on event approval_type
+    const approvalStatus = event.approval_type === 'require_approval' ? 'pending' : 'approved';
 
     let updatedRegistration;
 
@@ -133,6 +160,11 @@ export const registerForEvent = async (userId: number, eventId: number) => {
                 status: 'registered',
                 registered_at: now,
                 qr_code: qrCodeString,
+                reason: reason || null,
+                agreed_at: agreed ? now : null,
+                approval_status: approvalStatus,
+                approved_by: approvalStatus === 'approved' ? userId : null,
+                approved_at: approvalStatus === 'approved' ? now : null,
             },
             include: {
                 event: true,
@@ -140,13 +172,17 @@ export const registerForEvent = async (userId: number, eventId: number) => {
             },
         });
     } else {
-        // Create registration with a temporary QR placeholder, then replace with final payload.
         const registration = await prisma.registration.create({
             data: {
                 user_id: userId,
                 event_id: eventId,
                 status: 'registered',
-                qr_code: `pending-${Date.now()}-${userId}-${eventId}`,
+                qr_code: `qr${userId}${eventId}${Date.now()}`,
+                reason: reason || null,
+                agreed_at: agreed ? now : null,
+                approval_status: approvalStatus,
+                approved_by: approvalStatus === 'approved' ? userId : null,
+                approved_at: approvalStatus === 'approved' ? now : null,
             },
             include: {
                 event: true,
@@ -182,32 +218,90 @@ export const registerForEvent = async (userId: number, eventId: number) => {
         },
     });
 
-    // Create notification + send confirmation email (consolidated via notifications service)
+    // Create notification
     try {
-        await notificationsService.notifyRegistrationConfirm(
-            userId,
-            eventId,
-            event.title,
-            event.location,
-            event.start_time,
-            event.end_time,
-            event.training_points,
-            updatedRegistration.qr_code,
-            event.event_cost ? Number(event.event_cost) : undefined
-        );
+        if (approvalStatus === 'approved') {
+            // Auto approved - send confirmation
+            await notificationsService.notifyRegistrationConfirm(
+                userId,
+                eventId,
+                event.title,
+                event.location,
+                event.start_time,
+                event.end_time,
+                event.training_points,
+                updatedRegistration.qr_code,
+                event.event_cost ? Number(event.event_cost) : undefined
+            );
+
+            // Create ticket and send email
+            const ticket = await ticketService.createTicket({
+                registration_id: updatedRegistration.id,
+                event_id: eventId,
+                user_id: userId,
+            });
+
+            const pdfPath = await emailService.generateTicketPDF(ticket);
+            await emailService.sendTicketEmail(ticket, pdfPath);
+            await ticketService.markTicketSent(ticket.id);
+
+            updatedRegistration = {
+                ...updatedRegistration,
+                ticket,
+            };
+        } else {
+            // Pending approval - notify organizer
+            const organizers = await prisma.user.findMany({
+                where: {
+                    role: { in: ['organizer', 'admin'] },
+                    is_active: true,
+                },
+                select: { id: true },
+            });
+
+            for (const org of organizers) {
+                await prisma.notification.create({
+                    data: {
+                        user_id: org.id,
+                        event_id: eventId,
+                        type: 'registration_confirm',
+                        title: 'Yêu cầu duyệt đăng ký',
+                        message: `Sinh viên ${updatedRegistration.user.full_name} đã đăng ký tham gia sự kiện "${event.title}". Vui lòng xem xét và duyệt.`,
+                    },
+                });
+            }
+
+            // Notify student
+            await prisma.notification.create({
+                data: {
+                    user_id: userId,
+                    event_id: eventId,
+                    type: 'registration_confirm',
+                    title: 'Đăng ký đang chờ duyệt',
+                    message: `Đăng ký của bạn tham gia sự kiện "${event.title}" đang được chờ duyệt. Bạn sẽ được thông báo khi được duyệt.`,
+                },
+            });
+        }
     } catch (notifError) {
         console.error('Failed to create notification:', notifError);
     }
 
-    return updatedRegistration;
+    return {
+        ...updatedRegistration,
+        is_pending_approval: approvalStatus === 'pending',
+    };
 };
 
-export const getMyRegistrations = async (userId: number, status?: string) => {
+export const getMyRegistrations = async (userId: number, status?: string, approvalStatus?: string) => {
     const where: any = { user_id: userId };
     const parsedStatus = parseRegistrationStatus(status);
 
     if (parsedStatus) {
         where.status = parsedStatus;
+    }
+
+    if (approvalStatus) {
+        where.approval_status = approvalStatus;
     }
 
     const registrations = await prisma.registration.findMany({
@@ -275,12 +369,20 @@ export const cancelRegistration = async (userId: number, registrationId: number)
         data: { status: 'cancelled' }
     });
 
+    // Cancel associated ticket
+    try {
+        await ticketService.cancelTicket(registrationId);
+    } catch (ticketError) {
+        console.error('Failed to cancel ticket:', ticketError);
+    }
+
     return true;
 };
 
 export const getEventRegistrations = async (
     eventId: number,
     status: string | undefined,
+    approvalStatus: string | undefined,
     requester: RequesterContext
 ) => {
     const event = await prisma.event.findUnique({
@@ -307,6 +409,10 @@ export const getEventRegistrations = async (
         where.status = parsedStatus;
     }
 
+    if (approvalStatus) {
+        where.approval_status = approvalStatus;
+    }
+
     const registrations = await prisma.registration.findMany({
         where,
         include: {
@@ -318,6 +424,12 @@ export const getEventRegistrations = async (
                     student_id: true,
                     department_id: true
                 }
+            },
+            approver: {
+                select: {
+                    id: true,
+                    full_name: true
+                }
             }
         },
         orderBy: {
@@ -326,6 +438,256 @@ export const getEventRegistrations = async (
     });
 
     return registrations;
+};
+
+// =====================
+// Approval Functions
+// =====================
+
+export const getPendingRegistrations = async (requester: RequesterContext, eventId?: number) => {
+    if (requester.role !== 'organizer' && requester.role !== 'admin') {
+        throw new ForbiddenError('Bạn không có quyền xem danh sách đăng ký chờ duyệt');
+    }
+
+    const where: any = { approval_status: 'pending', status: 'registered' };
+
+    if (eventId) {
+        where.event_id = eventId;
+    }
+
+    // For organizers, only show events they manage
+    if (requester.role === 'organizer') {
+        const managedEvents = await prisma.event.findMany({
+            where: {
+                OR: [
+                    { organizer_id: requester.id },
+                    { team_members: { some: { user_id: requester.id } } }
+                ]
+            },
+            select: { id: true }
+        });
+        where.event_id = { in: managedEvents.map(e => e.id) };
+    }
+
+    const pending = await prisma.registration.findMany({
+        where,
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    full_name: true,
+                    email: true,
+                    student_id: true,
+                    department: {
+                        select: { id: true, name: true }
+                    }
+                }
+            },
+            event: {
+                select: {
+                    id: true,
+                    title: true,
+                    start_time: true,
+                    end_time: true,
+                    location: true,
+                    organizer_id: true
+                }
+            }
+        },
+        orderBy: {
+            registered_at: 'asc'
+        }
+    });
+
+    return pending;
+};
+
+export const approveRegistration = async (
+    registrationId: number,
+    requester: RequesterContext,
+    note?: string
+) => {
+    const registration = await prisma.registration.findUnique({
+        where: { id: registrationId },
+        include: {
+            event: {
+                select: {
+                    id: true,
+                    title: true,
+                    capacity: true,
+                    start_time: true,
+                    end_time: true,
+                    location: true,
+                    training_points: true,
+                    event_cost: true,
+                    organizer_id: true,
+                    approval_type: true
+                }
+            },
+            user: {
+                select: {
+                    id: true,
+                    full_name: true,
+                    email: true
+                }
+            }
+        }
+    });
+
+    if (!registration) {
+        throw new NotFoundError('Đăng ký không tồn tại');
+    }
+
+    if (registration.approval_status !== 'pending') {
+        throw new ConflictError('Đăng ký đã được xử lý');
+    }
+
+    // Check permission
+    if (requester.role === 'organizer') {
+        const canManage = await eventTeamService.canUserPerformAction(
+            registration.event_id,
+            requester.id,
+            requester.role,
+            'manage_registrations'
+        );
+        if (!canManage) {
+            throw new ForbiddenError('Bạn không có quyền duyệt đăng ký này');
+        }
+    }
+
+    // Update registration
+    const updated = await prisma.registration.update({
+        where: { id: registrationId },
+        data: {
+            approval_status: 'approved',
+            approval_note: note || null,
+            approved_by: requester.id,
+            approved_at: new Date()
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    full_name: true,
+                    email: true,
+                    student_id: true,
+                    department: {
+                        select: { name: true }
+                    }
+                }
+            },
+            event: true
+        }
+    });
+
+    // Notify student
+    try {
+        await notificationsService.notifyRegistrationConfirm(
+            registration.user_id,
+            registration.event_id,
+            registration.event.title,
+            registration.event.location,
+            registration.event.start_time,
+            registration.event.end_time,
+            registration.event.training_points,
+            registration.qr_code,
+            registration.event.event_cost ? Number(registration.event.event_cost) : undefined
+        );
+
+        // Create ticket and send email
+        const ticket = await ticketService.createTicket({
+            registration_id: registration.id,
+            event_id: registration.event_id,
+            user_id: registration.user_id
+        });
+
+        const pdfPath = await emailService.generateTicketPDF(ticket);
+        await emailService.sendTicketEmail(ticket, pdfPath);
+        await ticketService.markTicketSent(ticket.id);
+    } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+    }
+
+    return updated;
+};
+
+export const rejectRegistration = async (
+    registrationId: number,
+    requester: RequesterContext,
+    note?: string
+) => {
+    const registration = await prisma.registration.findUnique({
+        where: { id: registrationId },
+        include: {
+            event: {
+                select: {
+                    id: true,
+                    title: true
+                }
+            },
+            user: {
+                select: {
+                    id: true,
+                    full_name: true
+                }
+            }
+        }
+    });
+
+    if (!registration) {
+        throw new NotFoundError('Đăng ký không tồn tại');
+    }
+
+    if (registration.approval_status !== 'pending') {
+        throw new ConflictError('Đăng ký đã được xử lý');
+    }
+
+    // Check permission
+    if (requester.role === 'organizer') {
+        const canManage = await eventTeamService.canUserPerformAction(
+            registration.event_id,
+            requester.id,
+            requester.role,
+            'manage_registrations'
+        );
+        if (!canManage) {
+            throw new ForbiddenError('Bạn không có quyền từ chối đăng ký này');
+        }
+    }
+
+    // Update registration
+    const updated = await prisma.registration.update({
+        where: { id: registrationId },
+        data: {
+            approval_status: 'rejected',
+            approval_note: note || null,
+            approved_by: requester.id,
+            approved_at: new Date()
+        }
+    });
+
+    // Cancel the registration
+    await prisma.registration.update({
+        where: { id: registrationId },
+        data: { status: 'cancelled' }
+    });
+
+    // Notify student
+    try {
+        await prisma.notification.create({
+            data: {
+                user_id: registration.user_id,
+                event_id: registration.event_id,
+                type: 'event_update',
+                title: 'Đăng ký bị từ chối',
+                message: `Đăng ký tham gia sự kiện "${registration.event.title}" đã bị từ chối. ${note ? 'Lý do: ' + note : ''}`
+            }
+        });
+    } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+    }
+
+    return updated;
 };
 
 export const getRegistrationById = async (registrationId: number) => {

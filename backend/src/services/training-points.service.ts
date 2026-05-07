@@ -278,8 +278,12 @@ export const awardTrainingPoints = async (
         }),
     ]);
 
-    if (!student || student.role !== 'student') {
+    if (!student) {
         throw new NotFoundError('User');
+    }
+
+    if (student.role !== 'student') {
+        throw new ValidationError('Chỉ sinh viên mới được nhận điểm rèn luyện. Giảng viên và đơn vị bên ngoài không được cấp điểm.');
     }
 
     if (!event || event.deleted_at) {

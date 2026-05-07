@@ -89,7 +89,7 @@ function EventStatusBadge({ status }: { status: string }) {
     const colors = statusColors[status] || statusColors.pending;
     const label = statusLabels[status] || status;
     return (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${colors.bg} ${colors.text}`}>
+        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${colors.bg} ${colors.text}`}>
             {label}
         </span>
     );

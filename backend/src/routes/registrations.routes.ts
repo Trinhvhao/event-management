@@ -16,9 +16,16 @@ router.post('/waitlist/:eventId', authenticate, authorize('student'), registrati
 router.delete('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.leaveWaitlist);
 router.get('/waitlist/:eventId', authenticate, authorize('student'), registrationsController.getMyWaitlistPosition);
 
-// Organizer/Admin routes
+// Approval routes (Organizer/Admin)
+router.get('/pending', authenticate, authorize('organizer', 'admin'), registrationsController.getPendingRegistrations);
+router.post('/:id/approve', authenticate, authorize('organizer', 'admin'), registrationsController.approveRegistration);
+router.post('/:id/reject', authenticate, authorize('organizer', 'admin'), registrationsController.rejectRegistration);
+
+// Event registrations (Organizer/Admin)
 router.get('/event/:eventId', authenticate, authorize('organizer', 'admin'), registrationsController.getEventRegistrations);
 router.get('/event/:eventId/waitlist', authenticate, authorize('organizer', 'admin'), registrationsController.getEventWaitlist);
+
+// Common routes
 router.get('/:id/qrcode', authenticate, registrationsController.getRegistrationQRCode);
 router.get('/:id/qr', authenticate, registrationsController.getRegistrationQRCode);
 router.get('/:id', authenticate, registrationsController.getRegistrationById);

@@ -1,5 +1,5 @@
 // User types
-export type UserRole = 'student' | 'organizer' | 'admin';
+export type UserRole = 'student' | 'organizer' | 'admin' | 'teacher' | 'external';
 
 // Event Team Role types
 export type EventTeamRole = 'main_organizer' | 'helper';
@@ -69,6 +69,8 @@ export interface AuthResponse {
 // Event types
 export type EventStatus = 'pending' | 'approved' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 
+export type ApprovalType = 'auto_approve' | 'require_approval' | 'no_registration';
+
 export interface Event {
   id: number;
   title: string;
@@ -90,6 +92,10 @@ export interface Event {
   image_url?: string;
   is_featured: boolean;
   registration_deadline?: string;
+  approval_type: ApprovalType;
+  require_reason: boolean;
+  require_agreement: boolean;
+  agreement_text?: string;
   _count?: { registrations: number };
   created_at: string;
   updated_at: string;
@@ -105,9 +111,13 @@ export interface CreateEventData {
   department_id: number;
   capacity: number;
   training_points: number;
-  event_cost: number;
+  event_cost?: number;
   image_url?: string;
   registration_deadline?: string;
+  approval_type?: ApprovalType;
+  require_reason?: boolean;
+  require_agreement?: boolean;
+  agreement_text?: string;
 }
 
 // Department & Category types
@@ -131,16 +141,40 @@ export interface Category {
 // Registration types
 export type RegistrationStatus = 'registered' | 'cancelled' | 'attended';
 
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Registration {
   id: number;
   user_id: number;
   event_id: number;
-  event?: Event;
   registered_at: string;
   status: RegistrationStatus;
   qr_code: string;
-  cancelled_at?: string;
   cancellation_reason?: string;
+  cancelled_at?: string;
+  // Approval fields
+  approval_status: ApprovalStatus;
+  approval_note?: string;
+  approved_by?: number;
+  approved_at?: string;
+  reason?: string;
+  agreed_at?: string;
+  // Relations
+  user?: {
+    id: number;
+    full_name: string;
+    email: string;
+    student_id?: string;
+    department?: {
+      id: number;
+      name: string;
+    };
+  };
+  event?: Event;
+  approver?: {
+    id: number;
+    full_name: string;
+  };
 }
 
 // Payment types
@@ -242,5 +276,44 @@ export interface ApiError {
     message: string;
     code?: string;
     details?: unknown;
+  };
+}
+
+// Ticket types
+export type TicketStatus = 'valid' | 'used' | 'cancelled' | 'expired';
+
+export interface Ticket {
+  id: number;
+  ticket_code: string;
+  registration_id: number;
+  qr_data: string;
+  qr_image: string | null;
+  pdf_url: string | null;
+  status: TicketStatus;
+  sent_at: string | null;
+  created_at: string;
+  is_past?: boolean;
+  is_upcoming?: boolean;
+  registration: {
+    id: number;
+    user_id: number;
+    event_id: number;
+    registered_at: string;
+    status: string;
+    user: {
+      id: number;
+      email: string;
+      full_name: string;
+      student_id: string | null;
+      department: { id: number; name: string } | null;
+    };
+    event: {
+      id: number;
+      title: string;
+      description: string | null;
+      start_time: string;
+      end_time: string;
+      location: string | null;
+    };
   };
 }

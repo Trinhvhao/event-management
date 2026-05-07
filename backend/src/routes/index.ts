@@ -17,6 +17,7 @@ import adminRoutes from './admin.routes';
 import searchRoutes from './search.routes';
 import uploadRoutes from './upload.routes';
 import paymentRoutes from './payments.routes';
+import ticketRoutes from './ticket.routes';
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -34,6 +35,7 @@ router.use('/admin', adminRoutes);
 router.use('/search', searchRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/tickets', ticketRoutes);
 
 // API info endpoint
 router.get('/', (_req, res) => {

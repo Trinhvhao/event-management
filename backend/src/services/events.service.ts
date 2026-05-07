@@ -258,13 +258,15 @@ export const eventService = {
       },
     });
 
-    createNotification({
-      user_id: updated.organizer_id,
-      event_id: updated.id,
-      title: `Sự kiện đã được duyệt: ${updated.title}`,
-      message: `Sự kiện "${updated.title}" đã được phê duyệt và hiển thị trong hệ thống.`,
-      type: 'event_update',
-    }).catch(() => { });
+    if (updated.organizer_id) {
+        createNotification({
+            user_id: updated.organizer_id,
+            event_id: updated.id,
+            title: `Sự kiện đã được duyệt: ${updated.title}`,
+            message: `Sự kiện "${updated.title}" đã được phê duyệt và hiển thị trong hệ thống.`,
+            type: 'event_update',
+        }).catch(() => { });
+    }
 
     return transformEvent(updated);
   },
@@ -299,15 +301,17 @@ export const eventService = {
       },
     });
 
-    createNotification({
-      user_id: updated.organizer_id,
-      event_id: updated.id,
-      title: `Sự kiện bị từ chối: ${updated.title}`,
-      message: reason
-        ? `Sự kiện "${updated.title}" chưa được duyệt. Lý do: ${reason}`
-        : `Sự kiện "${updated.title}" chưa được duyệt. Vui lòng cập nhật thông tin và gửi lại.`,
-      type: 'event_update',
-    }).catch(() => { });
+    if (updated.organizer_id) {
+        createNotification({
+            user_id: updated.organizer_id,
+            event_id: updated.id,
+            title: `Sự kiện bị từ chối: ${updated.title}`,
+            message: reason
+                ? `Sự kiện "${updated.title}" chưa được duyệt. Lý do: ${reason}`
+                : `Sự kiện "${updated.title}" chưa được duyệt. Vui lòng cập nhật thông tin và gửi lại.`,
+            type: 'event_update',
+        }).catch(() => { });
+    }
 
     return transformEvent(updated);
   },

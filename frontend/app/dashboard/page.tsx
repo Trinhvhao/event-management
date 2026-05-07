@@ -968,7 +968,7 @@ export default function DashboardPage() {
                         {format(new Date(event.start_time), 'dd/MM/yyyy • HH:mm', { locale: vi })}
                       </p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${STATUS_BADGE[event.status] || STATUS_BADGE.upcoming}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 whitespace-nowrap ${STATUS_BADGE[event.status] || STATUS_BADGE.upcoming}`}>
                       {STATUS_LABELS[event.status] || event.status}
                     </span>
                   </div>
@@ -1045,7 +1045,7 @@ export default function DashboardPage() {
                   className="p-4 rounded-xl border border-[var(--border-default)] hover:border-[var(--color-brand-navy)] hover:shadow-[var(--shadow-card-hover)] cursor-pointer transition-all group"
                 >
                   <div className="mb-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_BADGE[event.status] || STATUS_BADGE.upcoming}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 whitespace-nowrap ${STATUS_BADGE[event.status] || STATUS_BADGE.upcoming}`}>
                       {STATUS_LABELS[event.status] || event.status}
                     </span>
                   </div>

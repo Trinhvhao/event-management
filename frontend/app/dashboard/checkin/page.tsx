@@ -9,6 +9,9 @@ import {
     WifiOff, Wifi, Cloud, Eye, Clock3
 } from 'lucide-react';
 import { checkinService, CheckinResult, AttendanceRecord, AttendanceStats, AttendanceDetail } from '@/services/checkinService';
+import { Html5Qrcode } from 'html5-qrcode';
+
+interface CameraDeviceInfo { id: string; label: string; }
 import { useOfflineCheckin } from '@/hooks/useOfflineCheckin';
 import { eventService } from '@/services/eventService';
 import { Event } from '@/types';
@@ -26,8 +29,6 @@ const ACCENT = {
 };
 
 type ScanMode = 'manual' | 'camera';
-type BarcodeDetectorLike = { detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>> };
-type BarcodeDetectorConstructorLike = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
     if (error && typeof error === 'object' && 'response' in error) {
@@ -35,6 +36,26 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
         return data?.error?.message || data?.message || fallback;
     }
     return fallback;
+};
+
+const getCameraErrorMessage = (error: unknown): string => {
+    if (!error || typeof error !== 'object') return 'Không thể mở camera. Vui lòng thử lại.';
+    const err = error as { name?: string; message?: string; toString?: () => string };
+    const msg = err.toString?.() || err.message || '';
+    const lower = msg.toLowerCase();
+    if (err.name === 'NotAllowedError' || lower.includes('permission') || lower.includes('denied')) {
+        return 'Camera bị từ chối. Vui lòng cho phép truy cập camera trong cài đặt trình duyệt.';
+    }
+    if (err.name === 'NotFoundError' || lower.includes('not found') || lower.includes('no device')) {
+        return 'Không tìm thấy camera. Vui lòng kiểm tra thiết bị hoặc dùng chế độ Nhập mã.';
+    }
+    if (lower.includes('insecure') || lower.includes('https') || err.name === 'NotSupportedError') {
+        return 'Quét camera cần truy cập qua HTTPS. Vui lòng dùng chế độ Nhập mã.';
+    }
+    if (err.name === 'NotReadableError' || lower.includes('in use') || lower.includes('busy')) {
+        return 'Camera đang được sử dụng bởi ứng dụng khác. Vui lòng đóng ứng dụng khác và thử lại.';
+    }
+    return 'Không thể mở camera. Vui lòng dùng chế độ Nhập mã.';
 };
 
 const normalizeQrError = (msg: string, fallback: string): string => {
@@ -95,13 +116,14 @@ export default function CheckinPage() {
     const [loadingAttendanceId, setLoadingAttendanceId] = useState<number | null>(null);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [cameraReady, setCameraReady] = useState(false);
+    const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
+    const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+    const [loadingCameras, setLoadingCameras] = useState(false);
 
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const cameraStreamRef = useRef<MediaStream | null>(null);
-    const detectorRef = useRef<BarcodeDetectorLike | null>(null);
-    const scanFrameRef = useRef<number | null>(null);
-    const scanLockRef = useRef(false);
-    const lastProcessedRef = useRef<string | null>(null);
+    const videoRef = useRef<HTMLDivElement>(null);
+    const scannerRef = useRef<Html5Qrcode | null>(null);
+    const scanCooldownRef = useRef<boolean>(false);
+    const lastScanTimeRef = useRef<number>(0);
 
     // ── Sound feedback ──────────────────────────────────────────────
     const playSound = useCallback((type: 'success' | 'error') => {
@@ -208,68 +230,84 @@ export default function CheckinPage() {
 
     // ── Camera logic ──────────────────────────────────────────────────
     const stopCamera = useCallback(() => {
-        if (scanFrameRef.current !== null) { cancelAnimationFrame(scanFrameRef.current); scanFrameRef.current = null; }
-        if (cameraStreamRef.current) { cameraStreamRef.current.getTracks().forEach(t => t.stop()); cameraStreamRef.current = null; }
-        if (videoRef.current) { videoRef.current.pause(); videoRef.current.srcObject = null; }
+        if (scannerRef.current) {
+            scannerRef.current.stop().catch(() => {});
+            scannerRef.current = null;
+        }
         setCameraReady(false);
     }, []);
 
+    const enumerateCameras = useCallback(async () => {
+        setLoadingCameras(true);
+        try {
+            const devices = await Html5Qrcode.getCameras();
+            const cams: CameraDeviceInfo[] = devices.map(d => ({ id: d.id, label: d.label || `Camera ${d.id.slice(0, 8)}` }));
+            setAvailableCameras(cams);
+            if (cams.length > 0 && !selectedCameraId) {
+                const backCamera = cams.find(c =>
+                    c.label.toLowerCase().includes('back') ||
+                    c.label.toLowerCase().includes('sau') ||
+                    c.label.toLowerCase().includes('environment')
+                );
+                setSelectedCameraId(backCamera?.id ?? cams[0].id);
+            }
+        } catch (err) {
+            console.warn('Không thể liệt kê camera:', err);
+            setAvailableCameras([]);
+        } finally {
+            setLoadingCameras(false);
+        }
+    }, [selectedCameraId]);
+
     const startCamera = useCallback(async () => {
         if (typeof window === 'undefined') return;
-        stopCamera();
+        await stopCamera();
         setCameraError(null);
 
-        const barcodeCtor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructorLike }).BarcodeDetector;
-
-        if (!barcodeCtor) {
-            setCameraError('Trình duyệt không hỗ trợ quét camera. Vui lòng dùng Chrome/Edge hoặc chế độ Nhập mã.');
-            return;
-        }
-
         try {
-            detectorRef.current = new barcodeCtor({ formats: ['qr_code'] });
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: false,
-            });
-            cameraStreamRef.current = stream;
-            if (!videoRef.current) return;
-            videoRef.current.srcObject = stream;
-            await videoRef.current.play();
-            setCameraReady(true);
+            const scanner = new Html5Qrcode('qr-reader-container');
+            scannerRef.current = scanner;
 
-            const scanLoop = async () => {
-                if (!videoRef.current || !detectorRef.current || mode !== 'camera') return;
-                if (videoRef.current.readyState >= 2) {
-                    try {
-                        const results = await detectorRef.current.detect(videoRef.current);
-                        const raw = results[0]?.rawValue?.trim();
-                        if (raw && raw !== lastProcessedRef.current) {
-                            const now = Date.now();
-                            if (!lastScan || now - lastScan.ts > 3000) {
-                                lastProcessedRef.current = raw;
-                                scanLockRef.current = true;
-                                try { await doCheckin(raw); }
-                                finally { scanLockRef.current = false; }
-                                setTimeout(() => { lastProcessedRef.current = null; }, 3000);
-                            }
-                        }
-                    } catch { /* transient decode errors */ }
-                }
-                scanFrameRef.current = requestAnimationFrame(() => { void scanLoop(); });
-            };
-            scanFrameRef.current = requestAnimationFrame(() => { void scanLoop(); });
-        } catch {
-            setCameraError('Không thể mở camera. Kiểm tra quyền truy cập camera.');
-            stopCamera();
+            const cameraIdOrConfig = selectedCameraId
+                ? { deviceId: { exact: selectedCameraId } }
+                : { facingMode: 'environment' };
+
+            await scanner.start(
+                cameraIdOrConfig,
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1,
+                },
+                async (decodedText) => {
+                    const now = Date.now();
+                    if (scanCooldownRef.current || now - lastScanTimeRef.current < 3000) return;
+                    scanCooldownRef.current = true;
+                    lastScanTimeRef.current = now;
+                    try { await doCheckin(decodedText); }
+                    finally { setTimeout(() => { scanCooldownRef.current = false; }, 3000); }
+                },
+                () => {}
+            );
+
+            setCameraReady(true);
+        } catch (err) {
+            setCameraError(getCameraErrorMessage(err));
+            await stopCamera();
         }
-    }, [doCheckin, lastScan, mode, stopCamera]);
+    }, [stopCamera, doCheckin, selectedCameraId]);
 
     useEffect(() => {
-        if (mode !== 'camera') { stopCamera(); setCameraError(null); return; }
-        void startCamera();
-        return () => stopCamera();
-    }, [mode, startCamera, stopCamera]);
+        if (mode !== 'camera') { void stopCamera(); setCameraError(null); return; }
+        void enumerateCameras();
+        return () => { void stopCamera(); };
+    }, [mode, stopCamera, enumerateCameras]);
+
+    useEffect(() => {
+        if (mode === 'camera' && selectedCameraId && cameraError === null) {
+            void startCamera();
+        }
+    }, [mode, selectedCameraId, cameraError, startCamera]);
 
     // ── Manual check-in ───────────────────────────────────────────────
     const handleManualCheckin = async () => {
@@ -572,6 +610,49 @@ export default function CheckinPage() {
                                     </button>
                                 </div>
 
+                                {/* Camera selector */}
+                                {mode === 'camera' && (
+                                    <div className="relative">
+                                        {loadingCameras ? (
+                                            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-(--border-default) bg-(--bg-muted)">
+                                                <div className="h-4 w-4 rounded-full border-2 border-(--text-muted)/30 border-t-(--text-muted) animate-spin shrink-0" />
+                                                <span className="text-xs font-medium text-(--text-muted)">Đang tìm camera...</span>
+                                            </div>
+                                        ) : availableCameras.length > 1 ? (
+                                            <div className="flex items-center gap-2">
+                                                <label className="text-xs font-bold uppercase tracking-widest text-(--text-muted) shrink-0">Camera:</label>
+                                                <div className="relative flex-1">
+                                                    <select
+                                                        value={selectedCameraId}
+                                                        onChange={(e) => {
+                                                            setSelectedCameraId(e.target.value);
+                                                        }}
+                                                        className="w-full h-10 appearance-none rounded-xl border-2 border-(--border-default) bg-white pl-3 pr-8 text-sm font-semibold text-(--text-primary) focus:border-(--color-brand-navy) focus:outline-none transition-colors cursor-pointer"
+                                                    >
+                                                        {availableCameras.map(cam => (
+                                                            <option key={cam.id} value={cam.id}>
+                                                                {cam.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                                        <svg className="h-4 w-4 text-(--text-muted)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : availableCameras.length === 1 ? (
+                                            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-(--border-default) bg-(--bg-muted)">
+                                                <Camera className="h-4 w-4 text-(--text-muted) shrink-0" />
+                                                <span className="text-xs font-medium text-(--text-muted) truncate">
+                                                    {availableCameras[0].label}
+                                                </span>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                )}
+
                                 {/* QR paste */}
                                 {mode === 'manual' && (
                                     <div className="space-y-3">
@@ -623,39 +704,40 @@ export default function CheckinPage() {
                                 {mode === 'camera' && (
                                     <div className="space-y-3">
                                         <div className="relative overflow-hidden rounded-2xl border-2 border-(--border-default) bg-black aspect-square">
-                                            <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
+                                            {/* html5-qrcode renders into this div */}
+                                            <div id="qr-reader-container" ref={videoRef} className="h-full w-full [&_video]:!h-full [&_video]:!w-full [&_video]:!object-cover [&_img]:!hidden" />
                                             {/* Scan frame overlay */}
                                             {cameraReady && (
-                                                <>
-                                                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                                        <div className="relative w-48 h-48">
-                                                            <div className="absolute inset-0 rounded-2xl border-2 border-white/80" />
-                                                            <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-[#00A651] rounded-tl-xl" />
-                                                            <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-[#00A651] rounded-tr-xl" />
-                                                            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-[#00A651] rounded-bl-xl" />
-                                                            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-[#00A651] rounded-br-xl" />
-                                                        </div>
+                                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+                                                    <div className="relative h-48 w-48">
+                                                        <div className="absolute inset-0 rounded-2xl border-2 border-white/80" />
+                                                        <div className="absolute top-0 left-0 h-6 w-6 border-t-4 border-l-4 border-[#00A651] rounded-tl-xl" />
+                                                        <div className="absolute top-0 right-0 h-6 w-6 border-t-4 border-r-4 border-[#00A651] rounded-tr-xl" />
+                                                        <div className="absolute bottom-0 left-0 h-6 w-6 border-b-4 border-l-4 border-[#00A651] rounded-bl-xl" />
+                                                        <div className="absolute bottom-0 right-0 h-6 w-6 border-b-4 border-r-4 border-[#00A651] rounded-br-xl" />
                                                     </div>
-                                                    <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_9999px_rgba(0,0,0,0.4)] rounded-2xl" />
-                                                </>
+                                                </div>
+                                            )}
+                                            {cameraReady && (
+                                                <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_9999px_rgba(0,0,0,0.4)] rounded-2xl z-0" />
                                             )}
                                             {!cameraReady && !cameraError && (
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
-                                                    <p className="text-white text-sm font-medium">Đang mở camera...</p>
+                                                    <div className="h-10 w-10 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
+                                                    <p className="text-sm font-medium text-white">Đang mở camera...</p>
                                                 </div>
                                             )}
                                         </div>
 
                                         {cameraReady && (
                                             <div className="flex items-center justify-center gap-2 text-sm font-semibold" style={{ color: ACCENT.green.hex }}>
-                                                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT.green.hex }} />
+                                                <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: ACCENT.green.hex }} />
                                                 Camera đang hoạt động
                                             </div>
                                         )}
                                         {cameraError && (
                                             <div className="flex items-start gap-2 rounded-xl border border-(--color-brand-red)/20 bg-(--color-brand-red)/5 p-3">
-                                                <AlertCircle className="w-4 h-4 text-(--color-brand-red) shrink-0 mt-0.5" />
+                                                <AlertCircle className="h-4 w-4 text-(--color-brand-red) mt-0.5 shrink-0" />
                                                 <p className="text-xs font-medium text-(--color-brand-red)">{cameraError}</p>
                                             </div>
                                         )}

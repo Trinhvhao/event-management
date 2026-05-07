@@ -519,7 +519,8 @@ export const adminService = {
 
         const totalsMap = new Map(roleTotals.map((row) => [row.role, row._count._all]));
         const activeMap = new Map(activeRoleTotals.map((row) => [row.role, row._count._all]));
-        const roles: UserRole[] = ['admin', 'organizer', 'student'];
+        // All known roles — dynamically included so new roles appear automatically
+        const roles: UserRole[] = ['admin', 'organizer', 'student', 'teacher', 'external'];
 
         const byRole = roles.map((role) => {
             const total = totalsMap.get(role) || 0;

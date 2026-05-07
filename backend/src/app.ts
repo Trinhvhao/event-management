@@ -11,10 +11,15 @@ const app: Application = express();
 // Security middleware
 app.use(helmet());
 
+// Parse CORS_ORIGIN from comma-separated string to array
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:7777')
+  .split(',')
+  .map(origin => origin.trim());
+
 // CORS configuration
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:7777',
+    origin: corsOrigins,
     credentials: true,
   })
 );

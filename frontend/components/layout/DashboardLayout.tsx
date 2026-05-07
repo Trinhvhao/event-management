@@ -22,7 +22,8 @@ import {
     Activity,
     LayoutDashboard,
     ClipboardList,
-    CreditCard
+    CreditCard,
+    Ticket
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import NotificationBell from '../dashboard/NotificationBell';
@@ -82,7 +83,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             return [
                 { href: '/dashboard/organizer', icon: LayoutDashboard, label: 'Dashboard' },
                 { href: '/dashboard/organizer/events', icon: Calendar, label: 'Sự kiện của tôi' },
+                { href: '/dashboard/organizer/team', icon: Users, label: 'Đội ngũ', description: 'Thành viên BTC' },
                 { href: '/dashboard/events', icon: CalendarDays, label: 'Khám phá sự kiện' },
+                { href: '/dashboard/registrations/pending', icon: ClipboardList, label: 'Duyệt đăng ký' },
+                { href: '/dashboard/tickets', icon: Ticket, label: 'Vé của tôi' },
                 { href: '/dashboard/checkin', icon: QrCode, label: 'Check-in & Điểm danh' },
                 { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
                 { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
@@ -94,6 +98,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             { href: '/dashboard', icon: LayoutDashboard, label: 'Trang chủ' },
             { href: '/dashboard/events', icon: Calendar, label: 'Khám phá sự kiện' },
             { href: '/dashboard/my-registrations', icon: CheckSquare, label: 'Sự kiện đã đăng ký' },
+            { href: '/dashboard/tickets', icon: Ticket, label: 'Vé của tôi' },
             { href: '/dashboard/payment/history', icon: CreditCard, label: 'Lịch sử thanh toán' },
             { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
         ];

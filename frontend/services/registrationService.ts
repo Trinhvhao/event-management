@@ -49,9 +49,11 @@ interface RegistrationWithRelations extends Registration {
 }
 
 export const registrationService = {
-    async register(eventId: number): Promise<Registration> {
-        const response = await axios.post<ApiResponse<Registration>>('/registrations', {
+    async register(eventId: number, options?: { reason?: string; agreed?: boolean }): Promise<Registration & { is_pending_approval?: boolean }> {
+        const response = await axios.post<ApiResponse<Registration & { is_pending_approval?: boolean }>>('/registrations', {
             event_id: eventId,
+            reason: options?.reason,
+            agreed: options?.agreed,
         });
         return response.data.data;
     },
@@ -146,6 +148,31 @@ export const registrationService = {
     async getEventWaitlist(eventId: number): Promise<WaitlistEntry[]> {
         const response = await axios.get<ApiResponse<WaitlistEntry[]>>(
             `/registrations/event/${eventId}/waitlist`
+        );
+        return response.data.data;
+    },
+
+    // Approval methods
+    async getPendingRegistrations(eventId?: number): Promise<Registration[]> {
+        const params = eventId ? `?event_id=${eventId}` : '';
+        const response = await axios.get<ApiResponse<Registration[]>>(
+            `/registrations/pending${params}`
+        );
+        return response.data.data;
+    },
+
+    async approveRegistration(registrationId: number, note?: string): Promise<Registration> {
+        const response = await axios.post<ApiResponse<Registration>>(
+            `/registrations/${registrationId}/approve`,
+            { note }
+        );
+        return response.data.data;
+    },
+
+    async rejectRegistration(registrationId: number, note?: string): Promise<Registration> {
+        const response = await axios.post<ApiResponse<Registration>>(
+            `/registrations/${registrationId}/reject`,
+            { note }
         );
         return response.data.data;
     },

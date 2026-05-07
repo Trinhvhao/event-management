@@ -206,6 +206,7 @@ NotificationType:      registration_confirm | event_reminder | event_update |
 | Analytics | `/api/analytics` | Time series, department distribution |
 | Admin | `/api/admin` | User mgmt, categories, departments, roles |
 | Search | `/api/search` | Tìm kiếm toàn cục |
+| **Tickets** | `/api/tickets` | **Ticket management, PDF generation, email sending** |
 
 ---
 
@@ -231,6 +232,7 @@ NotificationType:      registration_confirm | event_reminder | event_update |
 | Chi tiết sự kiện | `/dashboard/events/[id]` |
 | Chỉnh sửa sự kiện | `/dashboard/events/[id]/edit` |
 | Lịch sự kiện | `/dashboard/events/calendar` |
+| **Vé của tôi** | `/dashboard/tickets` |
 | Sự kiện đã đăng ký | `/dashboard/my-registrations` |
 | Sự kiện của tôi | `/dashboard/my-events` |
 | **Điểm danh (Check-in)** | `/dashboard/checkin` |
@@ -272,6 +274,7 @@ NotificationType:      registration_confirm | event_reminder | event_update |
 | **Hạn đăng ký** | ✅ Hoàn thành | registration_deadline trong event create/edit |
 | **Pending reject modal** | ✅ Hoàn thành | Modal xác nhận thay vì window.prompt |
 | **Category delete confirm** | ✅ Hoàn thành | Dialog xác nhận trước khi xóa |
+| **Event Ticket System** | ✅ Hoàn thành | Ticket điện tử với QR, PDF, email xác nhận |
 
 ---
 

@@ -14,6 +14,8 @@ enum UserRole {
   student
   organizer
   admin
+  teacher
+  external
 }
 
 enum EventStatus {
@@ -31,6 +33,12 @@ enum RegistrationStatus {
   attended
 }
 
+enum ApprovalStatus {
+  pending    // Chờ duyệt
+  approved   // Đã duyệt
+  rejected   // Từ chối
+}
+
 enum AttendanceStatus {
   checked_in
   checked_out
@@ -44,6 +52,14 @@ enum NotificationType {
   feedback_request
   checkin_success
   points_awarded
+  ticket_created
+}
+
+enum TicketStatus {
+  valid
+  used
+  cancelled
+  expired
 }
 
 enum PaymentStatus {
@@ -60,6 +76,12 @@ enum PaymentMethod {
   vnpay
   bank_transfer
   cash
+}
+
+enum ApprovalType {
+  auto_approve  // Tự động duyệt
+  require_approval  // Cần phê duyệt
+  no_registration  // Không cần đăng ký (sự kiện tự do)
 }
 
 // Models
@@ -81,7 +103,7 @@ model User {
   updated_at           DateTime  @updatedAt
 
   // Relations
-  department             Department?     @relation(fields: [department_id], references: [id])
+  department             Department?     @relation(fields: [department_id], references: [id], onUpdate: SetNull)
   organized_events       Event[]         @relation("EventOrganizer")
   event_team_memberships EventTeamMember[]
   added_team_members     EventTeamMember[] @relation("AddedByUser")
@@ -92,6 +114,7 @@ model User {
   checked_in_attendances Attendance[]    @relation("CheckedBy")
   audit_logs_as_admin    AuditLog[]      @relation("AuditAdmin")
   audit_logs_as_user     AuditLog[]      @relation("AuditUser")
+  approved_registrations  Registration[]  @relation("ApprovedBy")
   waitlist_entries       EventWaitlist[]
   payments               Payment[]
 
@@ -140,7 +163,7 @@ model Event {
   location              String
   category_id           Int
   department_id          Int
-  organizer_id          Int
+  organizer_id          Int?
   capacity              Int
   training_points       Int         @default(0)
   event_cost            Decimal     @default(0)   @db.Decimal(10, 0)
@@ -152,10 +175,18 @@ model Event {
   created_at            DateTime    @default(now())
   updated_at            DateTime    @updatedAt
 
+  // Approval settings
+  approval_type         ApprovalType @default(auto_approve)  // Loại hình thức đăng ký
+  require_reason        Boolean      @default(false)         // Có yêu cầu lý do đăng ký
+
+  // Agreement/Terms settings
+  require_agreement     Boolean      @default(true)         // Yêu cầu đồng ý nội quy
+  agreement_text        String?                           // Nội quy riêng cho sự kiện này (null = dùng mặc định)
+
   // Relations
-  category                Category        @relation(fields: [category_id], references: [id])
-  department              Department      @relation(fields: [department_id], references: [id])
-  organizer               User            @relation("EventOrganizer", fields: [organizer_id], references: [id])
+  category                Category        @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  department              Department      @relation(fields: [department_id], references: [id], onDelete: Cascade)
+  organizer               User?           @relation("EventOrganizer", fields: [organizer_id], references: [id], onDelete: SetNull, onUpdate: SetNull)
   team_members            EventTeamMember[]
   registrations           Registration[]
   awarded_training_points TrainingPoint[]
@@ -179,19 +210,33 @@ model Registration {
   event_id      Int
   registered_at DateTime           @default(now())
   status        RegistrationStatus @default(registered)
-  qr_code       String             @unique
+  qr_code       String
+
+  // Approval fields
+  approval_status  ApprovalStatus @default(approved)  // pending, approved, rejected
+  approval_note    String?                          // Ghi chú từ người duyệt
+  approved_by      Int?
+  approved_at      DateTime?
+
+  // Lý do đăng ký
+  reason          String?
+
+  // Cam kết/Đồng ý nội quy
+  agreed_at       DateTime?                          // Thời điểm đồng ý cam kết
 
   // Relations
   user       User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event      Event       @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  approver   User?       @relation("ApprovedBy", fields: [approved_by], references: [id])
   attendance Attendance?
   payment    Payment?
+  ticket     Ticket?
 
   @@unique([user_id, event_id])
   @@index([user_id])
   @@index([event_id])
-  @@index([qr_code])
   @@index([event_id, status])
+  @@index([approval_status])
   @@map("registrations")
 }
 
@@ -218,7 +263,7 @@ model Payment {
 
   // Relations
   registration Registration @relation(fields: [registration_id], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [user_id], references: [id])
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event        Event        @relation(fields: [event_id], references: [id])
 
   @@index([user_id])
@@ -377,4 +422,24 @@ model EventWaitlist {
   @@index([event_id, status])
   @@index([position])
   @@map("event_waitlist")
+}
+
+model Ticket {
+  id              Int         @id @default(autoincrement())
+  ticket_code     String      @unique
+  registration_id Int         @unique
+  qr_data         String
+  qr_image        String?
+  pdf_url         String?
+  status          TicketStatus @default(valid)
+  sent_at         DateTime?
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  // Relations
+  registration Registration @relation(fields: [registration_id], references: [id], onDelete: Cascade)
+
+  @@index([ticket_code])
+  @@index([status])
+  @@map("tickets")
 }

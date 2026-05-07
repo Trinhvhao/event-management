@@ -36,7 +36,7 @@ interface User {
     id: string;
     full_name: string;
     email: string;
-    role: 'admin' | 'organizer' | 'student';
+    role: UserRole;
     department?: {
         id: string;
         name: string;

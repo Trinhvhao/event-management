@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { adminService } from '@/services/adminService';
 import { User, UserRole } from '@/types';
-import { ShieldCheck, Users, Shield, GraduationCap, Activity, ChevronDown } from 'lucide-react';
+import { ShieldCheck, Users, Shield, GraduationCap, Activity, BookOpen, Briefcase, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 type RoleSummary = {
@@ -20,6 +20,8 @@ const DEFAULT_ROLE_SUMMARY: Record<UserRole, RoleSummary> = {
   admin: { total: 0, active: 0, inactive: 0, percentage: 0 },
   organizer: { total: 0, active: 0, inactive: 0, percentage: 0 },
   student: { total: 0, active: 0, inactive: 0, percentage: 0 },
+  teacher: { total: 0, active: 0, inactive: 0, percentage: 0 },
+  external: { total: 0, active: 0, inactive: 0, percentage: 0 },
 };
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
@@ -40,6 +42,18 @@ const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: str
     color: '#00A651',
     bgColor: 'from-[#00A651]/10 to-[#00A651]/5',
     icon: <GraduationCap className="w-5 h-5" />,
+  },
+  teacher: {
+    label: 'Giảng viên',
+    color: '#7C3AED',
+    bgColor: 'from-purple-500/10 to-purple-500/5',
+    icon: <BookOpen className="w-5 h-5" />,
+  },
+  external: {
+    label: 'Đơn vị bên ngoài',
+    color: '#0891B2',
+    bgColor: 'from-cyan-500/10 to-cyan-500/5',
+    icon: <Briefcase className="w-5 h-5" />,
   },
 };
 
@@ -71,6 +85,8 @@ export default function SettingsRolesPage() {
         admin: { ...DEFAULT_ROLE_SUMMARY.admin },
         organizer: { ...DEFAULT_ROLE_SUMMARY.organizer },
         student: { ...DEFAULT_ROLE_SUMMARY.student },
+        teacher: { ...DEFAULT_ROLE_SUMMARY.teacher },
+        external: { ...DEFAULT_ROLE_SUMMARY.external },
       };
 
       for (const row of roleStatistics.byRole || []) {
@@ -128,8 +144,8 @@ export default function SettingsRolesPage() {
         </div>
 
         {/* Role statistics cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {(['admin', 'organizer', 'student'] as UserRole[]).map((role) => {
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {(['admin', 'organizer', 'student', 'teacher', 'external'] as UserRole[]).map((role) => {
             const config = ROLE_CONFIG[role];
             const stats = roleStats[role];
             return (
@@ -205,8 +221,8 @@ export default function SettingsRolesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {(['admin', 'organizer', 'student'] as UserRole[]).map((role) => {
+          <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {(['admin', 'organizer', 'student', 'teacher', 'external'] as UserRole[]).map((role) => {
               const config = ROLE_CONFIG[role];
               const permissions = roleMatrix?.[role]?.permissions || [];
               return (

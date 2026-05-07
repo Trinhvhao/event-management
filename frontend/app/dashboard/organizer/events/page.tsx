@@ -53,7 +53,7 @@ const STATUS_CONFIG: Record<StatusFilter, { label: string; color: string; bg: st
 function StatusBadge({ status }: { status: string }) {
     const config = STATUS_CONFIG[status as StatusFilter] || STATUS_CONFIG.all;
     return (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${config.bg} ${config.color} ${config.border}`}>
+        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${config.bg} ${config.color} ${config.border}`}>
             {config.label}
         </span>
     );
@@ -374,6 +374,13 @@ export default function OrganizerEventsPage() {
                                                 title="Check-in"
                                             >
                                                 <QrCode className="w-4 h-4 text-emerald-600" />
+                                            </Link>
+                                            <Link
+                                                href={`/dashboard/organizer/events/${event.id}/team`}
+                                                className="p-1.5 rounded-lg hover:bg-purple-50 transition-colors"
+                                                title="Quản lý đội ngũ"
+                                            >
+                                                <Users className="w-4 h-4 text-purple-600" />
                                             </Link>
                                             <Link
                                                 href={`/dashboard/events/${event.id}/edit`}

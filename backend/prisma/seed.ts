@@ -158,7 +158,7 @@ async function main() {
     const categories = await seedCategories(prisma);
 
     // 3. Seed Users
-    const { organizers, students } = await seedUsers(prisma, departments);
+    const { organizers, teachers, students } = await seedUsers(prisma, departments);
 
     // 4. Seed Events
     const events = await seedEvents(prisma, categories, departments, organizers);
@@ -207,11 +207,17 @@ async function main() {
     console.log('   Admin:');
     console.log('     - Email: admin@dnu.edu.vn');
     console.log('     - Password: admin123');
-    console.log('\n   Organizers:');
+    console.log('\n   Organizers (sinh viên làm BTC — có điểm RL khi tham dự):');
     console.log('     - Email: organizer.cntt@dnu.edu.vn / organizer123');
     console.log('     - Email: organizer.ktdn@dnu.edu.vn / organizer123');
     console.log('     - Email: organizer.nn@dnu.edu.vn / organizer123');
-    console.log('\n   Students:');
+    console.log('\n   Teachers (giảng viên — KHÔNG có điểm RL):');
+    console.log('     - Email: teacher@dnu.edu.vn / teacher123');
+    console.log('     - Email: teacher.business@dnu.edu.vn / teacher123');
+    console.log('\n   External (doanh nghiệp — KHÔNG có điểm RL):');
+    console.log('     - Email: partner@fpt.com / external123');
+    console.log('     - Email: partner@viettel.com / external123');
+    console.log('\n   Students (có điểm RL):');
     console.log('     - Email: student1@dnu.edu.vn / student123 (MSSV: 2071020001)');
     console.log('     - Email: student2@dnu.edu.vn / student123 (MSSV: 2071020002)');
     console.log('     - Email: student3@dnu.edu.vn / student123 (MSSV: 2071020003)');

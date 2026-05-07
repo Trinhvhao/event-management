@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { useAuthStore } from '@/store/authStore';
 import { useCategories, useDepartments, useEvent } from '@/hooks/useEvents';
 import { eventService } from '@/services/eventService';
 import Card from '@/components/ui/Card';
@@ -57,6 +58,7 @@ export default function EditEventPage() {
     const router = useRouter();
     const params = useParams();
     const eventId = Number(params.id);
+    const { user } = useAuthStore();
 
     const { event, loading: eventLoading } = useEvent(eventId);
     const { categories } = useCategories();
@@ -64,6 +66,20 @@ export default function EditEventPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formReady, setFormReady] = useState(false);
     const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [accessDenied, setAccessDenied] = useState(false);
+
+    // Ownership check
+    useEffect(() => {
+        if (event && user) {
+            const isOwner = user.id === event.organizer_id;
+            const isAdmin = user.role === 'admin';
+            const canEdit = isOwner || isAdmin;
+            if (!canEdit) {
+                setAccessDenied(true);
+                toast.error('Bạn không có quyền chỉnh sửa sự kiện này');
+            }
+        }
+    }, [event, user]);
 
     const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<EditEventForm>({
         resolver: zodResolver(editEventSchema),
@@ -135,12 +151,25 @@ export default function EditEventPage() {
         );
     }
 
+    if (accessDenied || (!eventLoading && !event)) {
+        return (
+            <DashboardLayout>
+            <div className="text-center py-20">
+                <p className="text-[var(--text-muted)]">Bạn không có quyền chỉnh sửa sự kiện này.</p>
+                <Link href="/dashboard/organizer/events">
+                    <Button variant="primary" className="mt-4">Quay lại</Button>
+                </Link>
+            </div>
+            </DashboardLayout>
+        );
+    }
+
     if (!event) {
         return (
             <DashboardLayout>
             <div className="text-center py-20">
-                <p className="text-(--dash-text-muted)">Không tìm thấy sự kiện</p>
-                <Link href="/dashboard/my-events">
+                <p className="text-[var(--text-muted)]">Không tìm thấy sự kiện</p>
+                <Link href="/dashboard/organizer/events">
                     <Button variant="primary" className="mt-4">Quay lại</Button>
                 </Link>
             </div>

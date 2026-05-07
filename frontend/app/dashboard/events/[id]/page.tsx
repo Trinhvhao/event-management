@@ -10,7 +10,7 @@ import {
     Calendar, MapPin, Users, Award, Clock, ArrowLeft,
     CheckCircle, XCircle, AlertCircle, Edit2, Ban, Hourglass, Trash2,
     Star, ChevronRight, CalendarCheck, Timer, CreditCard,
-    GraduationCap, Building2, Ticket, Info, Bell, Tag
+    GraduationCap, Building2, Ticket, Info, Bell, Tag, FileText
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { eventService } from '@/services/eventService';
@@ -78,6 +78,33 @@ export default function EventDetailPage() {
     const [waitlistInfo, setWaitlistInfo] = useState<WaitlistInfo | null>(null);
     const [countdown, setCountdown] = useState<{ text: string; urgent: boolean } | null>(null);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const [showReasonModal, setShowReasonModal] = useState(false);
+    const [registrationReason, setRegistrationReason] = useState('');
+    const [registrationAgreed, setRegistrationAgreed] = useState(false);
+
+    const DEFAULT_AGREEMENT_TEXT = `NỘI QUY VÀ CAM KẾT KHI THAM GIA SỰ KIỆN
+
+1. Tham gia đúng giờ:
+- Có mặt tại địa điểm tổ chức trước giờ bắt đầu ít nhất 15 phút
+- Thông báo với BTC nếu không thể tham gia hoặc đến muộn
+
+2. Tuân thủ nội quy:
+- Tắt điện thoại hoặc chuyển sang chế độ im lặng trong suốt sự kiện
+- Giữ trật tự, không gây ồn ào ảnh hưởng đến người khác
+- Tuân thủ hướng dẫn của Ban tổ chức
+
+3. Tham gia đầy đủ:
+- Tham gia toàn bộ chương trình sự kiện
+- Không rời đi sớm khi chưa được phép
+
+4. Giữ gìn vệ sinh và tài sản:
+- Không xả rác bừa bãi
+- Bảo vệ tài sản của địa điểm tổ chức
+
+5. Check-in/Check-out đúng quy trình:
+- Quét QR code khi vào và khi ra (nếu có yêu cầu)
+
+Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệm về các hành vi của mình tại sự kiện.`;
 
     const fetchEventDetail = useCallback(async () => {
         try {
@@ -187,7 +214,7 @@ export default function EventDetailPage() {
         fetchEventDetail();
     }, [isAuthenticated, isHydrated, router, isValidEventId, fetchEventDetail]);
 
-    const handleRegister = async () => {
+    const handleRegister = async (reason?: string, agreed?: boolean) => {
         if (!event) return;
 
         const eventCost = Number(event.event_cost);
@@ -196,24 +223,22 @@ export default function EventDetailPage() {
         try {
             setRegistering(true);
 
-            // Always register first (creates pending registration)
-            const result = await registrationService.register(event.id);
+            const result = await registrationService.register(event.id, { reason, agreed });
 
             if (isPaidEvent) {
-                // For paid events: create payment and redirect to payment page
-                toast.info('Đang chuyển đến trang thanh toán...');
+                toast.info('Đang tạo mã thanh toán...');
                 const payment = await paymentService.createPayment({
                     event_id: event.id,
                     registration_id: result.id,
                 });
-                // Open PayOS checkout in new tab
-                window.open(payment.checkoutUrl, '_blank');
+                router.push(`/dashboard/payment/checkout?reg_id=${result.id}&event_id=${event.id}`);
+            } else if (result.is_pending_approval) {
+                toast.success('Đăng ký thành công! Đang chờ duyệt từ Ban tổ chức.');
                 setIsRegistered(true);
                 setRegistrationId(result.id);
-                // Redirect to payment status page
-                router.push(`/dashboard/payment/success?reg_id=${result.id}`);
+                setWaitlistInfo({ in_waitlist: false });
+                fetchEventDetail();
             } else {
-                // Free event: direct success
                 toast.success('Đăng ký sự kiện thành công!');
                 setIsRegistered(true);
                 setRegistrationId(result.id);
@@ -224,6 +249,17 @@ export default function EventDetailPage() {
             toast.error(getErrorMessage(error, 'Đăng ký thất bại'));
         } finally {
             setRegistering(false);
+            setShowReasonModal(false);
+            setRegistrationReason('');
+            setRegistrationAgreed(false);
+        }
+    };
+
+    const handleRegisterClick = () => {
+        if (event?.require_agreement || event?.require_reason) {
+            setShowReasonModal(true);
+        } else {
+            handleRegister(undefined, true);
         }
     };
 
@@ -326,7 +362,7 @@ export default function EventDetailPage() {
             setProcessingEventAction(true);
             await eventService.delete(event.id);
             toast.success('Đã xóa sự kiện');
-            router.push(isOrganizerOwner ? '/dashboard/my-events' : '/dashboard/events');
+            router.push(isOrganizerOwner ? '/dashboard/organizer/events' : '/dashboard/events');
         } catch (error: unknown) {
             toast.error(getErrorMessage(error, 'Xóa sự kiện thất bại'));
         } finally {
@@ -544,7 +580,7 @@ export default function EventDetailPage() {
                                             {registering ? 'Đang xử lý...' : 'Vào danh sách chờ'}
                                         </button>
                                     ) : canRegister() ? (
-                                        <button onClick={handleRegister} disabled={registering}
+                                        <button onClick={handleRegisterClick} disabled={registering}
                                             className={`px-8 py-3 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold shadow-brand flex items-center gap-2 ${
                                                 Number(event.event_cost) > 0
                                                     ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600'
@@ -968,7 +1004,7 @@ export default function EventDetailPage() {
                                     Bạn đã đăng ký thành công sự kiện này. Hãy mang mã QR khi đến tham dự.
                                 </p>
                                 <button
-                                    onClick={() => router.push('/dashboard/my-events')}
+                                    onClick={() => router.push('/dashboard/tickets')}
                                     className="text-sm font-semibold text-emerald-700 flex items-center gap-1 hover:text-emerald-900 transition-colors"
                                 >
                                     Xem mã QR
@@ -986,6 +1022,83 @@ export default function EventDetailPage() {
 
                 {/* ── FEEDBACK SECTION ── */}
                 <EventFeedbackSection eventId={event.id} eventStatus={event.status} />
+
+                {/* ── REGISTRATION MODAL ── */}
+                {showReasonModal && event && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowReasonModal(false)} />
+                        <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+                            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
+                                Đăng ký tham gia sự kiện
+                            </h3>
+                            <p className="text-sm text-[var(--text-muted)] mb-4">
+                                Vui lòng điền đầy đủ thông tin để hoàn tất đăng ký
+                            </p>
+
+                            {/* Agreement Section */}
+                            {event.require_agreement && (
+                                <div className="mb-4">
+                                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-200 mb-4">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2">Nội quy & Cam kết</p>
+                                        <div className="text-sm text-[var(--text-primary)] whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                            {event.agreement_text || DEFAULT_AGREEMENT_TEXT}
+                                        </div>
+                                    </div>
+                                    <label className="flex items-start gap-3 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={registrationAgreed}
+                                            onChange={(e) => setRegistrationAgreed(e.target.checked)}
+                                            className="mt-1 w-5 h-5 rounded border-2 border-[var(--border-default)] text-[var(--color-brand-navy)] focus:ring-[var(--color-brand-navy)] cursor-pointer"
+                                        />
+                                        <div>
+                                            <span className="text-sm font-semibold text-[var(--text-secondary)]">
+                                                Tôi đã đọc và đồng ý với nội quy, cam kết trên
+                                            </span>
+                                            <p className="text-xs text-[var(--text-muted)]">Bạn phải đồng ý để tiếp tục đăng ký</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            )}
+
+                            {/* Reason Section */}
+                            {event.require_reason && (
+                                <div className="mb-4">
+                                    <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
+                                        Lý do đăng ký <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        value={registrationReason}
+                                        onChange={(e) => setRegistrationReason(e.target.value)}
+                                        placeholder="VD: Muốn tìm hiểu về AI và Machine Learning..."
+                                        className="w-full px-4 py-3 rounded-xl border border-[var(--border-default)] text-sm resize-none focus:ring-2 focus:ring-[var(--color-brand-navy)] focus:border-transparent transition-all"
+                                        rows={3}
+                                    />
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowReasonModal(false)}
+                                    className="flex-1 px-4 py-2.5 border border-[var(--border-default)] rounded-xl text-sm font-semibold text-[var(--text-secondary)] hover:bg-gray-50 transition-colors"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={() => handleRegister(registrationReason, registrationAgreed)}
+                                    disabled={
+                                        registering ||
+                                        (event.require_agreement && !registrationAgreed) ||
+                                        (event.require_reason && !registrationReason.trim())
+                                    }
+                                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[var(--color-brand-navy)] to-[#1a5fc8] text-white rounded-xl text-sm font-semibold hover:shadow-lg transition-all disabled:opacity-50"
+                                >
+                                    {registering ? 'Đang xử lý...' : 'Xác nhận đăng ký'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </DashboardLayout>
     );

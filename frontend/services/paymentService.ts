@@ -30,9 +30,13 @@ export interface PaymentRecord {
 
 export interface CreatePaymentResponse {
     paymentId: number;
-    checkoutUrl: string;
-    payosOrderId: string;
+    paymentCode: string;
     expiresAt: string;
+    bankAccountNumber: string;
+    bankName: string;
+    amount: number;
+    transferNote: string;
+    checkoutUrl?: string;
 }
 
 export const paymentService = {

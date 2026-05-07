@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import PDFDocument from 'pdfkit';
+import fs from 'fs';
+import path from 'path';
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -395,5 +398,199 @@ export const sendPaymentFailedEmail = async (
         to: email,
         subject: `Thanh toán thất bại: ${eventTitle} - Vui lòng thử lại`,
         html: content,
+    });
+};
+
+// ─── Ticket Email Functions ────────────────────────────────────────────────────
+
+export const sendEmailWithAttachment = async (
+    options: SendEmailOptions & { attachment?: { filename: string; path: string } }
+): Promise<void> => {
+    if (isEmailDeliveryDisabled()) {
+        return;
+    }
+
+    for (let attempt = 0; attempt <= MAX_EMAIL_RETRIES; attempt++) {
+        try {
+            await transporter.sendMail({
+                from: process.env.EMAIL_FROM || 'Event Management <noreply@university.edu.vn>',
+                to: options.to,
+                subject: options.subject,
+                html: EMAIL_SHELL(options.html),
+                attachments: options.attachment ? [options.attachment] : [],
+            });
+            return;
+        } catch (error) {
+            const isLastAttempt = attempt === MAX_EMAIL_RETRIES;
+
+            if (isLastAttempt) {
+                console.error('Error sending email:', error);
+                throw new Error('Failed to send email');
+            }
+
+            await wait((attempt + 1) * 500);
+        }
+    }
+};
+
+export const sendTicketEmail = async (
+    ticket: any,
+    pdfPath?: string
+): Promise<void> => {
+    const { registration, ticket_code } = ticket;
+    const { user, event } = registration;
+
+    const content = `
+        <h2>Xác nhận đăng ký thành công!</h2>
+        <p>Xin chào <strong>${user.full_name}</strong>,</p>
+        <p>Bạn đã đăng ký thành công sự kiện bên dưới. Đính kèm là <strong>Ticket điện tử</strong> của bạn.</p>
+
+        <div class="info-box">
+            <p><strong>Tên sự kiện:</strong> ${event.title}</p>
+            <p><strong>Thời gian:</strong> ${format(new Date(event.start_time), "EEEE, dd/MM/yyyy 'lúc' HH:mm", { locale: vi })} – ${format(new Date(event.end_time), 'HH:mm')}</p>
+            <p><strong>Địa điểm:</strong> ${event.location || 'Chưa xác định'}</p>
+            <p><strong>Mã Ticket:</strong> <span style="font-weight:700; color:#00358F; font-size:16px;">${ticket_code}</span></p>
+        </div>
+
+        ${event.description ? `<p style="color:#6b7280; font-size:14px;"><em>${event.description}</em></p>` : ''}
+
+        <div class="qr-section">
+            <p style="font-weight:600; color:#00358F; margin-bottom:12px;">Quét mã QR bên dưới để check-in</p>
+            <img src="${ticket.qr_image}" alt="QR Code" style="max-width:180px; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.1);" />
+        </div>
+
+        <div class="info-box" style="background:#dcfce7; border-left-color:#16a34a;">
+            <p><strong>Thông tin người tham dự:</strong></p>
+            <p>• Họ tên: ${user.full_name}</p>
+            <p>• MSSV: ${user.student_id || 'N/A'}</p>
+            ${user.department ? `<p>• Khoa: ${user.department.name}</p>` : ''}
+        </div>
+
+        <div class="info-box" style="background:#fef9c3; border-left-color:#ca8a04;">
+            <p><strong>Hướng dẫn:</strong></p>
+            <p>• Vui lòng đến trước giờ bắt đầu sự kiện ít nhất <strong>15 phút</strong>.</p>
+            <p>• Xuất trình ticket này hoặc mã QR khi check-in tại cổng.</p>
+            <p>• <strong>Không chia sẻ ticket</strong> với người khác.</p>
+        </div>
+
+        <p style="margin-top:24px; text-align:center;">
+            <a href="${getFrontendBaseUrl()}/dashboard/tickets" class="cta">Xem ticket trên website</a>
+        </p>
+    `;
+
+    const emailOptions: SendEmailOptions & { attachment?: { filename: string; path: string } } = {
+        to: user.email,
+        subject: `[Event Management] Xác nhận đăng ký - ${event.title}`,
+        html: content,
+    };
+
+    if (pdfPath && fs.existsSync(pdfPath)) {
+        emailOptions.attachment = {
+            filename: `${ticket_code}.pdf`,
+            path: pdfPath,
+        };
+    }
+
+    await sendEmailWithAttachment(emailOptions);
+};
+
+export const generateTicketPDF = async (ticket: any): Promise<string> => {
+    const { registration, ticket_code, qr_image } = ticket;
+    const { user, event } = registration;
+
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'tickets');
+    if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const pdfPath = path.join(uploadsDir, `${ticket_code}.pdf`);
+
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({ size: 'A5', margin: 40 });
+            const stream = fs.createWriteStream(pdfPath);
+
+            doc.pipe(stream);
+
+            // Header
+            doc.rect(0, 0, doc.page.width, 60)
+                .fill('#00358F');
+
+            doc.fillColor('#FFFFFF')
+                .fontSize(20)
+                .font('Helvetica-Bold')
+                .text('EVENT TICKET', 40, 20);
+
+            doc.fontSize(10)
+                .font('Helvetica')
+                .text(ticket_code, 40, 42);
+
+            // QR Code image
+            if (qr_image) {
+                const qrBuffer = Buffer.from(qr_image.split(',')[1], 'base64');
+                doc.image(qrBuffer, doc.page.width / 2 - 80, 80, { width: 160 });
+            }
+
+            // Ticket Code
+            doc.fillColor('#00358F')
+                .fontSize(12)
+                .font('Helvetica-Bold')
+                .text(ticket_code, 0, 280, { align: 'center' });
+
+            doc.moveDown(2);
+
+            // Event Info Box
+            const boxY = 310;
+            doc.rect(30, boxY, doc.page.width - 60, 180)
+                .fillAndStroke('#F8FAFC', '#E5E7EB');
+
+            doc.fillColor('#1F2937')
+                .fontSize(10)
+                .font('Helvetica');
+
+            let y = boxY + 15;
+
+            // Event title
+            doc.fillColor('#00358F')
+                .font('Helvetica-Bold')
+                .fontSize(14)
+                .text(event.title, 45, y, { width: doc.page.width - 90 });
+            y += 25;
+
+            // Details
+            doc.fillColor('#6B7280')
+                .font('Helvetica')
+                .fontSize(10);
+
+            const details = [
+                ['Thời gian', format(new Date(event.start_time), "dd/MM/yyyy, HH:mm") + ' - ' + format(new Date(event.end_time), 'HH:mm')],
+                ['Địa điểm', event.location || 'Chưa xác định'],
+                ['─────────────', '──────────────────────────'],
+                ['Họ tên', user.full_name],
+                ['MSSV', user.student_id || 'N/A'],
+                ['Khoa', user.department?.name || 'N/A'],
+            ];
+
+            details.forEach(([label, value]) => {
+                doc.fillColor('#6B7280').text(label, 45, y);
+                doc.fillColor('#1F2937').text(value, 140, y);
+                y += 18;
+            });
+
+            // Footer
+            doc.rect(0, doc.page.height - 50, doc.page.width, 50)
+                .fill('#F1F5F9');
+
+            doc.fillColor('#9CA3AF')
+                .fontSize(8)
+                .text('Event Management System | Vui lòng mang ticket này khi check-in', 0, doc.page.height - 30, { align: 'center' });
+
+            doc.end();
+
+            stream.on('finish', () => resolve(pdfPath));
+            stream.on('error', reject);
+        } catch (error) {
+            reject(error);
+        }
     });
 };

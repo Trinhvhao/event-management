@@ -20,7 +20,7 @@ router.delete('/:id', authenticate, authorize('student'), paymentController.canc
 // Student: Poll payment status (for waiting screen)
 router.get('/:id/status', authenticate, authorize('student'), paymentController.pollPaymentStatus);
 
-// PayOS Webhook (no auth - uses signature verification)
+// SePay Webhook (no auth - SePay sends its own authentication headers)
 router.post('/webhook', (req: Request, res: Response) => paymentController.handleWebhook(req, res));
 
 export default router;

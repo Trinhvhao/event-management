@@ -106,7 +106,7 @@ export const authController = {
         select: {
           id: true, email: true, full_name: true, student_id: true,
           role: true, is_active: true, email_verified: true,
-          avatar_url: true, phone: true,
+          avatar_url: true,
           department_id: true, created_at: true, last_login: true,
           department: { select: { id: true, name: true } },
         },
@@ -124,19 +124,18 @@ export const authController = {
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const currentUser = getAuthenticatedUser(req);
-      const { full_name, department_id, avatar_url, phone } = req.body;
+      const { full_name, department_id, avatar_url } = req.body;
       const updated = await prisma.user.update({
         where: { id: currentUser.id },
         data: {
           full_name,
           department_id: parseOptionalPositiveInt(department_id, 'department_id'),
           avatar_url: avatar_url ?? undefined,
-          phone: phone ?? null,
         },
         select: {
           id: true, email: true, full_name: true, student_id: true,
           role: true, is_active: true, email_verified: true,
-          avatar_url: true, phone: true,
+          avatar_url: true,
           department_id: true,
           department: { select: { id: true, name: true } },
         },

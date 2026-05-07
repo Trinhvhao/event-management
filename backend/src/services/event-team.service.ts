@@ -325,7 +325,7 @@ export const eventTeamService = {
             select: { organizer_id: true },
         });
 
-        if (event) {
+        if (event?.organizer_id) {
             excludeIds.push(event.organizer_id);
         }
 

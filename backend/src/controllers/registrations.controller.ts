@@ -10,12 +10,16 @@ import {
 export const registerForEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = getAuthenticatedUser(req).id;
-        const { event_id } = req.body;
+        const { event_id, reason, agreed } = req.body;
         const eventId = parsePositiveInt(event_id, 'event_id');
 
-        const registration = await registrationsService.registerForEvent(userId, eventId);
+        const registration = await registrationsService.registerForEvent(userId, eventId, { reason, agreed });
 
-        res.status(201).json(successResponse(registration, 'Đăng ký sự kiện thành công'));
+        const message = registration.is_pending_approval
+            ? 'Đăng ký thành công! Đang chờ duyệt từ Ban tổ chức.'
+            : 'Đăng ký sự kiện thành công';
+
+        res.status(201).json(successResponse(registration, message));
     } catch (error) {
         next(error);
     }
@@ -24,9 +28,13 @@ export const registerForEvent = async (req: Request, res: Response, next: NextFu
 export const getMyRegistrations = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = getAuthenticatedUser(req).id;
-        const { status } = req.query;
+        const { status, approval_status } = req.query;
 
-        const registrations = await registrationsService.getMyRegistrations(userId, getQueryString(status));
+        const registrations = await registrationsService.getMyRegistrations(
+            userId,
+            getQueryString(status),
+            getQueryString(approval_status)
+        );
 
         res.json(successResponse(registrations));
     } catch (error) {
@@ -50,12 +58,13 @@ export const cancelRegistration = async (req: Request, res: Response, next: Next
 export const getEventRegistrations = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const eventId = parsePositiveInt(req.params.eventId, 'eventId');
-        const { status } = req.query;
+        const { status, approval_status } = req.query;
         const requester = getAuthenticatedUser(req);
 
         const registrations = await registrationsService.getEventRegistrations(
             eventId,
             getQueryString(status),
+            getQueryString(approval_status),
             requester
         );
 
@@ -92,6 +101,62 @@ export const getRegistrationQRCode = async (req: Request, res: Response, next: N
         );
 
         res.json(successResponse(qrPayload));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// =====================
+// Approval Controllers
+// =====================
+
+export const approveRegistration = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const requester = getAuthenticatedUser(req);
+        const registrationId = parsePositiveInt(req.params.id, 'id');
+        const { note } = req.body;
+
+        const result = await registrationsService.approveRegistration(
+            registrationId,
+            requester,
+            note
+        );
+
+        res.json(successResponse(result, 'Đã duyệt đăng ký thành công'));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const rejectRegistration = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const requester = getAuthenticatedUser(req);
+        const registrationId = parsePositiveInt(req.params.id, 'id');
+        const { note } = req.body;
+
+        const result = await registrationsService.rejectRegistration(
+            registrationId,
+            requester,
+            note
+        );
+
+        res.json(successResponse(result, 'Đã từ chối đăng ký'));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getPendingRegistrations = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const requester = getAuthenticatedUser(req);
+        const { event_id } = req.query;
+
+        const pending = await registrationsService.getPendingRegistrations(
+            requester,
+            event_id ? parsePositiveInt(event_id as string, 'event_id') : undefined
+        );
+
+        res.json(successResponse(pending));
     } catch (error) {
         next(error);
     }

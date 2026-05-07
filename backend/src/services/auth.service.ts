@@ -169,7 +169,6 @@ export const authService = {
         department: user.department,
         email_verified: user.email_verified,
         avatar_url: user.avatar_url,
-        phone: user.phone,
       },
     };
   },

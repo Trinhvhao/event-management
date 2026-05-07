@@ -1,9 +1,28 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as paymentService from '../services/payment.service';
-import { ValidationError } from '../middleware/errorHandler';
+import { ValidationError, AppError } from '../middleware/errorHandler';
 import type { AuthRequest } from '../middleware/auth';
 
-export const createPayment = async (req: AuthRequest, res: Response) => {
+const isPayOSPayload = (body: any): boolean => {
+    return !!(body.orderCode || body.paymentNo || body.signature);
+};
+
+export const handleWebhook = async (req: Request, res: Response) => {
+    try {
+        let result;
+        if (isPayOSPayload(req.body)) {
+            result = await paymentService.handlePayOSWebhook(req.body);
+        } else {
+            result = await paymentService.handleSePayWebhook(req.body);
+        }
+        res.status(200).json(result);
+    } catch (error: unknown) {
+        console.error('[Webhook] Error:', error);
+        res.status(200).json({ success: false, message: 'Webhook processing error' });
+    }
+};
+
+export const createPayment = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const userId = req.user!.id;
         const { event_id, registration_id } = req.body as { event_id?: unknown; registration_id?: unknown };
@@ -20,9 +39,18 @@ export const createPayment = async (req: AuthRequest, res: Response) => {
 
         res.status(201).json({
             success: true,
-            data: result,
+            data: {
+                paymentId: result.paymentId,
+                paymentCode: result.paymentCode,
+                expiresAt: result.expiresAt,
+                bankAccountNumber: result.bankAccountNumber,
+                bankName: result.bankName,
+                amount: result.amount,
+                transferNote: result.transferNote,
+            },
         });
     } catch (error: unknown) {
+        if (error instanceof AppError) { next(error); return; }
         const err = error as { status?: number; message?: string };
         res.status(err.status || 500).json({
             success: false,
@@ -31,7 +59,7 @@ export const createPayment = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const getMyPayments = async (req: AuthRequest, res: Response) => {
+export const getMyPayments = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const userId = req.user!.id;
         const limit = parseInt(String(req.query.limit || '20'));
@@ -41,6 +69,7 @@ export const getMyPayments = async (req: AuthRequest, res: Response) => {
 
         res.json({ success: true, data: result });
     } catch (error: unknown) {
+        if (error instanceof AppError) { next(error); return; }
         const err = error as { status?: number; message?: string };
         res.status(err.status || 500).json({
             success: false,
@@ -49,7 +78,7 @@ export const getMyPayments = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const getPaymentById = async (req: AuthRequest, res: Response) => {
+export const getPaymentById = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const userId = req.user!.id;
         const paymentId = parseInt(String(req.params.id));
@@ -58,6 +87,7 @@ export const getPaymentById = async (req: AuthRequest, res: Response) => {
 
         res.json({ success: true, data: payment });
     } catch (error: unknown) {
+        if (error instanceof AppError) { next(error); return; }
         const err = error as { status?: number; message?: string };
         res.status(err.status || 500).json({
             success: false,
@@ -66,7 +96,7 @@ export const getPaymentById = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const cancelPayment = async (req: AuthRequest, res: Response) => {
+export const cancelPayment = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const userId = req.user!.id;
         const paymentId = parseInt(String(req.params.id));
@@ -75,6 +105,7 @@ export const cancelPayment = async (req: AuthRequest, res: Response) => {
 
         res.json({ success: true, message: 'Đã hủy thanh toán thành công' });
     } catch (error: unknown) {
+        if (error instanceof AppError) { next(error); return; }
         const err = error as { status?: number; message?: string };
         res.status(err.status || 500).json({
             success: false,
@@ -83,7 +114,7 @@ export const cancelPayment = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const pollPaymentStatus = async (req: AuthRequest, res: Response) => {
+export const pollPaymentStatus = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const userId = req.user!.id;
         const paymentId = parseInt(String(req.params.id));
@@ -94,27 +125,11 @@ export const pollPaymentStatus = async (req: AuthRequest, res: Response) => {
 
         res.json({ success: true, data: result });
     } catch (error: unknown) {
+        if (error instanceof AppError) { next(error); return; }
         const err = error as { status?: number; message?: string };
         res.status(err.status || 500).json({
             success: false,
             error: { message: err.message || 'Lỗi khi kiểm tra trạng thái thanh toán' },
         });
-    }
-};
-
-export const handleWebhook = async (req: Request, res: Response) => {
-    try {
-        const body = req.body as { orderCode?: string; paymentNo?: string; amount?: number; status?: string; signature?: string };
-        const result = await paymentService.handlePayOSWebhook({
-            orderCode: String(body.orderCode || ''),
-            paymentNo: String(body.paymentNo || ''),
-            amount: Number(body.amount || 0),
-            status: String(body.status || ''),
-            signature: String(body.signature || ''),
-        });
-        res.json(result);
-    } catch (error: unknown) {
-        console.error('[Webhook] Error:', error);
-        res.json({ success: false, message: 'Webhook processing error' });
     }
 };

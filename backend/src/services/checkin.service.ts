@@ -186,25 +186,29 @@ const completeCheckin = async (registration: RegistrationWithRelations, checkedB
         });
 
         const currentSemester = getCurrentSemester();
-        await tx.trainingPoint.upsert({
-            where: {
-                user_id_event_id: {
+        // Chỉ cấp điểm rèn luyện cho sinh viên
+        const attendee = await tx.user.findUnique({ where: { id: registration.user_id }, select: { role: true } });
+        if (attendee?.role === 'student' && registration.event.training_points > 0) {
+            await tx.trainingPoint.upsert({
+                where: {
+                    user_id_event_id: {
+                        user_id: registration.user_id,
+                        event_id: registration.event_id,
+                    },
+                },
+                create: {
                     user_id: registration.user_id,
                     event_id: registration.event_id,
+                    points: registration.event.training_points,
+                    semester: currentSemester,
+                    earned_at: now,
                 },
-            },
-            create: {
-                user_id: registration.user_id,
-                event_id: registration.event_id,
-                points: registration.event.training_points,
-                semester: currentSemester,
-                earned_at: now,
-            },
-            update: {
-                points: registration.event.training_points,
-                semester: currentSemester,
-            },
-        });
+                update: {
+                    points: registration.event.training_points,
+                    semester: currentSemester,
+                },
+            });
+        }
 
         return createdAttendance;
     });

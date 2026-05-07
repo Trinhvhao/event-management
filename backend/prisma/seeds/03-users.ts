@@ -7,6 +7,8 @@ export async function seedUsers(prisma: PrismaClient, departments: Department[])
     const hashedPassword = await bcrypt.hash('admin123', 10);
     const organizerPassword = await bcrypt.hash('organizer123', 10);
     const studentPassword = await bcrypt.hash('student123', 10);
+    const teacherPassword = await bcrypt.hash('teacher123', 10);
+    const externalPassword = await bcrypt.hash('external123', 10);
 
     // Admin
     await prisma.user.upsert({
@@ -22,7 +24,7 @@ export async function seedUsers(prisma: PrismaClient, departments: Department[])
         },
     });
 
-    // Organizers
+    // Organizers (sinh viên làm BTC)
     const organizers = await Promise.all([
         prisma.user.upsert({
             where: { email: 'organizer.cntt@dnu.edu.vn' },
@@ -59,6 +61,66 @@ export async function seedUsers(prisma: PrismaClient, departments: Department[])
                 full_name: 'Lê Văn Ngoại Ngữ',
                 role: 'organizer',
                 department_id: departments[2].id,
+                is_active: true,
+                email_verified: true,
+            },
+        }),
+    ]);
+
+    // Teachers (giảng viên — không nhận điểm rèn luyện)
+    const teachers = await Promise.all([
+        prisma.user.upsert({
+            where: { email: 'teacher@dnu.edu.vn' },
+            update: {},
+            create: {
+                email: 'teacher@dnu.edu.vn',
+                password_hash: teacherPassword,
+                full_name: 'TS. Phạm Văn Giảng',
+                role: 'teacher',
+                department_id: departments[0].id,
+                is_active: true,
+                email_verified: true,
+            },
+        }),
+        prisma.user.upsert({
+            where: { email: 'teacher.business@dnu.edu.vn' },
+            update: {},
+            create: {
+                email: 'teacher.business@dnu.edu.vn',
+                password_hash: teacherPassword,
+                full_name: 'ThS. Ngô Thị Kinh Doanh',
+                role: 'teacher',
+                department_id: departments[1].id,
+                is_active: true,
+                email_verified: true,
+            },
+        }),
+    ]);
+
+    // External partners (doanh nghiệp — không nhận điểm rèn luyện)
+    await Promise.all([
+        prisma.user.upsert({
+            where: { email: 'partner@fpt.com' },
+            update: {},
+            create: {
+                email: 'partner@fpt.com',
+                password_hash: externalPassword,
+                full_name: 'Công ty FPT Education',
+                role: 'external',
+                department_id: null,
+                is_active: true,
+                email_verified: true,
+            },
+        }),
+        prisma.user.upsert({
+            where: { email: 'partner@viettel.com' },
+            update: {},
+            create: {
+                email: 'partner@viettel.com',
+                password_hash: externalPassword,
+                full_name: 'Tập đoàn Viettel',
+                role: 'external',
+                department_id: null,
                 is_active: true,
                 email_verified: true,
             },
@@ -139,6 +201,6 @@ export async function seedUsers(prisma: PrismaClient, departments: Department[])
         }),
     ]);
 
-    console.log(`✅ Created ${1 + organizers.length + students.length} users`);
-    return { organizers, students };
+    console.log(`✅ Created ${1 + organizers.length + teachers.length + students.length} users`);
+    return { organizers, teachers, students };
 }

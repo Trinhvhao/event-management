@@ -150,7 +150,7 @@ export default function PaymentSuccessPage() {
     const StatusIcon = statusConfig.icon;
 
     const handleRetryPayment = () => {
-        if (payment?.id) {
+        if (payment?.registration_id) {
             router.push(`/dashboard/payment/checkout?reg_id=${payment.registration_id}&event_id=${payment.event_id}`);
         }
     };

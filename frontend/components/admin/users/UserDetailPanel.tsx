@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { X, Mail, Building, Calendar, Shield, Activity, Lock, Unlock, User } from 'lucide-react';
+import { X, Mail, Building, Calendar, Shield, Activity, Lock, Unlock, User, BookOpen, Briefcase } from 'lucide-react';
 import { AuditLogViewer } from '../shared/AuditLogViewer';
 import { PasswordConfirmDialog } from '../shared/PasswordConfirmDialog';
 import { adminService } from '@/services/adminService';
+import { UserRole } from '@/types';
 
 interface User {
     id: string;
     full_name: string;
     email: string;
-    role: 'admin' | 'organizer' | 'student';
+    role: UserRole;
     department?: { id: string; name: string };
     is_active: boolean;
     created_at: string;
@@ -53,9 +54,11 @@ const AUDIT_ACTION_OPTIONS = [
 ];
 
 const ROLE_OPTIONS = [
-    { role: 'student',    label: 'Sinh viên',      color: 'navy',  icon: '👨‍🎓', badge: 'bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] text-[var(--color-brand-navy)]' },
-    { role: 'organizer', label: 'Ban tổ chức',       color: 'orange', icon: '👔', badge: 'bg-[color-mix(in_srgb,var(--color-brand-orange)_10%,transparent)] text-[var(--color-brand-orange)]' },
-    { role: 'admin',     label: 'Quản trị viên',   color: 'purple', icon: '⚡', badge: 'bg-[color-mix(in_srgb,#8b5cf6)_10%,transparent)] text-[#8b5cf6]' },
+    { role: 'student',    label: 'Sinh viên',          color: 'green',  icon: '👨‍🎓', badge: 'bg-[#00A651]/10 text-[#00A651]' },
+    { role: 'organizer',   label: 'Ban tổ chức',          color: 'orange', icon: '👔',  badge: 'bg-[#F26600]/10 text-[#F26600]' },
+    { role: 'admin',       label: 'Quản trị viên',        color: 'purple', icon: '⚡',  badge: 'bg-[#7C3AED]/10 text-[#7C3AED]' },
+    { role: 'teacher',    label: 'Giảng viên',           color: 'purple', icon: '📚',  badge: 'bg-[#7C3AED]/10 text-[#7C3AED]' },
+    { role: 'external',   label: 'Đơn vị bên ngoài',   color: 'cyan',   icon: '🏢',  badge: 'bg-[#0891B2]/10 text-[#0891B2]' },
 ];
 
 export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, onUnlock }: UserDetailPanelProps) {
@@ -247,9 +250,9 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, o
                                             </p>
                                         </div>
 
-                                        <div>
+                                            <div>
                                             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Thay đổi vai trò</p>
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                                 {ROLE_OPTIONS.map(({ role, label, icon, badge }) => {
                                                     const isCurrent = user.role === role;
                                                     return (

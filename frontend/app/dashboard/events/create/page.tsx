@@ -43,6 +43,10 @@ const createEventSchema = z.object({
     training_points: z.string().optional(),
     event_cost: z.string().optional(),
     registration_deadline: z.string().optional(),
+    approval_type: z.enum(['auto_approve', 'require_approval', 'no_registration']).optional(),
+    require_reason: z.boolean().optional(),
+    require_agreement: z.boolean().optional(),
+    agreement_text: z.string().optional(),
 });
 
 type CreateEventForm = z.infer<typeof createEventSchema>;
@@ -111,6 +115,10 @@ export default function CreateEventPage() {
                 registration_deadline: data.registration_deadline
                     ? new Date(data.registration_deadline).toISOString()
                     : undefined,
+                approval_type: data.approval_type || 'auto_approve',
+                require_reason: data.require_reason || false,
+                require_agreement: data.require_agreement ?? true,
+                agreement_text: data.agreement_text || undefined,
             };
             await eventService.createEvent(payload);
             toast.success('Tạo sự kiện thành công!');
@@ -456,6 +464,102 @@ export default function CreateEventPage() {
                                                     error={errors.registration_deadline?.message}
                                                     {...register('registration_deadline')}
                                                 />
+                                            </motion.div>
+
+                                            {/* Approval Type */}
+                                            <motion.div variants={stepVariants.item}>
+                                                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-3">
+                                                    Hình thức đăng ký
+                                                </label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <label className="relative flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all has-[:checked]:border-[var(--color-brand-navy)] has-[:checked]:bg-[color-mix(in_srgb,var(--color-brand-navy)_5%,transparent)] border-[var(--border-default)] hover:border-[var(--color-brand-navy)]/30">
+                                                        <input
+                                                            type="radio"
+                                                            value="auto_approve"
+                                                            {...register('approval_type')}
+                                                            className="mt-1"
+                                                        />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-[var(--text-primary)]">Tự động duyệt</p>
+                                                            <p className="text-xs text-[var(--text-muted)] mt-0.5">SV đăng ký là đã được duyệt ngay</p>
+                                                        </div>
+                                                    </label>
+                                                    <label className="relative flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all has-[:checked]:border-[var(--color-brand-navy)] has-[:checked]:bg-[color-mix(in_srgb,var(--color-brand-navy)_5%,transparent)] border-[var(--border-default)] hover:border-[var(--color-brand-navy)]/30">
+                                                        <input
+                                                            type="radio"
+                                                            value="require_approval"
+                                                            {...register('approval_type')}
+                                                            className="mt-1"
+                                                        />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-[var(--text-primary)]">Cần phê duyệt</p>
+                                                            <p className="text-xs text-[var(--text-muted)] mt-0.5">Admin/Organizer duyệt đăng ký</p>
+                                                        </div>
+                                                    </label>
+                                                    <label className="relative flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all has-[:checked]:border-[var(--color-brand-navy)] has-[:checked]:bg-[color-mix(in_srgb,var(--color-brand-navy)_5%,transparent)] border-[var(--border-default)] hover:border-[var(--color-brand-navy)]/30">
+                                                        <input
+                                                            type="radio"
+                                                            value="no_registration"
+                                                            {...register('approval_type')}
+                                                            className="mt-1"
+                                                        />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-[var(--text-primary)]">Không cần ĐK</p>
+                                                            <p className="text-xs text-[var(--text-muted)] mt-0.5">Sự kiện tự do, không cần đăng ký</p>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </motion.div>
+
+                                            {/* Require Reason */}
+                                            <motion.div variants={stepVariants.item}>
+                                                <label className="flex items-center gap-3 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        {...register('require_reason')}
+                                                        className="w-5 h-5 rounded border-2 border-[var(--border-default)] text-[var(--color-brand-navy)] focus:ring-[var(--color-brand-navy)] cursor-pointer"
+                                                    />
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                                                            Yêu cầu lý do đăng ký
+                                                        </span>
+                                                        <p className="text-xs text-[var(--text-muted)]">Sinh viên phải nhập lý do khi đăng ký tham gia</p>
+                                                    </div>
+                                                </label>
+                                            </motion.div>
+
+                                            {/* Require Agreement */}
+                                            <motion.div variants={stepVariants.item}>
+                                                <label className="flex items-center gap-3 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        {...register('require_agreement')}
+                                                        defaultChecked={true}
+                                                        className="w-5 h-5 rounded border-2 border-[var(--border-default)] text-[var(--color-brand-navy)] focus:ring-[var(--color-brand-navy)] cursor-pointer"
+                                                    />
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                                                            Yêu cầu đồng ý cam kết
+                                                        </span>
+                                                        <p className="text-xs text-[var(--text-muted)]">Sinh viên phải đồng ý với nội quy/cam kết trước khi đăng ký</p>
+                                                    </div>
+                                                </label>
+                                            </motion.div>
+
+                                            {/* Agreement Text */}
+                                            <motion.div variants={stepVariants.item}>
+                                                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
+                                                    Nội quy / Cam kết <span className="text-[var(--text-muted)] font-normal">(để trống = dùng mặc định)</span>
+                                                </label>
+                                                <textarea
+                                                    {...register('agreement_text')}
+                                                    placeholder="VD: Tôi cam kết tham gia đúng giờ, tuân thủ nội quy sự kiện..."
+                                                    className="w-full px-4 py-3 rounded-xl border-2 border-[var(--border-default)] text-sm resize-none focus:outline-none focus:border-[var(--color-brand-navy)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--color-brand-navy)_8%,transparent)] transition-all"
+                                                    rows={4}
+                                                />
+                                                <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
+                                                    Nội quy này sẽ hiển thị cho sinh viên khi đăng ký tham gia sự kiện
+                                                </p>
                                             </motion.div>
 
                                             <motion.div variants={stepVariants.item}>

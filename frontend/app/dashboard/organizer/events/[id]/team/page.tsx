@@ -103,31 +103,47 @@ export default function EventTeamPage() {
     return (
         <DashboardLayout>
             <div className="max-w-4xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Link
-                        href="/dashboard/organizer/events"
-                        className="w-9 h-9 rounded-xl border border-[var(--border-default)] bg-white flex items-center justify-center hover:bg-[var(--bg-muted)] transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4 text-[var(--text-secondary)]" />
-                    </Link>
-                    <div className="flex-1">
-                        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                            Quản lý Team
-                        </h1>
-                        {eventTitle && (
-                            <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-                                {eventTitle}
-                            </p>
-                        )}
+                {/* Breadcrumb + Header */}
+                <div>
+                    {/* Breadcrumb */}
+                    <nav className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-3 flex-wrap">
+                        <Link href="/dashboard" className="hover:text-[var(--text-primary)] transition-colors">Dashboard</Link>
+                        <span>/</span>
+                        <Link href="/dashboard/organizer" className="hover:text-[var(--text-primary)] transition-colors">Organizer</Link>
+                        <span>/</span>
+                        <Link href="/dashboard/organizer/events" className="hover:text-[var(--text-primary)] transition-colors">Sự kiện của tôi</Link>
+                        <span>/</span>
+                        <span className="text-[var(--text-primary)] font-medium truncate max-w-[200px]">{eventTitle || `Sự kiện #${eventId}`}</span>
+                        <span>/</span>
+                        <span className="text-[var(--color-brand-navy)] font-semibold">Đội ngũ</span>
+                    </nav>
+
+                    {/* Header */}
+                    <div className="flex items-center gap-4">
+                        <Link
+                            href="/dashboard/organizer/events"
+                            className="w-9 h-9 rounded-xl border border-[var(--border-default)] bg-white flex items-center justify-center hover:bg-[var(--bg-muted)] transition-colors"
+                        >
+                            <ArrowLeft className="w-4 h-4 text-[var(--text-secondary)]" />
+                        </Link>
+                        <div className="flex-1">
+                            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+                                Quản lý đội ngũ
+                            </h1>
+                            {eventTitle && (
+                                <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+                                    {eventTitle}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setShowAddDialog(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            Thêm thành viên
+                        </button>
                     </div>
-                    <button
-                        onClick={() => setShowAddDialog(true)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-                    >
-                        <UserPlus className="w-4 h-4" />
-                        Thêm thành viên
-                    </button>
                 </div>
 
                 {/* Team Stats */}
