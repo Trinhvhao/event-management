@@ -156,6 +156,7 @@ export const createPayment = async (params: CreatePaymentParams) => {
     }
 
     const paymentCode = generatePaymentCode(registrationId, eventId);
+    const normalizedCode = paymentCode.replace(/-/g, ''); // strip dashes for webhook matching
     const amount = Math.round(Number(event.event_cost));
     const expiresAt = new Date(Date.now() + PAYMENT_CODE_EXPIRY_HOURS * 60 * 60 * 1000);
     const sepayCfg = getSePayConfig();
@@ -166,19 +167,19 @@ export const createPayment = async (params: CreatePaymentParams) => {
     const payment = existing
         ? await prisma.payment.update({
             where: { id: existing.id },
-            data: { amount, status: 'pending', method: 'bank_transfer', expires_at: expiresAt, payos_order_id: paymentCode },
+            data: { amount, status: 'pending', method: 'bank_transfer', expires_at: expiresAt, payos_order_id: paymentCode, normalized_code: normalizedCode },
         })
         : await prisma.payment.create({
             data: {
                 registration_id: registrationId, user_id: userId, event_id: eventId,
                 amount, currency: 'VND', status: 'pending', method: 'bank_transfer',
-                payos_order_id: paymentCode, expires_at: expiresAt,
+                payos_order_id: paymentCode, normalized_code: normalizedCode, expires_at: expiresAt,
             },
         });
 
     return {
         paymentId: payment.id,
-        paymentCode,
+        paymentCode: normalizedCode,
         expiresAt,
         bankAccountNumber: sepayCfg.accountNumber,
         bankName: sepayCfg.bankName,
@@ -208,21 +209,20 @@ export const handleSePayWebhook = async (payload: {
     // Normalize: remove all dashes from content (some banks strip dashes when sending)
     const normalizedContent = payload.content.replace(/-/g, '');
 
-    // Parse payment code: EVT{eventId}{registrationId}{timestamp} (no dashes)
-    const match = normalizedContent.match(/^EVT(\d+)(\d+)(\d+)$/);
-    if (!match) return { success: true, message: 'No payment code in content' };
-
-    const eventId = parseInt(match[1]);
-    const registrationId = parseInt(match[2]);
-
-    // Match by event_id + registration_id (unique per payment)
-    const payment = await prisma.payment.findFirst({
-        where: {
-            event_id: eventId,
-            registration_id: registrationId,
-            status: 'pending',
-        },
+    // 1. Try exact normalized_code lookup (new payments)
+    let payment = await prisma.payment.findUnique({
+        where: { normalized_code: normalizedContent },
     });
+
+    // 2. Fallback: try payos_order_id without dashes (old payments created before this fix)
+    if (!payment) {
+        payment = await prisma.payment.findFirst({
+            where: {
+                payos_order_id: { endsWith: normalizedContent.replace(/^EVT/, '') },
+                status: 'pending',
+            },
+        });
+    }
 
     if (!payment) return { success: true, message: 'Payment not found' };
 

@@ -11,11 +11,15 @@ datasource db {
 
 // Enums
 enum UserRole {
-  student
-  organizer
-  admin
-  teacher
-  external
+  participant // Người tham gia sự kiện
+  organizer  // Người tổ chức
+  admin      // Quản trị viên
+}
+
+enum ParticipantType {
+  student   // Sinh viên
+  teacher  // Giáo viên
+  external // Người ngoài trường
 }
 
 enum EventStatus {
@@ -92,6 +96,7 @@ model User {
   full_name            String
   student_id           String?   @unique
   role                 UserRole
+  participant_type     ParticipantType?
   department_id        Int?
   is_active            Boolean   @default(true)
   email_verified       Boolean   @default(false)
@@ -250,6 +255,7 @@ model Payment {
   status          PaymentStatus @default(pending)
   method          PaymentMethod @default(payos)
   payos_order_id String?       @unique
+  normalized_code String?       @unique  // payos_order_id without dashes, for fast webhook matching
   payos_payment_id String?
   transaction_id  String?      @unique
   metadata        Json?
