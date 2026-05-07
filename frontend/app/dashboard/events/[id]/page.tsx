@@ -69,12 +69,17 @@ export default function EventDetailPage() {
     const eventId = Number(rawId);
     const isValidEventId = Number.isInteger(eventId) && eventId > 0;
     const { user, isAuthenticated, isHydrated } = useAuthStore();
+    
+    // Debug: log user info
+    console.log('[DEBUG] User info:', { user, role: user?.role, email: user?.email });
     const [loading, setLoading] = useState(true);
     const [registering, setRegistering] = useState(false);
     const [processingEventAction, setProcessingEventAction] = useState(false);
     const [event, setEvent] = useState<Event | null>(null);
     const [isRegistered, setIsRegistered] = useState(false);
     const [registrationId, setRegistrationId] = useState<number | null>(null);
+    const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | null>(null);
+    const [wasCancelled, setWasCancelled] = useState(false);
     const [waitlistInfo, setWaitlistInfo] = useState<WaitlistInfo | null>(null);
     const [countdown, setCountdown] = useState<{ text: string; urgent: boolean } | null>(null);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -116,15 +121,24 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
             const eventData = await eventService.getById(eventId);
             setEvent(eventData);
 
-            if (user?.role === 'student') {
+            if (user?.role === 'participant' || user?.role === 'student') {
                 try {
                     const myEventsRes = await registrationService.getMyRegistrations();
-                    const registration = myEventsRes.find(
-                        (reg: Registration) => reg.event_id === eventId && reg.status === 'registered'
+                    const registeredReg = myEventsRes.find(
+                        (reg: Registration) => reg.event_id === eventId && reg.status !== 'cancelled'
                     );
-                    if (registration) {
+                    if (registeredReg) {
                         setIsRegistered(true);
-                        setRegistrationId(registration.id);
+                        setRegistrationId(registeredReg.id);
+                        setApprovalStatus(registeredReg.approval_status ?? null);
+                    } else {
+                        // Check if user has a cancelled registration
+                        const cancelledReg = myEventsRes.find(
+                            (reg: Registration) => reg.event_id === eventId && reg.status === 'cancelled'
+                        );
+                        if (cancelledReg) {
+                            setWasCancelled(true);
+                        }
                     }
                 } catch (error) {
                     console.error('Error checking registration:', error);
@@ -149,7 +163,7 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
 
     // ── Live countdown timer ────────────────────────────────────────────────────
     useEffect(() => {
-        if (!event || event.status !== 'upcoming') {
+        if (!event || isEventStarted || isEventPending) {
             setCountdown(null);
             return;
         }
@@ -236,14 +250,16 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
                 toast.success('Đăng ký thành công! Đang chờ duyệt từ Ban tổ chức.');
                 setIsRegistered(true);
                 setRegistrationId(result.id);
+                setApprovalStatus('pending');
+                setWasCancelled(false);
                 setWaitlistInfo({ in_waitlist: false });
-                fetchEventDetail();
             } else {
                 toast.success('Đăng ký sự kiện thành công!');
                 setIsRegistered(true);
                 setRegistrationId(result.id);
+                setApprovalStatus(result.approval_status ?? 'approved');
+                setWasCancelled(false);
                 setWaitlistInfo({ in_waitlist: false });
-                fetchEventDetail();
             }
         } catch (error: unknown) {
             toast.error(getErrorMessage(error, 'Đăng ký thất bại'));
@@ -371,7 +387,7 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
     };
 
     const isAdmin = user?.role === 'admin';
-    const isStudent = user?.role === 'student';
+    const isParticipant = user?.role === 'participant';
     const isOrganizerOwner = user?.role === 'organizer' && user?.id === event?.organizer_id;
     const isOrganizerOrAdmin = isAdmin || isOrganizerOwner;
     const canReviewPendingEvent = isAdmin && event?.status === 'pending';
@@ -381,24 +397,43 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
     const canManageTeam = isAdmin || isOrganizerOwner;
 
     const isEventFull = event ? (event.current_registrations || 0) >= event.capacity : false;
-    const isUpcoming = event?.status === 'upcoming' || event?.status === 'approved';
     const isPastDeadline = event?.registration_deadline ? isPast(new Date(event.registration_deadline)) : false;
+    const isEventStarted = event?.status === 'cancelled' || event?.status === 'completed';
+    const isEventPending = event?.status === 'pending';
     const spotsLeft = event ? event.capacity - (event.current_registrations || 0) : 0;
 
+    // Cho phép đăng ký nếu: chưa đăng ký, sự kiện chưa bắt đầu, còn chỗ, chưa hết hạn
+    // pending events: cho phép thử đăng ký (backend sẽ validate)
     const canRegister = () => {
         if (!event) return false;
         if (isRegistered) return false;
-        if (!isUpcoming) return false;
         if (isEventFull) return false;
         if (isPastDeadline) return false;
+        if (isEventStarted) return false;
         return true;
     };
+
+    // Hiện nút đăng ký cho participant khi: chưa đăng ký, chưa bị hủy, sự kiện chưa bắt đầu
+    const showRegisterButton = isParticipant && !isRegistered && !wasCancelled && !isEventStarted;
+    
+    // Debug: log giá trị của các biến
+    console.log('[DEBUG] Registration check:', {
+        isParticipant,
+        isRegistered,
+        wasCancelled,
+        isEventStarted,
+        isEventPending,
+        showRegisterButton,
+        eventStatus: event?.status,
+        isEventFull,
+        isPastDeadline
+    });
 
     const canJoinWaitlist = () => {
         if (!event) return false;
         if (isRegistered) return false;
-        if (!isUpcoming) return false;
         if (isPastDeadline) return false;
+        if (isEventStarted) return false;
         if (waitlistInfo?.in_waitlist) return false;
         return isEventFull;
     };
@@ -500,7 +535,7 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
                         )}
 
                         {/* Countdown banner */}
-                        {countdown && isUpcoming && (
+                        {countdown && !isEventStarted && !isEventPending && (
                             <div className={`absolute bottom-4 right-4 z-10 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg ${
                                 countdown.urgent
                                     ? 'bg-red-500 text-white animate-pulse'
@@ -508,6 +543,12 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
                             }`}>
                                 <Timer className="w-4 h-4 inline mr-1" />
                                 {countdown.text}
+                            </div>
+                        )}
+                        {isEventPending && (
+                            <div className="absolute bottom-4 right-4 z-10 px-3 py-1.5 rounded-lg text-sm font-bold shadow-lg bg-yellow-500 text-white animate-pulse">
+                                <Clock className="w-4 h-4 inline mr-1" />
+                                Chờ duyệt
                             </div>
                         )}
                     </div>
@@ -544,15 +585,22 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
                         {/* ── ACTION BUTTONS ── */}
                         <div className="flex flex-wrap gap-3">
                             {/* Student registration */}
-                            {isStudent && (
+                            {isParticipant && (
                                 <>
                                     {isRegistered ? (
                                         <div className="flex flex-col gap-2">
-                                            <div className="flex items-center gap-2 px-5 py-3 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 font-semibold">
-                                                <CheckCircle className="w-5 h-5" />
-                                                Bạn đã đăng ký thành công
-                                            </div>
-                                            {canCancelRegistration() && (
+                                            {approvalStatus === 'pending' ? (
+                                                <div className="flex items-center gap-2 px-5 py-3 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 font-semibold">
+                                                    <Clock className="w-5 h-5" />
+                                                    Đăng ký đang chờ duyệt từ Ban tổ chức
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 px-5 py-3 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 font-semibold">
+                                                    <CheckCircle className="w-5 h-5" />
+                                                    Bạn đã đăng ký thành công
+                                                </div>
+                                            )}
+                                            {canCancelRegistration() && approvalStatus !== 'pending' && (
                                                 <button
                                                     onClick={handleCancelRegistration}
                                                     disabled={registering}
@@ -561,6 +609,25 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
                                                     {registering ? 'Đang hủy...' : 'Hủy đăng ký'}
                                                 </button>
                                             )}
+                                        </div>
+                                    ) : wasCancelled && event && !isEventStarted && new Date(event.start_time) > new Date() ? (
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-700 rounded-xl border border-red-200 font-semibold">
+                                                <XCircle className="w-5 h-5" />
+                                                Đăng ký đã bị hủy trước đó
+                                            </div>
+                                            <button
+                                                onClick={handleRegisterClick}
+                                                disabled={registering}
+                                                className="px-5 py-2.5 bg-[#00358F] text-white rounded-xl hover:bg-[#002a6e] transition-colors disabled:opacity-50 text-sm font-semibold"
+                                            >
+                                                {registering ? 'Đang đăng ký lại...' : 'Đăng ký lại'}
+                                            </button>
+                                        </div>
+                                    ) : wasCancelled ? (
+                                        <div className="flex items-center gap-2 px-5 py-3 bg-gray-100 text-gray-500 rounded-xl border border-gray-200 font-semibold">
+                                            <XCircle className="w-5 h-5" />
+                                            Đăng ký đã bị hủy - Không thể đăng ký lại
                                         </div>
                                     ) : waitlistInfo?.in_waitlist ? (
                                         <div className="flex flex-col gap-2">
@@ -573,37 +640,43 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
                                                 {registering ? 'Đang rời...' : 'Rời danh sách chờ'}
                                             </button>
                                         </div>
-                                    ) : canJoinWaitlist() ? (
-                                        <button onClick={handleJoinWaitlist} disabled={registering}
-                                            className="px-6 py-3 bg-linear-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold flex items-center gap-2 shadow-md">
-                                            <Hourglass className="w-5 h-5" />
-                                            {registering ? 'Đang xử lý...' : 'Vào danh sách chờ'}
-                                        </button>
-                                    ) : canRegister() ? (
-                                        <button onClick={handleRegisterClick} disabled={registering}
-                                            className={`px-8 py-3 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold shadow-brand flex items-center gap-2 ${
-                                                Number(event.event_cost) > 0
-                                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600'
-                                                    : 'bg-gradient-to-r from-[var(--color-brand-navy)] to-[#1a5fc8]'
-                                            }`}>
-                                            {Number(event.event_cost) > 0 ? (
-                                                <>
-                                                    <CreditCard className="w-5 h-5" />
-                                                    {registering ? 'Đang xử lý...' : `Đăng ký & Thanh toán ${new Intl.NumberFormat('vi-VN').format(Number(event.event_cost))}đ`}
-                                                </>
-                                            ) : (
-                                                registering ? 'Đang đăng ký...' : 'Đăng ký ngay'
-                                            )}
-                                        </button>
+                                    ) : showRegisterButton ? (
+                                        <>
+                                            {canJoinWaitlist() ? (
+                                                <button onClick={handleJoinWaitlist} disabled={registering}
+                                                    className="px-6 py-3 bg-linear-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold flex items-center gap-2 shadow-md">
+                                                    <Hourglass className="w-5 h-5" />
+                                                    {registering ? 'Đang xử lý...' : 'Vào danh sách chờ'}
+                                                </button>
+                                            ) : canRegister() ? (
+                                                <button onClick={handleRegisterClick} disabled={registering}
+                                                    className={`px-8 py-3 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold shadow-brand flex items-center gap-2 ${
+                                                        Number(event.event_cost) > 0
+                                                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600'
+                                                            : 'bg-gradient-to-r from-[var(--color-brand-navy)] to-[#1a5fc8]'
+                                                    }`}>
+                                                    {Number(event.event_cost) > 0 ? (
+                                                        <>
+                                                            <CreditCard className="w-5 h-5" />
+                                                            {registering ? 'Đang xử lý...' : `Đăng ký & Thanh toán ${new Intl.NumberFormat('vi-VN').format(Number(event.event_cost))}đ`}
+                                                        </>
+                                                    ) : (
+                                                        registering ? 'Đang đăng ký...' : 'Đăng ký ngay'
+                                                    )}
+                                                </button>
+                                            ) : null}
+                                        </>
                                     ) : (
                                         <div className="px-5 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold text-center">
                                             {isEventFull
                                                 ? 'Đã hết chỗ'
-                                                : !isUpcoming
-                                                    ? 'Không thể đăng ký'
-                                                    : isPastDeadline
-                                                        ? 'Hết hạn đăng ký'
-                                                        : 'Không khả dụng'}
+                                                : isEventPending
+                                                    ? 'Sự kiện đang chờ duyệt'
+                                                    : isEventStarted
+                                                        ? 'Sự kiện đã kết thúc'
+                                                        : isPastDeadline
+                                                            ? 'Hết hạn đăng ký'
+                                                            : 'Không khả dụng'}
                                         </div>
                                     )}
                                 </>
@@ -992,24 +1065,34 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
 
                         {/* ── My Registration Info ── */}
                         {isRegistered && (
-                            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-linear-to-br from-emerald-50 to-green-50 shadow-card p-5">
+                            <div className="relative overflow-hidden rounded-2xl border shadow-card p-5 bg-linear-to-br from-emerald-50 to-green-50 border-emerald-200">
                                 <div className="absolute top-0 left-0 right-0 h-0.75 bg-linear-to-r from-emerald-400 to-green-400" />
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
                                         <CheckCircle className="w-5 h-5 text-emerald-600" />
                                     </div>
-                                    <p className="font-bold text-emerald-900">Đã đăng ký</p>
+                                    <p className="font-bold text-emerald-900">
+                                        {approvalStatus === 'pending' ? 'Đang chờ duyệt' : 'Đã đăng ký'}
+                                    </p>
                                 </div>
-                                <p className="text-sm text-emerald-800 mb-3">
-                                    Bạn đã đăng ký thành công sự kiện này. Hãy mang mã QR khi đến tham dự.
-                                </p>
-                                <button
-                                    onClick={() => router.push('/dashboard/tickets')}
-                                    className="text-sm font-semibold text-emerald-700 flex items-center gap-1 hover:text-emerald-900 transition-colors"
-                                >
-                                    Xem mã QR
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
+                                {approvalStatus === 'pending' ? (
+                                    <p className="text-sm text-amber-800">
+                                        Đơn đăng ký của bạn đang chờ Ban tổ chức duyệt. Bạn sẽ được thông báo khi được chấp nhận.
+                                    </p>
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-emerald-800 mb-3">
+                                            Bạn đã đăng ký thành công sự kiện này. Hãy mang mã QR khi đến tham dự.
+                                        </p>
+                                        <button
+                                            onClick={() => router.push('/dashboard/tickets')}
+                                            className="text-sm font-semibold text-emerald-700 flex items-center gap-1 hover:text-emerald-900 transition-colors"
+                                        >
+                                            Xem mã QR
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
