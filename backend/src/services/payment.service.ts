@@ -295,22 +295,31 @@ export const confirmPayment = async (
         }),
     ]);
 
+    // Fire-and-forget: send email & notifications asynchronously
+    // Do NOT await — webhook must respond quickly (< 3s for SePay)
     if (user && event) {
-        try {
-            await emailService.sendRegistrationConfirmation({
-                email: user.email, fullName: user.full_name,
-                eventTitle: event.title, eventLocation: event.location,
-                eventStartTime: event.start_time, eventEndTime: event.end_time,
-                trainingPoints: event.training_points, qrCodeDataUrl,
-                eventCost: Number(payment.amount),
-            });
-        } catch (e) { console.error('[Payment] Email error:', e); }
-        try {
-            await notificationsService.notifyRegistrationConfirm(
-                payment.user_id, payment.event_id, event.title, event.location,
-                event.start_time, event.end_time, event.training_points, qrCodeDataUrl, Number(payment.amount),
-            );
-        } catch (e) { console.error('[Payment] Notification error:', e); }
+        const emailQrCode = await QRCode.toDataURL(JSON.stringify({
+            registration_id: payment.registration_id,
+            event_id: payment.event_id,
+            user_id: payment.user_id,
+            issued_at: new Date().toISOString(),
+            expires_at: event.start_time.toISOString(),
+        }));
+
+        // Send email async (fire-and-forget)
+        emailService.sendRegistrationConfirmation({
+            email: user.email, fullName: user.full_name,
+            eventTitle: event.title, eventLocation: event.location,
+            eventStartTime: event.start_time, eventEndTime: event.end_time,
+            trainingPoints: event.training_points, qrCodeDataUrl: emailQrCode,
+            eventCost: Number(payment.amount),
+        }).catch(e => console.error('[Payment] Email error:', e));
+
+        // Send notification async (fire-and-forget)
+        notificationsService.notifyRegistrationConfirm(
+            payment.user_id, payment.event_id, event.title, event.location,
+            event.start_time, event.end_time, event.training_points, emailQrCode, Number(payment.amount),
+        ).catch(e => console.error('[Payment] Notification error:', e));
     }
 
     return toRecord({ ...updated, event, user, paymentCode: updated.payos_order_id ?? undefined });

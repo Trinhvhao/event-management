@@ -9,16 +9,21 @@ const isPayOSPayload = (body: any): boolean => {
 
 export const handleWebhook = async (req: Request, res: Response) => {
     try {
+        console.log('[Webhook] Received payload:', JSON.stringify(req.body));
+
         let result;
         if (isPayOSPayload(req.body)) {
             result = await paymentService.handlePayOSWebhook(req.body);
         } else {
             result = await paymentService.handleSePayWebhook(req.body);
         }
+
+        console.log('[Webhook] Result:', JSON.stringify(result));
         res.status(200).json(result);
     } catch (error: unknown) {
-        console.error('[Webhook] Error:', error);
-        res.status(200).json({ success: false, message: 'Webhook processing error' });
+        const err = error as { message?: string; stack?: string };
+        console.error('[Webhook] FATAL ERROR:', err?.message, err?.stack);
+        res.status(200).json({ success: false, message: `Webhook processing error: ${err?.message}` });
     }
 };
 
