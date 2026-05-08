@@ -620,6 +620,22 @@ export const approveRegistration = async (
         console.error('Failed to send notification:', notifError);
     }
 
+    // Log activity
+    await prisma.eventTeamActivity.create({
+        data: {
+            event_id: registration.event_id,
+            actor_id: requester.id,
+            action_type: 'registration_approved',
+            target_user_id: registration.user_id,
+            metadata: {
+                registration_id: registrationId,
+                user_name: registration.user.full_name,
+                event_title: registration.event.title,
+                note,
+            },
+        },
+    }).catch(() => {});
+
     return updated;
 };
 
@@ -698,6 +714,22 @@ export const rejectRegistration = async (
     } catch (notifError) {
         console.error('Failed to send notification:', notifError);
     }
+
+    // Log activity
+    await prisma.eventTeamActivity.create({
+        data: {
+            event_id: registration.event_id,
+            actor_id: requester.id,
+            action_type: 'registration_rejected',
+            target_user_id: registration.user_id,
+            metadata: {
+                registration_id: registrationId,
+                user_name: registration.user.full_name,
+                event_title: registration.event.title,
+                note,
+            },
+        },
+    }).catch(() => {});
 
     return updated;
 };

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { RoleBadge } from './RoleBadge';
-import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { Loader2, MoreHorizontal, Trash2, UserCog } from 'lucide-react';
 import { TeamMember } from '@/types';
 

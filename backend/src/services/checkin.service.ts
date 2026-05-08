@@ -213,6 +213,22 @@ const completeCheckin = async (registration: RegistrationWithRelations, checkedB
         return createdAttendance;
     });
 
+    // Log activity — attendance returned from $transaction
+    await prisma.eventTeamActivity.create({
+        data: {
+            event_id: registration.event_id,
+            actor_id: checkedBy,
+            action_type: 'attendee_checked_in',
+            target_user_id: registration.user_id,
+            metadata: {
+                registration_id: registration.id,
+                attendance_id: (attendance as any).id,
+                user_name: registration.user?.full_name,
+                event_title: registration.event?.title,
+            },
+        },
+    }).catch(() => {});
+
     try {
         await notificationsService.notifyCheckinSuccess(
             registration.user_id,
@@ -513,7 +529,7 @@ export const checkoutAttendance = async (attendanceId: number, checkedBy: number
 
     const now = new Date();
 
-    return prisma.attendance.update({
+    const updated = await prisma.attendance.update({
         where: { id: attendanceId },
         data: {
             checked_out_at: now,
@@ -536,6 +552,23 @@ export const checkoutAttendance = async (attendanceId: number, checkedBy: number
             checker: { select: { id: true, full_name: true } },
         },
     });
+
+    // Log activity — use updated which has the correct included type
+    await prisma.eventTeamActivity.create({
+        data: {
+            event_id: updated.registration.event_id,
+            actor_id: checkedBy,
+            action_type: 'attendee_checked_out',
+            target_user_id: updated.registration.user_id,
+            metadata: {
+                attendance_id: attendanceId,
+                user_name: updated.registration.user?.full_name,
+                event_title: updated.registration.event?.title,
+            },
+        },
+    }).catch(() => {});
+
+    return updated;
 };
 
 export const undoAttendance = async (attendanceId: number, checkedBy: number, userRole: UserRole) => {
@@ -544,7 +577,12 @@ export const undoAttendance = async (attendanceId: number, checkedBy: number, us
         include: {
             registration: {
                 include: {
-                    event: { select: { id: true, organizer_id: true, deleted_at: true } },
+                    user: { select: { id: true, full_name: true } },
+                    event: {
+                        select: {
+                            id: true, title: true, organizer_id: true, deleted_at: true
+                        },
+                    },
                 },
             },
         },
@@ -562,11 +600,16 @@ export const undoAttendance = async (attendanceId: number, checkedBy: number, us
         throw new ForbiddenError('Bạn không có quyền thao tác với bản ghi này');
     }
 
+    const eventId = attendance.registration.event_id;
+    const userId = attendance.registration.user_id;
+    const userName = attendance.registration.user?.full_name;
+    const eventTitle = attendance.registration.event?.title;
+
     await prisma.$transaction(async (tx) => {
         await tx.trainingPoint.deleteMany({
             where: {
-                user_id: attendance.registration.user_id,
-                event_id: attendance.registration.event_id,
+                user_id: userId,
+                event_id: eventId,
             },
         });
 
@@ -579,6 +622,21 @@ export const undoAttendance = async (attendanceId: number, checkedBy: number, us
             data: { status: 'registered' },
         });
     });
+
+    await prisma.eventTeamActivity.create({
+        data: {
+            event_id: eventId,
+            actor_id: checkedBy,
+            action_type: 'attendee_checked_out',
+            target_user_id: userId,
+            metadata: {
+                attendance_id: attendanceId,
+                user_name: userName,
+                event_title: eventTitle,
+                action: 'undo_attendance',
+            },
+        },
+    }).catch(() => {});
 
     return { deleted: true, attendanceId };
 };

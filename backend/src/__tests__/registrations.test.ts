@@ -93,7 +93,8 @@ describe('Registrations Module Tests', () => {
         password_hash: passwordHash,
         full_name: 'Student Registration Module',
         student_id: 'RMT-ST-001',
-        role: 'student',
+        role: 'participant',
+        participant_type: 'student',
         department_id: departmentId,
       },
     });
@@ -167,7 +168,7 @@ describe('Registrations Module Tests', () => {
     eventCId = eventC.id;
 
     studentToken = jwt.sign(
-      { id: studentId, role: 'student' },
+      { id: studentId, role: 'participant' },
       process.env.JWT_SECRET || 'test-secret'
     );
 

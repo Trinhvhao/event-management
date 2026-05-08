@@ -8,10 +8,15 @@ import { eventTeamService } from '@/services/eventTeamService';
 import { eventService } from '@/services/eventService';
 import { TeamMember } from '@/types';
 import { toast } from 'sonner';
-import { Loader2, Users, ArrowLeft, UserPlus } from 'lucide-react';
+import { Loader2, Users, ArrowLeft, UserPlus, Shield, Activity, UserCog } from 'lucide-react';
 import { TeamMemberTable } from '@/components/admin/events/team/TeamMemberTable';
 import { AddTeamMemberDialog } from '@/components/admin/events/team/AddTeamMemberDialog';
+import { TransferOrganizerDialog } from '@/components/admin/events/team/TransferOrganizerDialog';
+import { PermissionMatrixTab } from '@/components/admin/events/team/PermissionMatrixTab';
+import { ActivityLogTab } from '@/components/admin/events/team/ActivityLogTab';
 import Link from 'next/link';
+
+type Tab = 'team' | 'permissions' | 'activity';
 
 export default function EventTeamPage() {
     const router = useRouter();
@@ -23,6 +28,8 @@ export default function EventTeamPage() {
     const [loading, setLoading] = useState(true);
     const [eventTitle, setEventTitle] = useState<string>('');
     const [showAddDialog, setShowAddDialog] = useState(false);
+    const [showTransferDialog, setShowTransferDialog] = useState(false);
+    const [activeTab, setActiveTab] = useState<Tab>('team');
 
     const loadTeam = useCallback(async () => {
         try {
@@ -90,6 +97,12 @@ export default function EventTeamPage() {
         }
     };
 
+    const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+        { id: 'team', label: 'Thành viên', icon: Users },
+        { id: 'permissions', label: 'Phân quyền', icon: Shield },
+        { id: 'activity', label: 'Nhật ký', icon: Activity },
+    ];
+
     if (!isHydrated || (isHydrated && !isAuthenticated)) {
         return (
             <DashboardLayout>
@@ -105,7 +118,6 @@ export default function EventTeamPage() {
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Breadcrumb + Header */}
                 <div>
-                    {/* Breadcrumb */}
                     <nav className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-3 flex-wrap">
                         <Link href="/dashboard" className="hover:text-[var(--text-primary)] transition-colors">Dashboard</Link>
                         <span>/</span>
@@ -118,7 +130,6 @@ export default function EventTeamPage() {
                         <span className="text-[var(--color-brand-navy)] font-semibold">Đội ngũ</span>
                     </nav>
 
-                    {/* Header */}
                     <div className="flex items-center gap-4">
                         <Link
                             href="/dashboard/organizer/events"
@@ -127,15 +138,18 @@ export default function EventTeamPage() {
                             <ArrowLeft className="w-4 h-4 text-[var(--text-secondary)]" />
                         </Link>
                         <div className="flex-1">
-                            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                                Quản lý đội ngũ
-                            </h1>
+                            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quản lý đội ngũ</h1>
                             {eventTitle && (
-                                <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-                                    {eventTitle}
-                                </p>
+                                <p className="text-sm text-[var(--text-secondary)] mt-0.5">{eventTitle}</p>
                             )}
                         </div>
+                        <button
+                            onClick={() => setShowTransferDialog(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--border-default)] bg-white text-sm font-medium text-[var(--text-secondary)] hover:border-[var(--color-brand-navy)]/50 hover:text-[var(--color-brand-navy)] transition-colors"
+                        >
+                            <UserCog className="w-4 h-4" />
+                            Chuyển quyền
+                        </button>
                         <button
                             onClick={() => setShowAddDialog(true)}
                             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-navy)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
@@ -146,99 +160,126 @@ export default function EventTeamPage() {
                     </div>
                 </div>
 
-                {/* Team Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-xl border border-[var(--border-default)] bg-white">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] flex items-center justify-center">
-                                <Users className="w-5 h-5 text-[var(--color-brand-navy)]" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-[var(--text-primary)]">
-                                    {members.length}
-                                </p>
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                    Thành viên
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-xl border border-[var(--border-default)] bg-white">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-green)_10%,transparent)] flex items-center justify-center">
-                                <Users className="w-5 h-5 text-[var(--color-brand-green)]" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-[var(--text-primary)]">
-                                    {members.filter((m) => m.role === 'main_organizer').length}
-                                </p>
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                    Main Organizer
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-xl border border-[var(--border-default)] bg-white">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-gray)_10%,transparent)] flex items-center justify-center">
-                                <Users className="w-5 h-5 text-[var(--color-brand-gray)]" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold text-[var(--text-primary)]">
-                                    {members.filter((m) => m.role === 'helper').length}
-                                </p>
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                    Helper
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                {/* Tabs */}
+                <div className="flex items-center gap-1 border-b border-[var(--border-default)]">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                                    isActive
+                                        ? 'border-[var(--color-brand-navy)] text-[var(--color-brand-navy)]'
+                                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                }`}
+                            >
+                                <Icon className="w-4 h-4" />
+                                {tab.label}
+                            </button>
+                        );
+                    })}
                 </div>
 
-                {/* Team Members List */}
-                <div className="rounded-xl border border-[var(--border-default)] bg-white p-6">
-                    <h2 className="text-base font-bold text-[var(--text-primary)] mb-4">
-                        Danh sách thành viên
-                    </h2>
-                    <TeamMemberTable
-                        members={members}
-                        loading={loading}
-                        onRemove={handleRemoveMember}
-                        onUpdateRole={handleUpdateRole}
-                        currentUserId={user?.id || 0}
-                    />
-                </div>
+                {/* Tab Content */}
+                {activeTab === 'team' && (
+                    <>
+                        {/* Team Stats */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <div className="p-4 rounded-xl border border-[var(--border-default)] bg-white">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-navy)_10%,transparent)] flex items-center justify-center">
+                                        <Users className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-[var(--text-primary)]">{members.length}</p>
+                                        <p className="text-xs text-[var(--text-secondary)]">Thành viên</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4 rounded-xl border border-[var(--border-default)] bg-white">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-green)_10%,transparent)] flex items-center justify-center">
+                                        <Users className="w-5 h-5 text-[var(--color-brand-green)]" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-[var(--text-primary)]">
+                                            {members.filter((m) => m.role === 'main_organizer').length}
+                                        </p>
+                                        <p className="text-xs text-[var(--text-secondary)]">Main Organizer</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4 rounded-xl border border-[var(--border-default)] bg-white">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--color-brand-gray)_10%,transparent)] flex items-center justify-center">
+                                        <Users className="w-5 h-5 text-[var(--color-brand-gray)]" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-[var(--text-primary)]">
+                                            {members.filter((m) => m.role === 'helper').length}
+                                        </p>
+                                        <p className="text-xs text-[var(--text-secondary)]">Helper</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                {/* Role Legend */}
-                <div className="rounded-xl border border-[var(--border-default)] bg-white p-6">
-                    <h2 className="text-base font-bold text-[var(--text-primary)] mb-4">
-                        Vai trò trong Team
-                    </h2>
-                    <div className="space-y-3">
-                        <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-navy)_15%,transparent)] flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <Users className="w-4 h-4 text-[var(--color-brand-navy)]" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-[var(--text-primary)]">Main Organizer</p>
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                    Toàn quyền quản lý sự kiện: tạo, sửa, xóa, quản lý đăng ký, checkin, xem feedback, cộng điểm
-                                </p>
+                        {/* Team Members List */}
+                        <div className="rounded-xl border border-[var(--border-default)] bg-white p-6">
+                            <h2 className="text-base font-bold text-[var(--text-primary)] mb-4">Danh sách thành viên</h2>
+                            <TeamMemberTable
+                                members={members}
+                                loading={loading}
+                                onRemove={handleRemoveMember}
+                                onUpdateRole={handleUpdateRole}
+                                currentUserId={user?.id || 0}
+                            />
+                        </div>
+
+                        {/* Role Legend */}
+                        <div className="rounded-xl border border-[var(--border-default)] bg-white p-6">
+                            <h2 className="text-base font-bold text-[var(--text-primary)] mb-4">Vai trò trong Team</h2>
+                            <div className="space-y-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-navy)_15%,transparent)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <Users className="w-4 h-4 text-[var(--color-brand-navy)]" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-[var(--text-primary)]">Main Organizer</p>
+                                        <p className="text-xs text-[var(--text-secondary)]">
+                                            Toàn quyền quản lý sự kiện: tạo, sửa, xóa, quản lý đăng ký, checkin, xem feedback, cộng điểm
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-gray)_15%,transparent)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <Users className="w-4 h-4 text-[var(--color-brand-gray)]" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-[var(--text-primary)]">Helper</p>
+                                        <p className="text-xs text-[var(--text-secondary)]">
+                                            Chỉ có quyền checkin và xem feedback của sự kiện (có thể tùy chỉnh trong tab Phân quyền)
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-gray)_15%,transparent)] flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <Users className="w-4 h-4 text-[var(--color-brand-gray)]" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-[var(--text-primary)]">Helper</p>
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                    Chỉ có quyền checkin và xem feedback của sự kiện
-                                </p>
-                            </div>
-                        </div>
+                    </>
+                )}
+
+                {activeTab === 'permissions' && (
+                    <div className="rounded-xl border border-[var(--border-default)] bg-white p-6">
+                        <PermissionMatrixTab eventId={eventId} />
                     </div>
-                </div>
+                )}
+
+                {activeTab === 'activity' && (
+                    <div className="rounded-xl border border-[var(--border-default)] bg-white p-6">
+                        <ActivityLogTab eventId={eventId} />
+                    </div>
+                )}
             </div>
 
             {/* Add Team Member Dialog */}
@@ -247,6 +288,20 @@ export default function EventTeamPage() {
                 isOpen={showAddDialog}
                 onClose={() => setShowAddDialog(false)}
                 onAdd={handleAddMember}
+            />
+
+            {/* Transfer Organizer Dialog */}
+            <TransferOrganizerDialog
+                eventId={eventId}
+                eventTitle={eventTitle}
+                currentOrganizerId={user?.id || 0}
+                teamMembers={members}
+                isOpen={showTransferDialog}
+                onClose={() => setShowTransferDialog(false)}
+                onTransferred={() => {
+                    void loadTeam();
+                    void loadEvent();
+                }}
             />
         </DashboardLayout>
     );

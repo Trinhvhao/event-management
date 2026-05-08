@@ -53,6 +53,7 @@ interface EventBlueprint {
   registrationDeadlineOffset: number;
   softDeleted?: boolean;
   eventCost?: number;
+  imageUrl?: string;
 }
 
 const ADMIN_EMAIL = 'admin@dnu.edu.vn';
@@ -96,6 +97,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 4,
     eventCost: 200000,
     registrationDeadlineOffset: 2,
+    imageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80',
   },
   {
     title: 'Workshop CV & Phỏng vấn cùng HR',
@@ -113,6 +115,7 @@ const eventBlueprints: EventBlueprint[] = [
     eventCost: 0,
     registrationDeadlineOffset: 3,
     isFeatured: true,
+    imageUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&q=80',
   },
   {
     title: 'Ngày hội CLB Sinh viên 2026',
@@ -130,6 +133,7 @@ const eventBlueprints: EventBlueprint[] = [
     eventCost: 0,
     registrationDeadlineOffset: 1,
     isFeatured: true,
+    imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
   },
   {
     title: 'Bootcamp Data Analytics',
@@ -146,6 +150,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 6,
     eventCost: 450000,
     registrationDeadlineOffset: 4,
+    imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80',
   },
   {
     title: 'Diễn đàn Khởi nghiệp trẻ',
@@ -163,6 +168,7 @@ const eventBlueprints: EventBlueprint[] = [
     eventCost: 0,
     registrationDeadlineOffset: -1,
     isFeatured: true,
+    imageUrl: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&q=80',
   },
   {
     title: 'Giải chạy Campus Run',
@@ -179,6 +185,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 3,
     eventCost: 80000,
     registrationDeadlineOffset: 5,
+    imageUrl: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&q=80',
   },
   {
     title: 'Đêm nhạc Acoustic vì cộng đồng',
@@ -195,6 +202,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 2,
     eventCost: 150000,
     registrationDeadlineOffset: 3,
+    imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&q=80',
   },
   {
     title: 'Workshop Nghiên cứu khoa học cơ bản',
@@ -211,6 +219,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 4,
     eventCost: 300000,
     registrationDeadlineOffset: -40,
+    imageUrl: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&q=80',
   },
   {
     title: 'Ngày hội Ngoại ngữ & Văn hóa quốc tế',
@@ -227,6 +236,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 3,
     eventCost: 0,
     registrationDeadlineOffset: -24,
+    imageUrl: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80',
   },
   {
     title: 'Phiên chợ Ý tưởng sáng tạo',
@@ -243,6 +253,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 3,
     eventCost: 50000,
     registrationDeadlineOffset: 3,
+    imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&q=80',
   },
   {
     title: 'Tuần lễ Định hướng Tân sinh viên (bản lưu)',
@@ -260,6 +271,7 @@ const eventBlueprints: EventBlueprint[] = [
     eventCost: 0,
     registrationDeadlineOffset: -10,
     softDeleted: true,
+    imageUrl: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&q=80',
   },
   {
     title: 'Open Class: Public Speaking Intensive',
@@ -276,6 +288,7 @@ const eventBlueprints: EventBlueprint[] = [
     trainingPoints: 2,
     eventCost: 120000,
     registrationDeadlineOffset: 6,
+    imageUrl: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&q=80',
   },
 ];
 
@@ -455,6 +468,7 @@ export async function seedDemoExpansion(
         is_featured: blueprint.isFeatured ?? false,
         registration_deadline: registrationDeadline,
         deleted_at: blueprint.softDeleted ? new Date() : null,
+        image_url: blueprint.imageUrl ?? null,
       },
     });
 

@@ -114,7 +114,7 @@ export const eventTeamController = {
                 return;
             }
 
-            await eventTeamService.removeTeamMember(eventId, targetUserId);
+            await eventTeamService.removeTeamMember(eventId, targetUserId, user.id);
 
             res.json(successResponse(null, 'Team member removed successfully'));
         } catch (error) {
@@ -163,7 +163,8 @@ export const eventTeamController = {
             const updated = await eventTeamService.updateTeamMemberRole(
                 eventId,
                 targetUserId,
-                role as EventTeamRole
+                role as EventTeamRole,
+                user.id
             );
 
             res.json(successResponse(updated, 'Team member role updated successfully'));
@@ -200,6 +201,143 @@ export const eventTeamController = {
             );
 
             res.json(successResponse(users, 'Users retrieved successfully'));
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * Transfer main organizer to another team member
+     * @route   POST /api/events/:eventId/team/transfer
+     * @access  Private (main organizer or admin only)
+     */
+    async transferMainOrganizer(req: Request, res: Response, next: NextFunction) {
+        try {
+            const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+            const { userId, role } = req.body;
+            const user = (req as any).user;
+
+            if (!userId) {
+                res.status(400).json({ success: false, message: 'userId is required' });
+                return;
+            }
+
+            const canManage = await eventTeamService.canUserManageTeam(eventId, user.id, user.role);
+            if (!canManage) {
+                res.status(403).json({ success: false, message: 'Only the main organizer or admin can transfer ownership' });
+                return;
+            }
+
+            const result = await eventTeamService.transferMainOrganizer(
+                eventId,
+                user.id,
+                parsePositiveInt(userId, 'userId'),
+                (role as EventTeamRole) || 'main_organizer'
+            );
+
+            res.json(successResponse(result, 'Event ownership transferred successfully'));
+        } catch (error: any) {
+            if (error.message.includes('not found') || error.message.includes('must be a team member')) {
+                res.status(400).json({ success: false, message: error.message });
+                return;
+            }
+            next(error);
+        }
+    },
+
+    /**
+     * Get permission matrix for an event
+     * @route   GET /api/events/:eventId/permissions
+     * @access  Private (main organizer or admin only)
+     */
+    async getPermissionMatrix(req: Request, res: Response, next: NextFunction) {
+        try {
+            const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+            const user = (req as any).user;
+
+            const canManage = await eventTeamService.canUserManageTeam(eventId, user.id, user.role);
+            if (!canManage) {
+                res.status(403).json({ success: false, message: 'Only the main organizer or admin can manage permissions' });
+                return;
+            }
+
+            const matrix = await eventTeamService.getPermissionMatrix(eventId);
+            res.json(successResponse(matrix, 'Permission matrix retrieved'));
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * Update a permission override for a role
+     * @route   PUT /api/events/:eventId/permissions
+     * @access  Private (main organizer or admin only)
+     */
+    async updatePermission(req: Request, res: Response, next: NextFunction) {
+        try {
+            const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+            const { role, permission, allowed } = req.body;
+            const user = (req as any).user;
+
+            if (!role || !permission || allowed === undefined) {
+                res.status(400).json({ success: false, message: 'role, permission, and allowed are required' });
+                return;
+            }
+
+            if (!['main_organizer', 'helper'].includes(role)) {
+                res.status(400).json({ success: false, message: 'Invalid role' });
+                return;
+            }
+
+            const canManage = await eventTeamService.canUserManageTeam(eventId, user.id, user.role);
+            if (!canManage) {
+                res.status(403).json({ success: false, message: 'Only the main organizer or admin can manage permissions' });
+                return;
+            }
+
+            await eventTeamService.updatePermission(
+                eventId,
+                role as EventTeamRole,
+                permission,
+                Boolean(allowed),
+                user.id
+            );
+
+            const matrix = await eventTeamService.getPermissionMatrix(eventId);
+            res.json(successResponse(matrix, 'Permission updated'));
+        } catch (error: any) {
+            if (error.message === 'Invalid permission action') {
+                res.status(400).json({ success: false, message: error.message });
+                return;
+            }
+            next(error);
+        }
+    },
+
+    /**
+     * Get activity log for an event
+     * @route   GET /api/events/:eventId/activities
+     * @access  Private (main organizer or admin only)
+     */
+    async getActivityLog(req: Request, res: Response, next: NextFunction) {
+        try {
+            const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+            const { page = '1', limit = '50', actionType } = req.query;
+            const user = (req as any).user;
+
+            const canManage = await eventTeamService.canUserManageTeam(eventId, user.id, user.role);
+            if (!canManage) {
+                res.status(403).json({ success: false, message: 'You do not have permission to view activity log' });
+                return;
+            }
+
+            const result = await eventTeamService.getEventActivityLog(eventId, {
+                page: parseInt(String(page)) || 1,
+                limit: parseInt(String(limit)) || 50,
+                actionType: typeof actionType === 'string' ? actionType : undefined,
+            });
+
+            res.json(successResponse(result, 'Activity log retrieved'));
         } catch (error) {
             next(error);
         }

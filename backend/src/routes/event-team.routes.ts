@@ -40,4 +40,32 @@ router.put('/:eventId/team/:userId', authenticate, authorize('organizer', 'admin
  */
 router.delete('/:eventId/team/:userId', authenticate, authorize('organizer', 'admin'), eventTeamController.removeTeamMember);
 
+/**
+ * @route   POST /api/events/:eventId/team/transfer
+ * @desc    Transfer main organizer to another team member
+ * @access  Private (organizer, admin)
+ */
+router.post('/:eventId/team/transfer', authenticate, authorize('organizer', 'admin'), eventTeamController.transferMainOrganizer);
+
+/**
+ * @route   GET /api/events/:eventId/permissions
+ * @desc    Get permission matrix for an event
+ * @access  Private (organizer, admin)
+ */
+router.get('/:eventId/permissions', authenticate, authorize('organizer', 'admin'), eventTeamController.getPermissionMatrix);
+
+/**
+ * @route   PUT /api/events/:eventId/permissions
+ * @desc    Update a permission override for a role
+ * @access  Private (organizer, admin)
+ */
+router.put('/:eventId/permissions', authenticate, authorize('organizer', 'admin'), eventTeamController.updatePermission);
+
+/**
+ * @route   GET /api/events/:eventId/activities
+ * @desc    Get activity log for an event
+ * @access  Private (organizer, admin)
+ */
+router.get('/:eventId/activities', authenticate, authorize('organizer', 'admin'), eventTeamController.getActivityLog);
+
 export default router;

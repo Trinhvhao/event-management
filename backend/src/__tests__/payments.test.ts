@@ -68,7 +68,7 @@ describe('Payment Module Tests', () => {
                 password_hash: passwordHash,
                 full_name: 'Student Payment Module',
                 student_id: 'PMT-ST-001',
-                role: 'student',
+                role: 'participant',
             },
         });
         studentId = student.id;
@@ -94,7 +94,7 @@ describe('Payment Module Tests', () => {
         adminId = admin.id;
 
         studentToken = jwt.sign(
-            { id: studentId, role: 'student' },
+            { id: studentId, role: 'participant' },
             process.env.JWT_SECRET || 'test-secret'
         );
         organizerToken = jwt.sign(
@@ -354,12 +354,12 @@ describe('Payment Module Tests', () => {
                 email: 'fresh-test-payment-module@test.com',
                 password_hash: passwordHash,
                 full_name: 'Fresh Payment User',
-                role: 'student',
+                role: 'participant',
                 department_id: departmentId,
             },
         });
         const freshToken = jwt.sign(
-            { id: freshUser.id, role: 'student' },
+            { id: freshUser.id, role: 'participant' },
             process.env.JWT_SECRET || 'test-secret'
         );
 
@@ -436,12 +436,12 @@ describe('Payment Module Tests', () => {
                 email: 'other-test-payment-module@test.com',
                 password_hash: passwordHash,
                 full_name: 'Other Payment Student',
-                role: 'student',
+                role: 'participant',
                 department_id: departmentId,
             },
         });
         const otherToken = jwt.sign(
-            { id: otherStudent.id, role: 'student' },
+            { id: otherStudent.id, role: 'participant' },
             process.env.JWT_SECRET || 'test-secret'
         );
 

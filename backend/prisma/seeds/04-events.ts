@@ -29,6 +29,7 @@ export async function seedEvents(
             event_cost: 150000,
             status: 'completed',
             registration_deadline: new Date(completedEventDate.setDate(completedEventDate.getDate() - 3)),
+            image_url: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&q=80',
         },
     });
 
@@ -52,6 +53,7 @@ export async function seedEvents(
             status: 'completed',
             is_featured: true,
             registration_deadline: new Date(completedEventDate2.setDate(completedEventDate2.getDate() - 5)),
+            image_url: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=800&q=80',
         },
     });
 
@@ -74,6 +76,7 @@ export async function seedEvents(
             status: 'ongoing',
             is_featured: true,
             registration_deadline: new Date(ongoingEventDate.setDate(ongoingEventDate.getDate() - 7)),
+            image_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
         },
     });
 
@@ -97,6 +100,7 @@ export async function seedEvents(
             status: 'upcoming',
             is_featured: true,
             registration_deadline: new Date(upcomingEventDate1.setDate(upcomingEventDate1.getDate() - 3)),
+            image_url: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80',
         },
     });
 
@@ -118,6 +122,7 @@ export async function seedEvents(
             event_cost: 100000,
             status: 'upcoming',
             registration_deadline: new Date(upcomingEventDate2.setDate(upcomingEventDate2.getDate() - 2)),
+            image_url: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&q=80',
         },
     });
 
@@ -140,6 +145,7 @@ export async function seedEvents(
             status: 'upcoming',
             is_featured: true,
             registration_deadline: new Date(upcomingEventDate3.setDate(upcomingEventDate3.getDate() - 5)),
+            image_url: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&q=80',
         },
     });
 
@@ -161,6 +167,7 @@ export async function seedEvents(
             event_cost: 0,
             status: 'upcoming',
             registration_deadline: new Date(upcomingEventDate4.setDate(upcomingEventDate4.getDate() - 10)),
+            image_url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80',
         },
     });
 
