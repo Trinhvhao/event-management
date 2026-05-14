@@ -25,6 +25,7 @@ import {
     CreditCard,
     Ticket,
     Trophy,
+    Settings,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import NotificationBell from '../dashboard/NotificationBell';
@@ -92,10 +93,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 { href: '/dashboard/checkin', icon: QrCode, label: 'Check-in & Điểm danh' },
                 { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
                 { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
+                { href: '/dashboard/settings', icon: Settings, label: 'Cài đặt' },
             ];
         }
 
-        // Student
+        // Student / Participant
         return [
             { href: '/dashboard', icon: LayoutDashboard, label: 'Trang chủ' },
             { href: '/dashboard/events', icon: Calendar, label: 'Khám phá sự kiện' },
@@ -104,6 +106,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             { href: '/dashboard/payment/history', icon: CreditCard, label: 'Lịch sử thanh toán' },
             { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
             { href: '/dashboard/gamification', icon: Trophy, label: 'Bảng xếp hạng' },
+            { href: '/dashboard/settings', icon: Settings, label: 'Cài đặt' },
         ];
     };
 

@@ -100,7 +100,7 @@ function LoadingSkeleton() {
 
 export default function ProfilePage() {
     const router = useRouter();
-    const { user: authUser, token, isAuthenticated, isHydrated } = useAuthStore();
+    const { token, isAuthenticated, isHydrated } = useAuthStore();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -121,11 +121,7 @@ export default function ProfilePage() {
 
     const fetchProfile = useCallback(async () => {
         try {
-            let userData: UserProfile | null = (authUser as UserProfile | null) || null;
-
-            if (!userData) {
-                userData = (await profileService.getProfile()) as UserProfile;
-            }
+            const userData: UserProfile = (await profileService.getProfile()) as UserProfile;
 
             if (!userData) {
                 throw new Error('Không tải được thông tin người dùng');
@@ -145,7 +141,7 @@ export default function ProfilePage() {
         } finally {
             setLoading(false);
         }
-    }, [authUser]);
+    }, [token]);
 
     useEffect(() => {
         if (!isHydrated) {

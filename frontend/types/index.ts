@@ -45,6 +45,9 @@ export interface User {
   avatar_url?: string;
   phone?: string;
   created_at: string;
+  registration_count?: number;
+  total_events_attended?: number;
+  total_points?: number;
 }
 
 // Auth types

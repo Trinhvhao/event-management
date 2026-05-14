@@ -59,7 +59,7 @@ export default function Toggle({
             className={clsx(
                 'relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-brandBlue focus-visible:ring-offset-2',
-                checked ? 'bg-brandGreen' : 'bg-gray-300',
+                checked ? 'bg-[#F26600]' : 'bg-gray-300',
                 disabled && 'cursor-not-allowed opacity-50',
                 classes.track,
                 className

@@ -101,17 +101,27 @@ export const authController = {
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const currentUser = getAuthenticatedUser(req);
-      const user = await prisma.user.findUnique({
-        where: { id: currentUser.id },
-        select: {
-          id: true, email: true, full_name: true, student_id: true,
-          role: true, is_active: true, email_verified: true,
-          avatar_url: true,
-          department_id: true, created_at: true, last_login: true,
-          department: { select: { id: true, name: true } },
-        },
-      });
-      res.json(successResponse(user));
+      const [user, registrationCount, eventsAttendedCount, totalPoints] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: currentUser.id },
+          select: {
+            id: true, email: true, full_name: true, student_id: true,
+            role: true, is_active: true, email_verified: true,
+            avatar_url: true,
+            department_id: true, created_at: true, last_login: true,
+            department: { select: { id: true, name: true } },
+          },
+        }),
+        prisma.registration.count({ where: { user_id: currentUser.id } }),
+        prisma.attendance.count({ where: { registration: { user_id: currentUser.id } } }),
+        prisma.trainingPoint.aggregate({ _sum: { points: true }, where: { user_id: currentUser.id } }),
+      ]);
+      res.json(successResponse({
+        ...user,
+        registration_count: registrationCount,
+        total_events_attended: eventsAttendedCount,
+        total_points: totalPoints._sum.points ?? 0,
+      }));
     } catch (error) {
       next(error);
     }
@@ -140,7 +150,17 @@ export const authController = {
           department: { select: { id: true, name: true } },
         },
       });
-      res.json(successResponse(updated, 'Profile updated'));
+      const [registrationCount, eventsAttendedCount, totalPoints] = await Promise.all([
+        prisma.registration.count({ where: { user_id: currentUser.id } }),
+        prisma.attendance.count({ where: { registration: { user_id: currentUser.id } } }),
+        prisma.trainingPoint.aggregate({ _sum: { points: true }, where: { user_id: currentUser.id } }),
+      ]);
+      res.json(successResponse({
+        ...updated,
+        registration_count: registrationCount,
+        total_events_attended: eventsAttendedCount,
+        total_points: totalPoints._sum.points ?? 0,
+      }, 'Profile updated'));
     } catch (error) {
       next(error);
     }
