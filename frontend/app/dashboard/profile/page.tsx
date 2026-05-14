@@ -177,7 +177,7 @@ export default function ProfilePage() {
         try {
             const result = await profileService.uploadAvatar(file);
             setUser(prev => prev ? { ...prev, avatar_url: result.avatar_url } : prev);
-            useAuthStore.getState().updateUser({ ...user!, avatar_url: result.avatar_url });
+            useAuthStore.getState().updateUser({ ...user!, avatar_url: result.avatar_url } as AuthUser);
             toast.success('Cập nhật ảnh đại diện thành công!');
         } catch (error) {
             toast.error(getErrorMessage(error, 'Tải ảnh thất bại'));

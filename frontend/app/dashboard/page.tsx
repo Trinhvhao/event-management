@@ -6,6 +6,8 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import { useAuthStore } from '@/store/authStore';
+import { gamificationService, Badge } from '@/services/gamificationService';
+import { ticketService, Ticket } from '@/services/ticketService';
 import {
   Calendar,
   Award,
@@ -32,6 +34,30 @@ import {
   Eye,
   ChevronRight,
   Radio,
+  Ticket as TicketIcon,
+  Star,
+  Flame,
+  Crown,
+  Heart,
+  Coffee,
+  Sunrise,
+  Rocket,
+  Trophy,
+  Medal,
+  TrophyIcon,
+  FlameIcon,
+  SparklesIcon,
+  HeartIcon,
+  StarIcon,
+  CoffeeIcon,
+  SunriseIcon,
+  RocketIcon,
+  CrownIcon,
+  Building2Icon,
+  CalendarIcon,
+  MessageSquare,
+  ChevronLeft,
+  ZapIcon,
 } from 'lucide-react';
 import { eventService } from '@/services/eventService';
 import { statisticsService } from '@/services/statisticsService';
@@ -288,6 +314,12 @@ interface DashboardStats {
   recentNotifications: Notification[];
   trainingPoints?: number;
   unreadNotifications?: number;
+  // Participant-specific
+  myBadges?: Badge[];
+  myTickets?: Ticket[];
+  myRegistrations?: any[];
+  nextEvent?: Event;
+  totalEventsAttended?: number;
 }
 
 function StatCard({
@@ -521,27 +553,59 @@ export default function DashboardPage() {
           unreadNotifications: 0,
         });
       } else {
-        const [eventsRes, myPointsRes, unreadNotifs, myRegsRes] = await Promise.all([
-          eventService.getAll({ status: 'upcoming', limit: 5 }),
+        const [eventsRes, myPointsRes, unreadNotifs, myRegsRes, badgesRes, ticketsRes] = await Promise.all([
+          eventService.getAll({ status: 'upcoming', limit: 10 }),
           trainingPointsService.getMyPoints().catch(() => ({ grand_total: 0 })),
           notificationService.getUnreadCount().catch(() => 0),
           registrationService.getMyRegistrations().catch(() => []),
+          gamificationService.getMyBadges().catch(() => ({ badges: [], total: 0 })),
+          ticketService.getMyTickets().catch(() => []),
         ]);
 
         const events: Event[] = eventsRes.items || (eventsRes as any).data?.items || (eventsRes as any).data || [];
         const myRegistrations: any[] = Array.isArray(myRegsRes) ? myRegsRes : (myRegsRes as any).data || [];
-        
-        // Chỉ đếm registrations có status 'registered' (không tính cancelled, attended)
-        const registeredCount = myRegistrations.filter(r => r.status === 'registered').length;
-        
-        // Lọc bỏ các sự kiện đã đăng ký (còn hiệu lực, chưa cancelled)
-        const registeredEventIds = new Set(
-          myRegistrations.filter(r => !r.cancelled_at).map(r => r.event_id)
-        );
-        const filteredEvents = events.filter(e => !registeredEventIds.has(e.id));
-        
+        const badges: Badge[] = (badgesRes as any)?.badges || [];
+        const tickets: Ticket[] = Array.isArray(ticketsRes) ? ticketsRes : [];
         const pointsData = (myPointsRes as any)?.data ?? myPointsRes ?? {};
         const unreadCount = typeof unreadNotifs === 'number' ? unreadNotifs : (unreadNotifs as any)?.unread_count ?? (unreadNotifs as any)?.count ?? 0;
+
+        // Lọc registrations còn hiệu lực (không cancelled)
+        const activeRegs = myRegistrations.filter(r => r.status !== 'cancelled');
+        const registeredEventIds = new Set(activeRegs.map(r => r.event_id));
+        const filteredEvents = events.filter(e => !registeredEventIds.has(e.id));
+
+        // Tìm sự kiện tiếp theo (đã đăng ký, sắp diễn ra hoặc đang diễn ra)
+        const upcomingRegs = myRegistrations
+          .filter(r => r.status === 'registered' && r.event)
+          .sort((a, b) => new Date(a.event.start_time).getTime() - new Date(b.event.start_time).getTime());
+        const nextReg = upcomingRegs[0];
+        const nextEvent = nextReg?.event;
+
+        // Tính tổng sự kiện đã tham dự
+        const totalAttended = myRegistrations.filter(r => r.status === 'attended' || r.status === 'registered').length;
+
+        // Vé hợp lệ sắp tới (valid/upcoming)
+        const validTickets = tickets.filter(t => t.status === 'valid' && !t.is_past);
+
+        // Badge icons mapping
+        const BADGE_ICONS: Record<string, React.ReactNode> = {
+          Flame: <FlameIcon size={20} />,
+          Zap: <ZapIcon size={20} />,
+          Award: <Award size={20} />,
+          Star: <StarIcon size={20} />,
+          Heart: <HeartIcon size={20} />,
+          Coffee: <CoffeeIcon size={20} />,
+          Sparkles: <SparklesIcon size={20} />,
+          Crown: <CrownIcon size={20} />,
+          Trophy: <TrophyIcon size={20} />,
+          Sunrise: <SunriseIcon size={20} />,
+          Calendar: <CalendarIcon size={20} />,
+          Rocket: <RocketIcon size={20} />,
+          MessageSquare: <MessageSquare size={20} />,
+          Medal: <Medal size={20} />,
+          Building2: <Building2Icon size={20} />,
+        };
+
         setStats({
           totalEvents: filteredEvents.length,
           upcomingEvents: filteredEvents.length,
@@ -550,14 +614,19 @@ export default function DashboardPage() {
           totalUsers: 0,
           totalParticipants: 0,
           totalOrganizers: 0,
-          totalRegistrations: registeredCount,
-          totalAttendances: 0,
+          totalRegistrations: myRegistrations.length,
+          totalAttendances: totalAttended,
           totalDepartments: 0,
           pendingEvents: 0,
-          recentEvents: filteredEvents,
+          recentEvents: filteredEvents.slice(0, 4),
           recentNotifications: [],
           trainingPoints: pointsData.grand_total || 0,
           unreadNotifications: unreadCount,
+          myBadges: badges,
+          myTickets: validTickets.slice(0, 3),
+          myRegistrations: upcomingRegs.slice(0, 5),
+          nextEvent,
+          totalEventsAttended: totalAttended,
         });
       }
     } catch (error: unknown) {
@@ -1007,7 +1076,29 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className="space-y-5 max-w-screen-2xl mx-auto">
 
-        {/* KPI Cards */}
+        {/* ── Welcome Banner ── */}
+        {(() => {
+          const hour = new Date().getHours();
+          const greeting = hour < 12 ? 'Chào buổi sáng' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+
+          return (
+            <div className="relative overflow-hidden rounded-[28px] border border-[#dbe6fb] bg-gradient-to-br from-[#f0f4ff] via-white to-[#fff8f0] p-6 shadow-[0_12px_40px_rgba(0,53,143,0.08)]">
+              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[rgba(242,102,0,0.06)] blur-3xl" />
+              <div className="absolute bottom-0 left-1/3 w-32 h-32 rounded-full bg-[rgba(0,166,81,0.06)] blur-3xl" />
+              <div className="relative">
+                {/* Top: greeting */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-orange)] mb-1">{greeting}</p>
+                  <h1 className="text-2xl font-black tracking-tight text-[var(--text-primary)]">
+                    {user?.full_name?.split(' ').slice(-1)[0] || 'Sinh viên'} ơi
+                  </h1>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── KPI Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Sự kiện sắp tới" value={stats?.upcomingEvents || 0} icon={<Calendar size={22} />} color="#00358F" highlight />
           <StatCard label="Đã đăng ký" value={stats?.totalRegistrations || 0} icon={<CheckCircle size={22} />} color="#F26600" />
@@ -1015,7 +1106,7 @@ export default function DashboardPage() {
           <StatCard label="Thông báo" value={stats?.unreadNotifications || 0} icon={<Bell size={22} />} color="#FF4000" />
         </div>
 
-        {/* Quick Actions */}
+        {/* ── Quick Actions ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { icon: <Calendar className="w-5 h-5" />, label: 'Đăng ký sự kiện', href: '/dashboard/events', color: '#00358F' },
@@ -1041,15 +1132,280 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Upcoming Events */}
-        <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-[var(--text-primary)]">Sự kiện dành cho bạn</h3>
-            <Link href="/dashboard/events" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
-              Khám phá thêm <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
+        {/* ── Sự kiện đã đăng ký (My Registrations) ── */}
+        {stats?.myRegistrations && stats.myRegistrations.length > 0 && (
+          <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#F26600]/10 flex items-center justify-center">
+                  <TicketIcon className="w-4 h-4 text-[#F26600]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--text-primary)]">Sự kiện đã đăng ký</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Vé &amp; trạng thái tham dự</p>
+                </div>
+              </div>
+              <Link href="/dashboard/my-registrations" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                Xem tất cả <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {stats.myRegistrations.slice(0, 3).map((reg: any) => {
+                const evt = reg.event;
+                if (!evt) return null;
+                const start = new Date(evt.start_time);
+                const end = new Date(evt.end_time);
+                const now = new Date();
+                const isOngoing = now >= start && now <= end;
+                const isPast = now > end;
+                const regStatus = reg.status;
+                const statusMap: Record<string, { label: string; color: string; bg: string }> = {
+                  registered: { label: 'Đã đăng ký', color: '#00358F', bg: 'bg-blue-50' },
+                  attended: { label: 'Đã tham dự', color: '#00A651', bg: 'bg-emerald-50' },
+                  pending: { label: 'Chờ duyệt', color: '#F26600', bg: 'bg-orange-50' },
+                };
+                const regMeta = statusMap[regStatus] || statusMap.registered;
+                return (
+                  <div key={reg.id} className="rounded-xl border border-[var(--border-light)] p-4 hover:border-[var(--color-brand-navy)]/30 hover:shadow-sm transition-all">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${regMeta.bg}`} style={{ color: regMeta.color }}>
+                        {regMeta.label}
+                      </span>
+                      <button
+                        onClick={() => router.push(`/dashboard/events/${evt.id}`)}
+                        className="text-[var(--text-muted)] hover:text-[var(--color-brand-navy)] transition-colors"
+                      >
+                        <ArrowUpRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <h4 className="text-sm font-bold text-[var(--text-primary)] line-clamp-2 mb-2">{evt.title}</h4>
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-1">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      <span>{format(start, 'dd/MM/yyyy', { locale: vi })} · {format(start, 'HH:mm', { locale: vi })}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-3">
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{evt.location || 'Chưa xác định'}</span>
+                    </div>
+                    {isOngoing && (
+                      <Link
+                        href="/dashboard/checkin"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-[#00A651] text-white text-xs font-bold hover:opacity-90 transition-all shadow-sm"
+                      >
+                        <QrCode className="w-4 h-4" />
+                        Check-in ngay
+                      </Link>
+                    )}
+                    {!isOngoing && !isPast && regStatus === 'registered' && (
+                      <Link
+                        href="/dashboard/tickets"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-[var(--color-brand-navy)] text-white text-xs font-bold hover:opacity-90 transition-all shadow-sm"
+                      >
+                        <QrCode className="w-4 h-4" />
+                        Xem vé &amp; QR
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          {stats?.recentEvents && stats.recentEvents.length > 0 ? (
+        )}
+
+        {/* ── 2-col: My Tickets + Training Points Detail ── */}
+        <div className="grid gap-5 xl:grid-cols-2">
+          {/* My Tickets */}
+          {stats?.myTickets && stats.myTickets.length > 0 && (
+            <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#00358F]/10 flex items-center justify-center">
+                    <QrCode className="w-4 h-4 text-[#00358F]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Vé của tôi</h3>
+                    <p className="text-xs text-[var(--text-muted)]">{stats.myTickets.length} vé hợp lệ</p>
+                  </div>
+                </div>
+                <Link href="/dashboard/tickets" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                  Tất cả vé <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="space-y-3">
+                {stats.myTickets.map((ticket) => (
+                  <div key={ticket.id} className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border-light)] hover:border-[var(--color-brand-navy)]/30 hover:bg-[var(--bg-muted)]/30 transition-all cursor-pointer group"
+                    onClick={() => router.push('/dashboard/tickets')}>
+                    {ticket.qr_image ? (
+                      <img src={ticket.qr_image} alt="QR" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-[var(--border-light)]" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-[var(--bg-muted)] flex items-center justify-center shrink-0">
+                        <QrCode className="w-6 h-6 text-[var(--text-muted)]" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-[var(--color-brand-orange)]">{ticket.ticket_code}</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{ticket.registration.event.title}</p>
+                      <div className="flex items-center gap-1 text-xs text-[var(--text-muted)] mt-0.5">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        <span>{format(new Date(ticket.registration.event.start_time), 'dd/MM HH:mm', { locale: vi })}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link href="/dashboard/tickets" onClick={e => e.stopPropagation()} className="p-1.5 rounded-lg bg-[var(--color-brand-navy)] text-white hover:opacity-90">
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Training Points Detail */}
+          {(() => {
+            const pts = stats?.trainingPoints || 0;
+            const thresholds = [100, 200, 300, 500];
+            const levels = ['Yếu', 'Khá', 'Tốt', 'Xuất sắc', 'Xuất sắc nhất'];
+            const colors = ['#dc2626', '#F26600', '#00A651', '#00358F', '#7c3aed'];
+            let levelIdx = 0;
+            let nextThreshold = thresholds[0];
+            let progress = 0;
+            if (pts >= thresholds[3]) { levelIdx = 4; nextThreshold = thresholds[3]; progress = 100; }
+            else if (pts >= thresholds[2]) { levelIdx = 3; nextThreshold = thresholds[3]; progress = ((pts - thresholds[2]) / (thresholds[3] - thresholds[2])) * 100; }
+            else if (pts >= thresholds[1]) { levelIdx = 2; nextThreshold = thresholds[2]; progress = ((pts - thresholds[1]) / (thresholds[2] - thresholds[1])) * 100; }
+            else if (pts >= thresholds[0]) { levelIdx = 1; nextThreshold = thresholds[1]; progress = ((pts - thresholds[0]) / (thresholds[1] - thresholds[0])) * 100; }
+            else { levelIdx = 0; nextThreshold = thresholds[0]; progress = (pts / thresholds[0]) * 100; }
+            const color = colors[levelIdx];
+            const nextPts = Math.max(0, nextThreshold - pts);
+            return (
+              <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-[#00A651]/10 flex items-center justify-center">
+                      <Award className="w-4 h-4 text-[#00A651]" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--text-primary)]">Điểm rèn luyện</h3>
+                      <p className="text-xs text-[var(--text-muted)]">Xếp loại: <span className="font-bold" style={{ color }}>{levels[levelIdx]}</span></p>
+                    </div>
+                  </div>
+                  <Link href="/dashboard/training-points" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                    Chi tiết <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+                <div className="text-center mb-4">
+                  <p className="text-4xl font-black tracking-tight" style={{ color }}>{pts}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">/{nextThreshold} điểm</p>
+                </div>
+                <div className="mb-2">
+                  <div className="h-3 bg-[var(--bg-muted)] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(progress, 100)}%`, background: color }} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-4">
+                  <span>Cần {nextPts} điểm để lên cấp</span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+                <div className="flex gap-1 mb-4">
+                  {levels.slice(0, 4).map((lvl, i) => (
+                    <div key={lvl} className="flex-1 text-center">
+                      <div className="h-1.5 rounded-full mb-1" style={{ background: i <= levelIdx ? colors[i] : 'var(--bg-muted)' }} />
+                      <span className="text-[10px] font-semibold" style={{ color: i <= levelIdx ? colors[i] : 'var(--text-muted)' }}>{lvl}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-[var(--border-light)]">
+                  <div className="text-center">
+                    <p className="text-lg font-black text-[var(--text-primary)]">{stats?.totalEventsAttended || 0}</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">Sự kiện</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-black text-[var(--text-primary)]">{(stats?.myBadges || []).length}</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">Huy hiệu</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-black text-[var(--text-primary)]">{stats?.totalRegistrations || 0}</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">Đăng ký</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* ── Badges + Activity Feed ── */}
+        <div className="grid gap-5 xl:grid-cols-2">
+          {/* Badges */}
+          {(stats?.myBadges?.length ?? 0) > 0 ? (
+            <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#F26600]/10 flex items-center justify-center">
+                    <TrophyIcon className="w-4 h-4 text-[#F26600]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Huy hiệu của tôi</h3>
+                    <p className="text-xs text-[var(--text-muted)]">{(stats?.myBadges || []).length} huy hiệu đã đạt</p>
+                  </div>
+                </div>
+                <Link href="/dashboard/gamification" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                  Bảng xếp hạng <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {(stats?.myBadges || []).slice(0, 8).map((badge: Badge) => (
+                  <div key={badge.id} className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-light)] hover:border-[var(--color-brand-navy)]/30 hover:shadow-sm transition-all cursor-default group"
+                    title={`${badge.name}: ${badge.description}`}>
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: `${badge.color}15` }}>
+                      <div style={{ color: badge.color }}>
+                        <StarIcon className="w-6 h-6" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-bold text-[var(--text-secondary)] text-center leading-tight">{badge.name}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5 flex flex-col items-center justify-center text-center py-8">
+              <TrophyIcon className="w-10 h-10 text-[var(--text-muted)] mb-3" />
+              <p className="text-sm font-bold text-[var(--text-secondary)]">Chưa có huy hiệu nào</p>
+              <p className="text-xs text-[var(--text-muted)] mt-1">Tham gia sự kiện để nhận huy hiệu đầu tiên!</p>
+            </div>
+          )}
+
+          {/* Activity Feed */}
+          <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#00358F]/10 flex items-center justify-center">
+                  <Radio className="w-4 h-4 text-[#00358F]" />
+                </div>
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Hoạt động gần đây</h3>
+              </div>
+              <Link href="/dashboard/notifications" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                Xem tất cả <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
+              <Radio className="w-8 h-8 text-[var(--text-muted)]" />
+              <p className="text-sm text-[var(--text-muted)]">Đăng ký sự kiện để nhận thông báo</p>
+              <Link href="/dashboard/events" className="mt-1 text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)]">
+                Khám phá sự kiện
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Upcoming Events (for discovery) ── */}
+        {stats?.recentEvents && stats.recentEvents.length > 0 && (
+          <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Sự kiện dành cho bạn</h3>
+              <Link href="/dashboard/events" className="text-xs font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)] flex items-center gap-1 transition-colors">
+                Khám phá thêm <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               {stats.recentEvents.slice(0, 4).map((event) => (
                 <div
@@ -1067,7 +1423,7 @@ export default function DashboardPage() {
                   </h4>
                   <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-1">
                     <Calendar className="w-3.5 h-3.5 shrink-0" />
-                    <span>{format(new Date(event.start_time), 'dd/MM/yyyy', { locale: vi })}</span>
+                    <span>{format(new Date(event.start_time), 'dd/MM/yyyy', { locale: vi })} </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-1">
                     <MapPin className="w-3.5 h-3.5 shrink-0" />
@@ -1080,16 +1436,8 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 gap-2">
-              <Calendar className="w-8 h-8 text-[var(--text-muted)]" />
-              <p className="text-sm text-[var(--text-muted)]">Chưa có sự kiện nào</p>
-              <Link href="/dashboard/events" className="mt-2 text-sm font-semibold text-[var(--color-brand-navy)] hover:text-[var(--color-brand-orange)]">
-                Khám phá sự kiện
-              </Link>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
       </div>
     </DashboardLayout>

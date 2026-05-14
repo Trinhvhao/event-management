@@ -3,6 +3,7 @@ import { UserRole, AttendanceStatus } from '@prisma/client';
 import * as notificationsService from './notifications.service';
 import { ValidationError, NotFoundError, ConflictError, ForbiddenError } from '../middleware/errorHandler';
 import { eventTeamService } from './event-team.service';
+import { evaluateAndAwardBadges } from './gamification.service';
 
 interface QRCodeData {
     registration_id: number;
@@ -33,6 +34,8 @@ interface RegistrationWithRelations {
         status: 'pending' | 'approved' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
         organizer_id: number;
         deleted_at: Date | null;
+        checkin_opens_minutes?: number;
+        checkin_closes_minutes?: number;
     };
     user: {
         id: number;
@@ -60,6 +63,8 @@ const buildRegistrationInclude = () => ({
             status: true,
             organizer_id: true,
             deleted_at: true,
+            checkin_opens_minutes: true,
+            checkin_closes_minutes: true,
         },
     },
     user: {
@@ -121,19 +126,22 @@ const assertRequesterCanManageEvent = async (
 };
 
 const assertEventCanCheckin = (registration: RegistrationWithRelations, now: Date) => {
-    const { start_time, end_time, status } = registration.event;
+    const { start_time, end_time, status, checkin_opens_minutes = 0, checkin_closes_minutes = 30 } = registration.event;
 
     if (status !== 'ongoing' && status !== 'completed') {
         throw new ValidationError('Sự kiện chưa bắt đầu hoặc đã kết thúc');
     }
 
-    if (now < start_time) {
-        const minutesUntil = Math.ceil((start_time.getTime() - now.getTime()) / 60000);
+    const opensAt = new Date(start_time.getTime() - checkin_opens_minutes * 60 * 1000);
+    const closesAt = new Date(end_time.getTime() + checkin_closes_minutes * 60 * 1000);
+
+    if (now < opensAt) {
+        const minutesUntil = Math.ceil((opensAt.getTime() - now.getTime()) / 60000);
         throw new ValidationError(`Chưa đến giờ check-in. Còn ${minutesUntil} phút nữa mới được check-in.`);
     }
 
-    if (now > end_time) {
-        throw new ValidationError(`Đã hết giờ check-in. Sự kiện kết thúc lúc ${formatDateTime(end_time)}.`);
+    if (now > closesAt) {
+        throw new ValidationError(`Đã hết giờ check-in. Thời gian check-in kết thúc lúc ${formatDateTime(closesAt)}.`);
     }
 };
 
@@ -239,6 +247,11 @@ const completeCheckin = async (registration: RegistrationWithRelations, checkedB
     } catch (notifError) {
         console.error('Failed to create notification:', notifError);
     }
+
+    // Evaluate and award badges asynchronously (non-blocking)
+    void evaluateAndAwardBadges(registration.user_id).catch((err) => {
+        console.error('[BadgeService] Failed to evaluate badges:', err);
+    });
 
     return attendance;
 };

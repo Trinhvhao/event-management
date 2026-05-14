@@ -34,7 +34,7 @@ interface Pagination {
 
 const toUserRole = (role: string): User['role'] | null => {
     if (role === 'admin' || role === 'organizer' || role === 'participant') {
-        return role;
+        return role as User['role'];
     }
 
     return null;

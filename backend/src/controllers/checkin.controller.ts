@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as checkinService from '../services/checkin.service';
 import { successResponse } from '../utils/response.util';
 import { getAuthenticatedUser, parsePositiveInt } from '../utils/request.util';
+import prisma from '../config/database';
 
 const sendCheckinSuccess = (res: Response, attendance: any) => {
     res.status(201).json(
@@ -16,10 +17,25 @@ const sendCheckinSuccess = (res: Response, attendance: any) => {
     );
 };
 
+/** Re-validate user from DB — prevents stale tokens from causing wrong checked_by */
+const resolveValidUser = async (req: Request) => {
+    const authUser = getAuthenticatedUser(req);
+    const dbUser = await prisma.user.findUnique({
+        where: { id: authUser.id, is_active: true },
+        select: { id: true, role: true, is_active: true },
+    });
+    if (!dbUser) {
+        const err: any = new Error('Tài khoản không tồn tại hoặc đã bị khóa');
+        err.status = 401;
+        throw err;
+    }
+    return dbUser;
+};
+
 export const scanCheckin = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { qr_code } = req.body;
-        const user = getAuthenticatedUser(req);
+        const user = await resolveValidUser(req);
         const attendance = await checkinService.checkinWithQR(qr_code, user.id, user.role);
         const attendanceWithRelations = await checkinService.getAttendanceById(attendance.id, user);
         sendCheckinSuccess(res, attendanceWithRelations);
@@ -32,7 +48,7 @@ export const checkin = scanCheckin;
 
 export const manualCheckin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = getAuthenticatedUser(req);
+        const user = await resolveValidUser(req);
         const eventId = parsePositiveInt(req.body.event_id, 'event_id');
         const registrationId =
             req.body.registration_id == null || req.body.registration_id === ''
@@ -89,7 +105,7 @@ export const getAttendanceById = async (req: Request, res: Response, next: NextF
 export const checkoutAttendance = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const attendanceId = parsePositiveInt(req.params.attendanceId, 'attendanceId');
-        const user = getAuthenticatedUser(req);
+        const user = await resolveValidUser(req);
         const attendance = await checkinService.checkoutAttendance(attendanceId, user.id, user.role);
         res.json(
             successResponse(
@@ -105,7 +121,7 @@ export const checkoutAttendance = async (req: Request, res: Response, next: Next
 export const undoAttendance = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const attendanceId = parsePositiveInt(req.params.attendanceId, 'attendanceId');
-        const user = getAuthenticatedUser(req);
+        const user = await resolveValidUser(req);
         const result = await checkinService.undoAttendance(attendanceId, user.id, user.role);
         res.json(successResponse(result, 'Đã hủy bản ghi điểm danh'));
     } catch (error) {

@@ -18,7 +18,6 @@ import {
     ExportTrainingPointsResponse,
     TrainingPointsStatistics,
     UserTrainingPointsResponse,
-    PointsHistoryRecord,
 } from '@/services/trainingPointsService';
 import { eventService } from '@/services/eventService';
 import { adminService } from '@/services/adminService';
@@ -472,9 +471,9 @@ export default function AdminTrainingPointsPage() {
             setSearchingUser(true);
             const data = await trainingPointsService.getStatistics();
             const users = (data.top_users || []).filter(u =>
-                u.user.full_name.toLowerCase().includes(query.toLowerCase()) ||
-                (u.user.student_id || '').toLowerCase().includes(query.toLowerCase())
-            );
+                (u.user?.full_name || '').toLowerCase().includes(query.toLowerCase()) ||
+                ((u.user?.student_id || '')).toLowerCase().includes(query.toLowerCase())
+            ).filter(u => u.user != null) as { user: { id: number; full_name: string; student_id: string | null; email: string; }; total_points: number }[];
             setSearchResults(users);
             setShowSearchDropdown(true);
         } catch {
@@ -505,7 +504,7 @@ export default function AdminTrainingPointsPage() {
         if (!selectedUser) return 'Vui lòng chọn sinh viên';
         if (!selectedEvent) return 'Vui lòng chọn sự kiện';
         const pts = awardPoints ? parseInt2(awardPoints) : null;
-        if (pts !== null && (pts <= 0 || pts > 100)) return 'Điểm phải từ 1 đến 100';
+        if (pts != null && (pts <= 0 || pts > 100)) return 'Điểm phải từ 1 đến 100';
         return null;
     };
 
@@ -602,7 +601,7 @@ export default function AdminTrainingPointsPage() {
 
     const loadEvents = async (query: string) => {
         const result = await eventService.getAll({ limit: 100, status: 'completed', search: query });
-        return (result.data?.items || result.data || []) as Event[];
+        return ((result as unknown as { data?: { items: Event[] } })?.data?.items || result.items || []) as Event[];
     };
 
     // ── Award confirm description ──

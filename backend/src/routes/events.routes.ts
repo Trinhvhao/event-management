@@ -9,9 +9,9 @@ const router = Router();
 /**
  * @route   GET /api/events
  * @desc    Get all events with filters
- * @access  Public
+ * @access  Public (with optional auth for filtering registered events)
  */
-router.get('/', eventController.getAll);
+router.get('/', authenticateOptional, eventController.getAll);
 
 /**
  * @route   GET /api/events/categories

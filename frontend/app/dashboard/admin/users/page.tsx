@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { ColumnDef, OnChangeFn, SortingState } from '@tanstack/react-table';
 import { toast } from 'sonner';
+import { UserRole } from '@/types';
 
 interface User {
     id: string;
@@ -554,7 +555,7 @@ export default function UserManagementPage() {
     }>({ isOpen: false, type: null });
     const [passwordConfirmDialog, setPasswordConfirmDialog] = useState<{
         isOpen: boolean;
-        type: 'lock' | 'unlock' | 'roleChange' | null;
+        type: 'lock' | 'unlock' | 'bulkLock' | 'bulkUnlock' | 'roleChange' | null;
         userId?: string;
     }>({ isOpen: false, type: null });
     const [showImportModal, setShowImportModal] = useState(false);

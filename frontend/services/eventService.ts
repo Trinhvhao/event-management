@@ -29,6 +29,7 @@ export const eventService = {
     sortOrder?: string;
     is_free?: boolean;
     date_range?: string;
+    exclude_registered?: boolean;
   }): Promise<{
     items: Event[];
     pagination: { total: number; page: number; pageSize: number; totalPages: number };
@@ -37,6 +38,7 @@ export const eventService = {
       category_id,
       department_id,
       is_free,
+      exclude_registered,
       ...rest
     } = params ?? {};
 
@@ -50,6 +52,9 @@ export const eventService = {
     }
     if (is_free !== undefined) {
       apiParams.is_free = String(is_free);
+    }
+    if (exclude_registered !== undefined) {
+      apiParams.exclude_registered = exclude_registered;
     }
 
     const response = await axios.get('/events', {

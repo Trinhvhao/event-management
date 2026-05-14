@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  async rewrites() {
+    return [
+      {
+        source: '/uploads/:path*',
+        destination: 'http://localhost:7776/uploads/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

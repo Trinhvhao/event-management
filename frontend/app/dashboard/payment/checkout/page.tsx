@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { paymentService } from '@/services/paymentService';
@@ -16,6 +16,24 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
 export default function PaymentCheckoutPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout>
+                <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+                    <div className="relative">
+                        <div className="w-20 h-20 rounded-full border-[5px] border-[#00358F]/20 border-t-[#00358F] animate-spin" />
+                    </div>
+                    <p className="text-gray-500 font-semibold text-base">Đang tải thông tin...</p>
+                    <p className="text-gray-400 text-sm">Vui lòng chờ trong giây lát</p>
+                </div>
+            </DashboardLayout>
+        }>
+            <PaymentCheckoutContent />
+        </Suspense>
+    );
+}
+
+function PaymentCheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const registrationId = searchParams.get('reg_id');

@@ -99,6 +99,12 @@ export interface Event {
   require_reason: boolean;
   require_agreement: boolean;
   agreement_text?: string;
+  waitlist_enabled: boolean;
+  waitlist_capacity: number;
+  auto_promote_waitlist: boolean;
+  checkin_opens_minutes: number;
+  checkin_closes_minutes: number;
+  require_checkout: boolean;
   _count?: { registrations: number };
   created_at: string;
   updated_at: string;

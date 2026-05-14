@@ -196,7 +196,7 @@ export default function OrganizerManagementPage() {
 
     const handleSortChange = (value: string) => {
         const { sortBy, sortOrder } = parseSortOption(value);
-        updateFilters({ sortBy, sortOrder });
+        updateFilters({ sortBy, sortOrder: sortOrder as 'asc' | 'desc' | undefined });
     };
 
     const sortingState: SortingState = useMemo(

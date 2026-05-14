@@ -136,7 +136,7 @@ export const ticketService = {
    * Get all tickets for a user
    */
   async getUserTickets(userId: number) {
-    return prisma.ticket.findMany({
+    const tickets = await prisma.ticket.findMany({
       where: {
         registration: {
           user_id: userId,
@@ -172,6 +172,38 @@ export const ticketService = {
         created_at: 'desc',
       },
     });
+
+    // Regenerate QR images for tickets that don't have them
+    await Promise.all(
+      tickets.map(async (ticket) => {
+        if (!ticket.qr_image) {
+          try {
+            const qrPayload = ticket.qr_data ? JSON.parse(ticket.qr_data) : {
+              ticket_code: ticket.ticket_code,
+              registration_id: ticket.registration_id,
+              event_id: ticket.registration.event_id,
+              user_id: ticket.registration.user_id,
+              issued_at: ticket.created_at.toISOString(),
+              expires_at: new Date(ticket.created_at.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            };
+            const qrImage = await QRCode.toDataURL(JSON.stringify(qrPayload), {
+              width: 300,
+              margin: 2,
+              color: { dark: '#000000', light: '#FFFFFF' },
+            });
+            await prisma.ticket.update({
+              where: { id: ticket.id },
+              data: { qr_image: qrImage },
+            });
+            ticket.qr_image = qrImage;
+          } catch {
+            // QR generation failed, leave as null
+          }
+        }
+      })
+    );
+
+    return tickets;
   },
 
   /**

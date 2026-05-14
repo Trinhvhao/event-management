@@ -69,7 +69,7 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, o
         isOpen: boolean;
         type: 'roleChange' | null;
         roleValue?: string;
-    }>({ isOpen: false });
+    }>({ isOpen: false, type: null });
 
     const fetchAuditLogs = useCallback(async () => {
         if (!user) return;
@@ -115,7 +115,7 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, o
         if (passwordConfirmDialog.type === 'roleChange' && passwordConfirmDialog.roleValue) {
             await onRoleChange(user.id, passwordConfirmDialog.roleValue);
         }
-        setPasswordConfirmDialog({ isOpen: false });
+        setPasswordConfirmDialog({ isOpen: false, type: null });
     };
 
     if (!isOpen || !user) return null;
@@ -367,7 +367,7 @@ export function UserDetailPanel({ user, isOpen, onClose, onRoleChange, onLock, o
 
             <PasswordConfirmDialog
                 isOpen={passwordConfirmDialog.isOpen}
-                onClose={() => setPasswordConfirmDialog({ isOpen: false })}
+                onClose={() => setPasswordConfirmDialog({ isOpen: false, type: null })}
                 onConfirm={handlePasswordConfirmed}
                 title="Xác minh trước khi đổi vai trò"
                 description={`Bạn sắp đổi vai trò của ${user.full_name} thành ${ROLE_OPTIONS.find((r) => r.role === passwordConfirmDialog.roleValue)?.label}. Hành động này sẽ thay đổi quyền truy cập của người dùng.`}

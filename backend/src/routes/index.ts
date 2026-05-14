@@ -18,6 +18,7 @@ import searchRoutes from './search.routes';
 import uploadRoutes from './upload.routes';
 import paymentRoutes from './payments.routes';
 import ticketRoutes from './ticket.routes';
+import gamificationRoutes from './gamification.routes';
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -36,6 +37,7 @@ router.use('/search', searchRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/tickets', ticketRoutes);
+router.use('/gamification', gamificationRoutes);
 
 // API info endpoint
 router.get('/', (_req, res) => {

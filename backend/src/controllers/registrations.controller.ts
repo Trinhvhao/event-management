@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as registrationsService from '../services/registrations.service';
+import { eventService } from '../services/events.service';
 import { successResponse } from '../utils/response.util';
 import {
     getAuthenticatedUser,
@@ -163,8 +164,78 @@ export const getPendingRegistrations = async (req: Request, res: Response, next:
 };
 
 // =====================
+// Bulk Controllers
+// =====================
+
+export const bulkApproveRegistrations = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const requester = getAuthenticatedUser(req);
+        const { registrationIds, note } = req.body;
+
+        if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+            res.status(400).json({ success: false, message: 'registrationIds phải là mảng không rỗng' });
+            return;
+        }
+
+        const ids = registrationIds.map((id: unknown) => parsePositiveInt(String(id), 'registrationId'));
+        const results = await registrationsService.bulkApproveRegistrations(ids, requester, note);
+
+        const successCount = results.filter((r) => r.success).length;
+        const failCount = results.filter((r) => !r.success).length;
+
+        res.json(successResponse(results, `Đã duyệt ${successCount}/${registrationIds.length} đăng ký. ${failCount > 0 ? `${failCount} thất bại.` : ''}`));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const bulkRejectRegistrations = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const requester = getAuthenticatedUser(req);
+        const { registrationIds, note } = req.body;
+
+        if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+            res.status(400).json({ success: false, message: 'registrationIds phải là mảng không rỗng' });
+            return;
+        }
+
+        const ids = registrationIds.map((id: unknown) => parsePositiveInt(String(id), 'registrationId'));
+        const results = await registrationsService.bulkRejectRegistrations(ids, requester, note);
+
+        const successCount = results.filter((r) => r.success).length;
+        const failCount = results.filter((r) => !r.success).length;
+
+        res.json(successResponse(results, `Đã từ chối ${successCount}/${registrationIds.length} đăng ký. ${failCount > 0 ? `${failCount} thất bại.` : ''}`));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// =====================
 // Waitlist Controllers
 // =====================
+
+export const exportEventRegistrationsCsv = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const eventId = parsePositiveInt(req.params.eventId, 'eventId');
+        const requester = getAuthenticatedUser(req);
+        const { status, approval_status } = req.query;
+
+        const csv = await registrationsService.exportEventRegistrationsCsv(eventId, requester, {
+            status: typeof status === 'string' ? status : undefined,
+            approvalStatus: typeof approval_status === 'string' ? approval_status : undefined,
+        });
+
+        const event = await eventService.getById(eventId);
+        const filename = `danh-sach-dang-ky-${event.title.replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, '-')}-${Date.now()}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send('\ufeff' + csv); // UTF-8 BOM
+    } catch (error) {
+        next(error);
+    }
+};
 
 export const joinWaitlist = async (req: Request, res: Response, next: NextFunction) => {
     try {

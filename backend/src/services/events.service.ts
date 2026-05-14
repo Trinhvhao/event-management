@@ -21,8 +21,10 @@ export const eventService = {
     date_range?: string; // 'today' | 'this_week' | 'this_month' | undefined
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    exclude_registered?: boolean;
+    user_id?: number;
   }) {
-    const { page, limit, category, department, status, search, is_free, date_range, sortBy, sortOrder } = filters;
+    const { page, limit, category, department, status, search, is_free, date_range, sortBy, sortOrder, exclude_registered, user_id } = filters;
 
     // Build where clause
     const where: Prisma.EventWhereInput = {};
@@ -66,6 +68,18 @@ export const eventService = {
       ];
     }
 
+    // Filter out events that user has already registered for (excluding cancelled)
+    if (exclude_registered && user_id) {
+      where.NOT = {
+        registrations: {
+          some: {
+            user_id: user_id,
+            status: { not: 'cancelled' }
+          }
+        }
+      };
+    }
+
     // Execute queries in parallel
     const [events, total] = await Promise.all([
       prisma.event.findMany({
@@ -78,7 +92,14 @@ export const eventService = {
           organizer: {
             select: { id: true, full_name: true, email: true }
           },
-          _count: { select: { registrations: true } }
+          // Count only approved registrations (active registrations)
+          registrations: {
+            where: {
+              status: { in: ['registered'] },
+              approval_status: { in: ['approved'] } as any
+            },
+            select: { id: true }
+          }
         },
         orderBy: (() => {
           if (!sortBy) return { start_time: 'desc' };
@@ -93,8 +114,14 @@ export const eventService = {
       prisma.event.count({ where })
     ]);
 
+    // Transform to add current_registrations count from filtered registrations
+    const transformedEvents = events.map((event: any) => ({
+      ...event,
+      current_registrations: (event as any).registrations?.length ?? 0
+    }));
+
     return {
-      items: transformEvents(events),
+      items: transformEvents(transformedEvents),
       total,
       page,
       pageSize: limit,

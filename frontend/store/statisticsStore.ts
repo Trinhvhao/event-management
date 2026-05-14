@@ -91,8 +91,8 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
             const params = {
                 ...(dateRange.from && { dateFrom: dateRange.from.toISOString() }),
                 ...(dateRange.to && { dateTo: dateRange.to.toISOString() }),
-                ...(filters.department_id && { department_id: filters.department_id }),
-                ...(filters.category_id && { category_id: filters.category_id }),
+                ...(filters.department_id && { department_id: Number(filters.department_id) || undefined }),
+                ...(filters.category_id && { category_id: Number(filters.category_id) || undefined }),
             };
 
             const [metricsData, chartsData] = await Promise.all([

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,6 +10,7 @@ import {
     WifiOff, Wifi, Cloud, Eye, Clock3
 } from 'lucide-react';
 import { checkinService, CheckinResult, AttendanceRecord, AttendanceStats, AttendanceDetail } from '@/services/checkinService';
+import { profileService } from '@/services/profileService';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface CameraDeviceInfo { id: string; label: string; }
@@ -89,6 +91,7 @@ function SectionHeader({ label, title, subtitle, action }: {
 
 export default function CheckinPage() {
     const { user } = useAuthStore();
+    const router = useRouter();
 
     // ── Offline check-in hook ────────────────────────────────────────────
     const { isOnline, pendingItems, pendingCount, isSyncing, queueCheckIn, processQueue } =
@@ -192,6 +195,17 @@ export default function CheckinPage() {
     const doCheckin = useCallback(async (qrData: string) => {
         if (!qrData.trim()) return;
 
+        // Re-validate session before check-in to prevent stale token issues
+        try {
+            const freshUser = await profileService.getProfile();
+            useAuthStore.getState().updateUser(freshUser);
+        } catch {
+            toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+            useAuthStore.getState().logout();
+            router.push('/login');
+            return;
+        }
+
         setProcessing(true);
         setError(null);
         setLastResult(null);
@@ -226,7 +240,7 @@ export default function CheckinPage() {
         } finally {
             setProcessing(false);
         }
-    }, [loadAttendanceData, playSound, queueCheckIn]);
+    }, [loadAttendanceData, playSound, queueCheckIn, router]);
 
     // ── Camera logic ──────────────────────────────────────────────────
     const stopCamera = useCallback(() => {
@@ -315,6 +329,17 @@ export default function CheckinPage() {
         const sid = manualStudentId.trim();
         const rid = manualRegistrationId.trim();
         if (!sid && !rid) { toast.error('Nhập MSSV hoặc Registration ID'); return; }
+
+        // Re-validate session before check-in to prevent stale token issues
+        try {
+            const freshUser = await profileService.getProfile();
+            useAuthStore.getState().updateUser(freshUser);
+        } catch {
+            toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+            useAuthStore.getState().logout();
+            router.push('/login');
+            return;
+        }
 
         let regId: number | undefined;
         if (rid) { regId = parseInt(rid, 10); if (!Number.isInteger(regId) || regId <= 0) { toast.error('Registration ID không hợp lệ'); return; } }
@@ -764,22 +789,136 @@ export default function CheckinPage() {
                                     </div>
                                 )}
                                 {lastResult && scanSuccess && !lastResultQueued && (
-                                    <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-card">
-                                        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: ACCENT.green.hex }} />
-                                        <div className="p-5 text-center">
-                                            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: ACCENT.green.tint }}>
-                                                <CheckCircle className="w-8 h-8" style={{ color: ACCENT.green.hex }} />
-                                            </motion.div>
-                                            <h3 className="text-lg font-extrabold text-(--text-primary)">{lastResult.student.full_name}</h3>
-                                            <p className="text-sm text-(--text-muted) mt-0.5">{lastResult.student.student_id || lastResult.student.email}</p>
-                                            <p className="text-sm text-(--text-secondary) mt-1">{lastResult.event.title}</p>
-                                            {lastResult.event.training_points > 0 && (
-                                                <span className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-sm font-bold" style={{ background: ACCENT.gold.tint, color: ACCENT.gold.text }}>
-                                                    <Award className="w-4 h-4" /> +{lastResult.event.training_points} điểm rèn luyện
-                                                </span>
-                                            )}
+                                    <motion.div
+                                        key={lastScan?.ts}
+                                        initial={{ opacity: 0, scale: 0.6, y: 20 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                        className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-card"
+                                    >
+                                        {/* Animated glow burst */}
+                                        <div className="absolute inset-0 pointer-events-none">
+                                            <motion.div
+                                                initial={{ scale: 0, opacity: 0.6 }}
+                                                animate={{ scale: 3, opacity: 0 }}
+                                                transition={{ duration: 0.6, ease: 'easeOut' }}
+                                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full"
+                                                style={{ background: ACCENT.green.hex }}
+                                            />
                                         </div>
-                                    </div>
+
+                                        {/* Success accent line */}
+                                        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, transparent, ${ACCENT.green.hex}, transparent)` }} />
+
+                                        <div className="relative p-5 text-center">
+                                            {/* Animated avatar */}
+                                            <div className="relative mx-auto mb-4 w-fit">
+                                                <motion.div
+                                                    initial={{ scale: 0, rotate: -180 }}
+                                                    animate={{ scale: 1, rotate: 0 }}
+                                                    transition={{ delay: 0.1, type: 'spring', stiffness: 200, damping: 15 }}
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-extrabold text-white shadow-xl relative z-10"
+                                                    style={{ background: `linear-gradient(135deg, ${ACCENT.green.hex}, #059669)` }}
+                                                >
+                                                    {lastResult.student.full_name.charAt(0).toUpperCase()}
+                                                </motion.div>
+
+                                                {/* Avatar ring */}
+                                                <motion.div
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    transition={{ delay: 0.2, duration: 0.4 }}
+                                                    className="absolute -inset-1 rounded-full border-2 -z-0"
+                                                    style={{ borderColor: ACCENT.green.hex }}
+                                                />
+
+                                                {/* Check icon overlay */}
+                                                <motion.div
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    transition={{ delay: 0.3, type: 'spring' }}
+                                                    className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-md z-20"
+                                                    style={{ background: ACCENT.green.hex }}
+                                                >
+                                                    <CheckCircle className="w-4 h-4 text-white" />
+                                                </motion.div>
+
+                                                {/* Pulse ring */}
+                                                <motion.div
+                                                    animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
+                                                    transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+                                                    className="absolute inset-0 rounded-full border-2 -z-0"
+                                                    style={{ borderColor: ACCENT.green.hex }}
+                                                />
+                                            </div>
+
+                                            {/* Name */}
+                                            <motion.h3
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.2 }}
+                                                className="text-xl font-extrabold text-[var(--text-primary)] tracking-tight"
+                                            >
+                                                {lastResult.student.full_name}
+                                            </motion.h3>
+
+                                            {/* Student ID / Email */}
+                                            <motion.p
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ delay: 0.3 }}
+                                                className="text-sm text-[var(--text-muted)] mt-0.5 font-medium"
+                                            >
+                                                {lastResult.student.student_id || lastResult.student.email}
+                                            </motion.p>
+
+                                            {/* Event */}
+                                            <motion.p
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ delay: 0.35 }}
+                                                className="text-sm text-[var(--text-secondary)] mt-2 font-semibold max-w-[200px] mx-auto truncate"
+                                            >
+                                                {lastResult.event.title}
+                                            </motion.p>
+
+                                            {/* Training Points + Badges */}
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.4 }}
+                                                className="flex flex-col items-center gap-2 mt-4"
+                                            >
+                                                {lastResult.event.training_points > 0 && (
+                                                    <motion.span
+                                                        initial={{ scale: 0.8 }}
+                                                        animate={{ scale: 1 }}
+                                                        transition={{ delay: 0.5, type: 'spring' }}
+                                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold shadow-md"
+                                                        style={{ background: `linear-gradient(135deg, ${ACCENT.gold.hex}, ${ACCENT.gold.text})`, color: 'white' }}
+                                                    >
+                                                        <Award className="w-5 h-5" />
+                                                        +{lastResult.event.training_points} điểm rèn luyện
+                                                    </motion.span>
+                                                )}
+
+                                                {/* Success streak indicator */}
+                                                <div className="flex items-center gap-1.5">
+                                                    {Array.from({ length: 3 }).map((_, i) => (
+                                                        <motion.div
+                                                            key={i}
+                                                            initial={{ scale: 0 }}
+                                                            animate={{ scale: 1 }}
+                                                            transition={{ delay: 0.5 + i * 0.08, type: 'spring' }}
+                                                            className="w-2 h-2 rounded-full"
+                                                            style={{ background: ACCENT.green.hex, opacity: 0.3 + i * 0.3 }}
+                                                        />
+                                                    ))}
+                                                    <span className="text-[10px] font-bold text-[var(--text-muted)] ml-1">CHECK-IN THÀNH CÔNG</span>
+                                                </div>
+                                            </motion.div>
+                                        </div>
+                                    </motion.div>
                                 )}
                                 {lastResultQueued && (
                                     <div className="relative overflow-hidden rounded-2xl border-2 bg-white shadow-card">

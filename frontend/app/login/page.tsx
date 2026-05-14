@@ -231,8 +231,8 @@ export default function LoginPage() {
                                         <GraduationCap className="text-brandBlue" size={16} />
                                     </div>
                                     <div className="text-left">
-                                        <div className="font-semibold text-primary text-xs">Participant</div>
-                                        <div className="text-xs text-slate-500">Người tham gia</div>
+                                        <div className="font-semibold text-primary text-xs whitespace-nowrap">Participant</div>
+                                        <div className="text-xs text-slate-500 whitespace-nowrap">Người tham gia</div>
                                     </div>
                                 </motion.button>
 
@@ -248,8 +248,8 @@ export default function LoginPage() {
                                         <UserCog className="text-cyan-600" size={16} />
                                     </div>
                                     <div className="text-left">
-                                        <div className="font-semibold text-primary text-xs">Organizer</div>
-                                        <div className="text-xs text-slate-500">BTC</div>
+                                        <div className="font-semibold text-primary text-xs whitespace-nowrap">Organizer</div>
+                                        <div className="text-xs text-slate-500 whitespace-nowrap">BTC</div>
                                     </div>
                                 </motion.button>
 
@@ -265,8 +265,8 @@ export default function LoginPage() {
                                         <UserCog className="text-secondary" size={16} />
                                     </div>
                                     <div className="text-left">
-                                        <div className="font-semibold text-primary text-xs">Admin</div>
-                                        <div className="text-xs text-slate-500">Quản trị</div>
+                                        <div className="font-semibold text-primary text-xs whitespace-nowrap">Admin</div>
+                                        <div className="text-xs text-slate-500 whitespace-nowrap">Quản trị</div>
                                     </div>
                                 </motion.button>
                             </div>

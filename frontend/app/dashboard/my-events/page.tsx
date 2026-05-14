@@ -275,7 +275,7 @@ export default function MyEventsPage() {
             if (isOrganizer) {
                 const data = await eventService.getMyEvents();
                 setEvents(data || []);
-            } else if (isStudent) {
+            } else if (isParticipant) {
                 const data = await registrationService.getMyRegistrations();
                 setRegistrations(data || []);
             }
@@ -285,7 +285,7 @@ export default function MyEventsPage() {
         } finally {
             setLoading(false);
         }
-    }, [isOrganizer, isStudent]);
+    }, [isOrganizer, isParticipant]);
 
     useEffect(() => {
         if (isHydrated && !isAuthenticated) {
@@ -363,7 +363,7 @@ export default function MyEventsPage() {
             return matchesSearch && event.status === 'completed';
         }
         if (activeTab === 'rejected') {
-            return matchesSearch && (event.status === 'pending' || event.status === 'rejected' || event.status === 'cancelled');
+            return matchesSearch && ((event.status as string) === 'rejected' || event.status === 'pending' || event.status === 'cancelled');
         }
         return matchesSearch;
     });

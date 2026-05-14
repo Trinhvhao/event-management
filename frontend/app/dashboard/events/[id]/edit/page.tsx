@@ -42,6 +42,12 @@ const editEventSchema = z.object({
     training_points: z.string().optional(),
     event_cost: z.string().optional(),
     registration_deadline: z.string().optional(),
+    waitlist_enabled: z.boolean().optional(),
+    waitlist_capacity: z.string().optional(),
+    auto_promote_waitlist: z.boolean().optional(),
+    checkin_opens_minutes: z.string().optional(),
+    checkin_closes_minutes: z.string().optional(),
+    require_checkout: z.boolean().optional(),
 });
 
 type EditEventForm = z.infer<typeof editEventSchema>;
@@ -99,6 +105,12 @@ export default function EditEventPage() {
             setValue('training_points', String(event.training_points));
             setValue('event_cost', String(event.event_cost || 0));
             setValue('registration_deadline', event.registration_deadline ? toDatetimeLocal(event.registration_deadline) : '');
+            setValue('waitlist_enabled', event.waitlist_enabled ?? true);
+            setValue('waitlist_capacity', String(event.waitlist_capacity ?? 0));
+            setValue('auto_promote_waitlist', event.auto_promote_waitlist ?? true);
+            setValue('checkin_opens_minutes', String(event.checkin_opens_minutes ?? 0));
+            setValue('checkin_closes_minutes', String(event.checkin_closes_minutes ?? 30));
+            setValue('require_checkout', event.require_checkout ?? false);
             setImageUrl(event.image_url || null);
             setFormReady(true);
         }
@@ -127,6 +139,12 @@ export default function EditEventPage() {
                 registration_deadline: data.registration_deadline
                     ? new Date(data.registration_deadline).toISOString()
                     : undefined,
+                waitlist_enabled: data.waitlist_enabled ?? true,
+                waitlist_capacity: Number(data.waitlist_capacity || 0),
+                auto_promote_waitlist: data.auto_promote_waitlist ?? true,
+                checkin_opens_minutes: Number(data.checkin_opens_minutes || 0),
+                checkin_closes_minutes: Number(data.checkin_closes_minutes || 30),
+                require_checkout: data.require_checkout ?? false,
             };
 
             await eventService.update(eventId, payload);

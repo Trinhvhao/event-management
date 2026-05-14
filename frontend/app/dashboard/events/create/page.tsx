@@ -17,7 +17,7 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
     ArrowLeft, ArrowRight, Calendar, MapPin, Users, Award,
     Send, CheckCircle, Sparkles, Clock, Tag, Building2,
-    Image as ImageIcon, ChevronRight
+    Image as ImageIcon, ChevronRight, ListOrdered, Scan
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -47,6 +47,12 @@ const createEventSchema = z.object({
     require_reason: z.boolean().optional(),
     require_agreement: z.boolean().optional(),
     agreement_text: z.string().optional(),
+    waitlist_enabled: z.boolean().optional(),
+    waitlist_capacity: z.string().optional(),
+    auto_promote_waitlist: z.boolean().optional(),
+    checkin_opens_minutes: z.string().optional(),
+    checkin_closes_minutes: z.string().optional(),
+    require_checkout: z.boolean().optional(),
 });
 
 type CreateEventForm = z.infer<typeof createEventSchema>;
@@ -119,6 +125,12 @@ export default function CreateEventPage() {
                 require_reason: data.require_reason || false,
                 require_agreement: data.require_agreement ?? true,
                 agreement_text: data.agreement_text || undefined,
+                waitlist_enabled: data.waitlist_enabled ?? true,
+                waitlist_capacity: Number(data.waitlist_capacity || 0),
+                auto_promote_waitlist: data.auto_promote_waitlist ?? true,
+                checkin_opens_minutes: Number(data.checkin_opens_minutes || 0),
+                checkin_closes_minutes: Number(data.checkin_closes_minutes || 30),
+                require_checkout: data.require_checkout ?? false,
             };
             await eventService.createEvent(payload);
             toast.success('Tạo sự kiện thành công!');
@@ -560,6 +572,84 @@ export default function CreateEventPage() {
                                                 <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
                                                     Nội quy này sẽ hiển thị cho sinh viên khi đăng ký tham gia sự kiện
                                                 </p>
+                                            </motion.div>
+
+                                            {/* Waitlist Section */}
+                                            <motion.div variants={stepVariants.item} className="rounded-xl border border-[var(--border-light)] bg-[var(--bg-page)] p-4 space-y-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <ListOrdered size={15} className="text-[var(--color-brand-navy)]" />
+                                                    <span className="text-sm font-bold text-[var(--text-primary)]">Danh sách chờ (Waitlist)</span>
+                                                </div>
+
+                                                <label className="flex items-center gap-3 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        {...register('waitlist_enabled')}
+                                                        defaultChecked={true}
+                                                        className="w-5 h-5 rounded border-2 border-[var(--border-default)] text-[var(--color-brand-navy)] focus:ring-[var(--color-brand-navy)] cursor-pointer"
+                                                    />
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-[var(--text-secondary)]">Bật danh sách chờ</span>
+                                                        <p className="text-xs text-[var(--text-muted)]">Cho phép sinh viên xếp hàng chờ khi sự kiện đầy</p>
+                                                    </div>
+                                                </label>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <Input
+                                                        label="Số người chờ tối đa"
+                                                        type="number"
+                                                        placeholder="0"
+                                                        helperText="0 = không giới hạn"
+                                                        {...register('waitlist_capacity')}
+                                                    />
+                                                    <label className="flex items-center gap-3 cursor-pointer group pt-6">
+                                                        <input
+                                                            type="checkbox"
+                                                            {...register('auto_promote_waitlist')}
+                                                            defaultChecked={true}
+                                                            className="w-5 h-5 rounded border-2 border-[var(--border-default)] text-[var(--color-brand-navy)] focus:ring-[var(--color-brand-navy)] cursor-pointer"
+                                                        />
+                                                        <span className="text-sm font-semibold text-[var(--text-secondary)]">Tự động nhận slot</span>
+                                                    </label>
+                                                </div>
+                                            </motion.div>
+
+                                            {/* Check-in Section */}
+                                            <motion.div variants={stepVariants.item} className="rounded-xl border border-[var(--border-light)] bg-[var(--bg-page)] p-4 space-y-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Scan size={15} className="text-[var(--color-brand-navy)]" />
+                                                    <span className="text-sm font-bold text-[var(--text-primary)]">Cài đặt Check-in</span>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <Input
+                                                        label="Check-in trước (phút)"
+                                                        type="number"
+                                                        placeholder="0"
+                                                        helperText="Cho phép check-in trước bao lâu"
+                                                        {...register('checkin_opens_minutes')}
+                                                    />
+                                                    <Input
+                                                        label="Check-in sau (phút)"
+                                                        type="number"
+                                                        placeholder="30"
+                                                        helperText="Cho phép check-in sau khi kết thúc"
+                                                        {...register('checkin_closes_minutes')}
+                                                    />
+                                                </div>
+
+                                                <label className="flex items-center gap-3 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        {...register('require_checkout')}
+                                                        defaultChecked={false}
+                                                        className="w-5 h-5 rounded border-2 border-[var(--border-default)] text-[var(--color-brand-navy)] focus:ring-[var(--color-brand-navy)] cursor-pointer"
+                                                    />
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-[var(--text-secondary)]">Yêu cầu check-out</span>
+                                                        <p className="text-xs text-[var(--text-muted)]">Người tham dự phải check-out khi ra về</p>
+                                                    </div>
+                                                </label>
                                             </motion.div>
 
                                             <motion.div variants={stepVariants.item}>

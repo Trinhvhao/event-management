@@ -76,9 +76,12 @@ export default function EventDetailPage() {
     const [registering, setRegistering] = useState(false);
     const [processingEventAction, setProcessingEventAction] = useState(false);
     const [event, setEvent] = useState<Event | null>(null);
+    // hasActiveRegistration: chỉ approved + không cancelled → có thể hủy
+    const [hasActiveRegistration, setHasActiveRegistration] = useState(false);
+    // isRegistered: pending OR approved (không cancelled) → hiển thị trạng thái
     const [isRegistered, setIsRegistered] = useState(false);
     const [registrationId, setRegistrationId] = useState<number | null>(null);
-    const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | null>(null);
+    const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
     const [wasCancelled, setWasCancelled] = useState(false);
     const [waitlistInfo, setWaitlistInfo] = useState<WaitlistInfo | null>(null);
     const [countdown, setCountdown] = useState<{ text: string; urgent: boolean } | null>(null);
@@ -115,30 +118,40 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
         try {
             setLoading(true);
             setIsRegistered(false);
+            setHasActiveRegistration(false);
             setRegistrationId(null);
             setWaitlistInfo(null);
 
             const eventData = await eventService.getById(eventId);
             setEvent(eventData);
 
-            if (user?.role === 'participant' || user?.role === 'student') {
+            if (user?.role === 'participant') {
                 try {
                     const myEventsRes = await registrationService.getMyRegistrations();
-                    const registeredReg = myEventsRes.find(
+                    // Find any non-cancelled registration
+                    const activeReg = myEventsRes.find(
                         (reg: Registration) => reg.event_id === eventId && reg.status !== 'cancelled'
                     );
-                    if (registeredReg) {
+                    // Find any cancelled registration
+                    const cancelledReg = myEventsRes.find(
+                        (reg: Registration) => reg.event_id === eventId && reg.status === 'cancelled'
+                    );
+
+                    if (activeReg) {
+                        // isRegistered: hiển thị trạng thái (cả pending và approved)
                         setIsRegistered(true);
-                        setRegistrationId(registeredReg.id);
-                        setApprovalStatus(registeredReg.approval_status ?? null);
-                    } else {
-                        // Check if user has a cancelled registration
-                        const cancelledReg = myEventsRes.find(
-                            (reg: Registration) => reg.event_id === eventId && reg.status === 'cancelled'
-                        );
-                        if (cancelledReg) {
-                            setWasCancelled(true);
-                        }
+                        setRegistrationId(activeReg.id);
+                        // hasActiveRegistration: chỉ approved mới có thể hủy
+                        const regApprovalStatus = activeReg.approval_status;
+                        const normalizedApprovalStatus =
+                            regApprovalStatus === 'pending' || regApprovalStatus === 'approved'
+                                ? regApprovalStatus
+                                : 'pending';
+                        setApprovalStatus(normalizedApprovalStatus);
+                        // Chỉ approved mới được hủy
+                        setHasActiveRegistration(normalizedApprovalStatus === 'approved');
+                    } else if (cancelledReg) {
+                        setWasCancelled(true);
                     }
                 } catch (error) {
                     console.error('Error checking registration:', error);
@@ -249,6 +262,7 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
             } else if (result.is_pending_approval) {
                 toast.success('Đăng ký thành công! Đang chờ duyệt từ Ban tổ chức.');
                 setIsRegistered(true);
+                setHasActiveRegistration(false);
                 setRegistrationId(result.id);
                 setApprovalStatus('pending');
                 setWasCancelled(false);
@@ -256,6 +270,7 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
             } else {
                 toast.success('Đăng ký sự kiện thành công!');
                 setIsRegistered(true);
+                setHasActiveRegistration(true);
                 setRegistrationId(result.id);
                 setApprovalStatus(result.approval_status ?? 'approved');
                 setWasCancelled(false);
@@ -317,6 +332,7 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
             await registrationService.cancel(registrationId);
             toast.success('Hủy đăng ký thành công');
             setIsRegistered(false);
+            setHasActiveRegistration(false);
             setRegistrationId(null);
             fetchEventDetail();
         } catch (error: unknown) {
@@ -589,25 +605,28 @@ Tôi cam kết tuân thủ đầy đủ nội quy trên và chịu trách nhiệ
                                 <>
                                     {isRegistered ? (
                                         <div className="flex flex-col gap-2">
-                                            {approvalStatus === 'pending' ? (
+                                            {hasActiveRegistration && approvalStatus === 'approved' && (
+                                                <>
+                                                    <div className="flex items-center gap-2 px-5 py-3 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 font-semibold">
+                                                        <CheckCircle className="w-5 h-5" />
+                                                        Bạn đã đăng ký thành công
+                                                    </div>
+                                                    {canCancelRegistration() && (
+                                                        <button
+                                                            onClick={handleCancelRegistration}
+                                                            disabled={registering}
+                                                            className="px-5 py-2.5 bg-white text-red-600 border border-red-300 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 text-sm font-semibold"
+                                                        >
+                                                            {registering ? 'Đang hủy...' : 'Hủy đăng ký'}
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                            {!hasActiveRegistration && approvalStatus === 'pending' && (
                                                 <div className="flex items-center gap-2 px-5 py-3 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 font-semibold">
                                                     <Clock className="w-5 h-5" />
                                                     Đăng ký đang chờ duyệt từ Ban tổ chức
                                                 </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2 px-5 py-3 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 font-semibold">
-                                                    <CheckCircle className="w-5 h-5" />
-                                                    Bạn đã đăng ký thành công
-                                                </div>
-                                            )}
-                                            {canCancelRegistration() && approvalStatus !== 'pending' && (
-                                                <button
-                                                    onClick={handleCancelRegistration}
-                                                    disabled={registering}
-                                                    className="px-5 py-2.5 bg-white text-red-600 border border-red-300 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 text-sm font-semibold"
-                                                >
-                                                    {registering ? 'Đang hủy...' : 'Hủy đăng ký'}
-                                                </button>
                                             )}
                                         </div>
                                     ) : wasCancelled && event && !isEventStarted && new Date(event.start_time) > new Date() ? (

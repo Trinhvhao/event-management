@@ -382,11 +382,11 @@ export default function AdminStatisticsPage() {
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Danh mục</label>
-                            <div className="relative">
+                            <div className="relative h-[46px]">
                                 <select
                                     value={filters.category_id}
                                     onChange={(e) => updateFilters({ category_id: e.target.value })}
-                                    className="input-base appearance-none pl-12 pr-12"
+                                    className="input-base w-full h-full appearance-none bg-transparent pl-11 pr-10 rounded-xl border border-[var(--border-default)] text-sm font-medium text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[#00358F] focus:border-[#00358F] transition-all"
                                 >
                                     <option value="">Tất cả danh mục</option>
                                     {categories.map((category) => (
@@ -395,18 +395,18 @@ export default function AdminStatisticsPage() {
                                         </option>
                                     ))}
                                 </select>
-                                <Layers3 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <Layers3 className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
                             </div>
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)]">Đơn vị</label>
-                            <div className="relative">
+                            <div className="relative h-[46px]">
                                 <select
                                     value={filters.department_id}
                                     onChange={(e) => updateFilters({ department_id: e.target.value })}
-                                    className="input-base appearance-none pl-12 pr-12"
+                                    className="input-base w-full h-full appearance-none bg-transparent pl-11 pr-10 rounded-xl border border-[var(--border-default)] text-sm font-medium text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[#00358F] focus:border-[#00358F] transition-all"
                                 >
                                     <option value="">Tất cả đơn vị</option>
                                     {departments.map((department) => (
@@ -415,8 +415,8 @@ export default function AdminStatisticsPage() {
                                         </option>
                                     ))}
                                 </select>
-                                <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-                                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                                <Building2 className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
                             </div>
                         </div>
 
@@ -640,7 +640,7 @@ export default function AdminStatisticsPage() {
                                         radius={[0, 6, 6, 0]} 
                                         barSize={20} 
                                         animationDuration={1500}
-                                        background={{ fill: '#f8fafc', radius: [0, 6, 6, 0] }}
+                                        background={{ fill: '#f8fafc' }}
                                     >
                                         {categoryData.map((entry, i) => (
                                             <Cell 

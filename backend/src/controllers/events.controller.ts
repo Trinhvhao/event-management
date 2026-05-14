@@ -26,9 +26,14 @@ export const eventController = {
         date_range,
         sortBy,
         sortOrder,
+        exclude_registered,
       } = req.query;
 
       const parsedIsFree = is_free === 'true' ? true : is_free === 'false' ? false : undefined;
+
+      // Get authenticated user if available (for filtering registered events)
+      const authUser = getAuthenticatedUser(req);
+      const userId = authUser?.id;
 
       const result = await eventService.getAll({
         page: parseQueryInt(page, 1, 'page', { min: 1 }),
@@ -41,6 +46,8 @@ export const eventController = {
         date_range: (date_range as string) || undefined,
         sortBy: sortBy as string | undefined,
         sortOrder: (sortOrder as 'asc' | 'desc') || 'desc',
+        exclude_registered: exclude_registered === 'true' && userId ? true : undefined,
+        user_id: userId,
       });
 
       res.json(paginatedResponse(

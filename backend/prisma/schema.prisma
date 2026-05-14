@@ -125,6 +125,7 @@ model User {
   approved_registrations  Registration[]  @relation("ApprovedBy")
   waitlist_entries       EventWaitlist[]
   payments               Payment[]
+  badges                 UserBadge[]
 
   @@index([email])
   @@index([student_id])
@@ -190,6 +191,16 @@ model Event {
   // Agreement/Terms settings
   require_agreement     Boolean      @default(true)         // Yêu cầu đồng ý nội quy
   agreement_text        String?                           // Nội quy riêng cho sự kiện này (null = dùng mặc định)
+
+  // Waitlist settings
+  waitlist_enabled      Boolean      @default(true)         // Bật/tắt danh sách chờ
+  waitlist_capacity     Int          @default(0)            // Số người chờ tối đa (0 = không giới hạn)
+  auto_promote_waitlist Boolean      @default(true)         // Tự động đề xuất từ waitlist khi có slot trống
+
+  // Check-in settings
+  checkin_opens_minutes Int          @default(0)            // Phút cho phép check-in trước khi sự kiện bắt đầu
+  checkin_closes_minutes Int         @default(30)          // Phút sau khi sự kiện kết thúc cho phép check-in
+  require_checkout       Boolean      @default(false)        // Yêu cầu check-out
 
   // Relations
   category                Category        @relation(fields: [category_id], references: [id], onDelete: Cascade)
@@ -510,4 +521,46 @@ model Ticket {
   @@index([ticket_code])
   @@index([status])
   @@map("tickets")
+}
+
+// Badge System
+enum BadgeType {
+  streak       // Streak badges (consecutive event attendance)
+  milestone    // Milestone badges (number of events attended)
+  achievement  // Achievement badges (special achievements)
+  rank         // Rank badges (top performer)
+}
+
+model Badge {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique  // e.g. 'streak_3', 'milestone_10', 'early_bird', 'top_10'
+  name        String                // e.g. "3 sự kiện liên tiếp", "Tham gia 10 sự kiện"
+  description String?               // Detailed description
+  type        BadgeType
+  icon        String                 // Icon identifier (lucide icon name or emoji)
+  color       String    @default("#F26600")  // Accent color for the badge
+  threshold   Int?                  // For streak/milestone types: required count
+  metadata    Json?                  // Extra data (e.g. { streak_days: 5 })
+  created_at  DateTime  @default(now())
+
+  // Relations
+  user_badges UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  badge_id   Int
+  awarded_at DateTime @default(now())
+
+  // Relations
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badge_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, badge_id])
+  @@index([user_id])
+  @@index([badge_id])
+  @@map("user_badges")
 }

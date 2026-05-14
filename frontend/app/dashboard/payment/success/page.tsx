@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { paymentService } from '@/services/paymentService';
@@ -70,6 +70,21 @@ const STATUS_CONFIG = {
 type PaymentStatus = keyof typeof STATUS_CONFIG;
 
 export default function PaymentSuccessPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout>
+                <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+                    <div className="w-20 h-20 rounded-full border-[5px] border-[#00358F]/20 border-t-[#00358F] animate-spin" />
+                    <p className="text-gray-500 font-semibold text-base">Đang tải...</p>
+                </div>
+            </DashboardLayout>
+        }>
+            <PaymentSuccessContent />
+        </Suspense>
+    );
+}
+
+function PaymentSuccessContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const registrationId = searchParams.get('reg_id');

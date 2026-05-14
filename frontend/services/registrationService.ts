@@ -176,6 +176,26 @@ export const registrationService = {
         );
         return response.data.data;
     },
+
+    async bulkApproveRegistrations(
+        registrationIds: number[],
+        note?: string
+    ): Promise<{ registrationId: number; success: boolean; error?: string }[]> {
+        const response = await axios.post<
+            ApiResponse<{ registrationId: number; success: boolean; error?: string }[]>
+        >(`/registrations/bulk/approve`, { registrationIds, note });
+        return response.data.data;
+    },
+
+    async bulkRejectRegistrations(
+        registrationIds: number[],
+        note?: string
+    ): Promise<{ registrationId: number; success: boolean; error?: string }[]> {
+        const response = await axios.post<
+            ApiResponse<{ registrationId: number; success: boolean; error?: string }[]>
+        >(`/registrations/bulk/reject`, { registrationIds, note });
+        return response.data.data;
+    },
 };
 
 export type { RegistrationQRCodePayload, WaitlistPositionResponse, WaitlistEntry, RegistrationWithRelations };

@@ -342,7 +342,22 @@ export const getMyRegistrations = async (userId: number, status?: string, approv
 export const cancelRegistration = async (userId: number, registrationId: number) => {
     const registration = await prisma.registration.findUnique({
         where: { id: registrationId },
-        include: { event: true },
+        include: {
+            event: {
+                select: {
+                    id: true,
+                    capacity: true,
+                    start_time: true,
+                    end_time: true,
+                    status: true,
+                    auto_promote_waitlist: true,
+                    approval_type: true,
+                    training_points: true,
+                    event_cost: true,
+                    location: true,
+                },
+            },
+        },
     });
 
     if (!registration) {
@@ -387,6 +402,22 @@ export const cancelRegistration = async (userId: number, registrationId: number)
     } catch (ticketError) {
         console.error('Failed to cancel ticket:', ticketError);
     }
+
+    // Auto-promote from waitlist if enabled
+    if (registration.event.auto_promote_waitlist) {
+        await promoteFromWaitlist(registration.event_id, registration.event.capacity);
+    }
+
+    // Log cancellation
+    await prisma.eventTeamActivity.create({
+        data: {
+            event_id: registration.event_id,
+            actor_id: userId,
+            action_type: 'registration_cancelled',
+            target_user_id: userId,
+            metadata: { registration_id: registrationId },
+        },
+    }).catch(() => {});
 
     return true;
 };
@@ -450,6 +481,87 @@ export const getEventRegistrations = async (
     });
 
     return registrations;
+};
+
+/**
+ * Export event registrations as CSV string
+ */
+export const exportEventRegistrationsCsv = async (
+    eventId: number,
+    requester: RequesterContext,
+    options: { status?: string; approvalStatus?: string } = {}
+): Promise<string> => {
+    const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: { id: true, organizer_id: true, deleted_at: true },
+    });
+
+    if (!event || event.deleted_at) {
+        throw new NotFoundError('Sự kiện không tồn tại');
+    }
+
+    if (requester.role === 'organizer' && !(await eventTeamService.canUserPerformAction(eventId, requester.id, requester.role, 'manage_registrations'))) {
+        throw new ForbiddenError('Bạn không có quyền xuất danh sách đăng ký');
+    }
+
+    const where: any = { event_id: eventId };
+    const parsedStatus = parseRegistrationStatus(options.status);
+    if (parsedStatus) where.status = parsedStatus;
+    if (options.approvalStatus) where.approval_status = options.approvalStatus;
+
+    const registrations = await prisma.registration.findMany({
+        where,
+        include: {
+            user: {
+                select: {
+                    full_name: true,
+                    student_id: true,
+                    email: true,
+                    department: { select: { name: true } },
+                },
+            },
+            approver: {
+                select: { full_name: true },
+            },
+        },
+        orderBy: { registered_at: 'asc' },
+    });
+
+    const headers = ['STT', 'Họ tên', 'MSSV', 'Email', 'Khoa', 'Ngày đăng ký', 'Trạng thái', 'Phê duyệt', 'Người duyệt', 'Ghi chú'];
+    const rows: string[][] = [];
+
+    for (let i = 0; i < registrations.length; i++) {
+        const r = registrations[i];
+        const statusLabels: Record<string, string> = {
+            registered: 'Đã đăng ký',
+            cancelled: 'Đã hủy',
+            attended: 'Đã tham dự',
+        };
+        const approvalLabels: Record<string, string> = {
+            pending: 'Chờ duyệt',
+            approved: 'Đã duyệt',
+            rejected: 'Từ chối',
+        };
+        rows.push([
+            String(i + 1),
+            r.user.full_name,
+            r.user.student_id || '',
+            r.user.email,
+            r.user.department?.name || '',
+            new Date(r.registered_at).toLocaleString('vi-VN'),
+            statusLabels[r.status] || r.status,
+            approvalLabels[r.approval_status] || r.approval_status,
+            r.approver?.full_name || '',
+            r.approval_note || '',
+        ]);
+    }
+
+    const escape = (val: string) => `"${val.replace(/"/g, '""')}"`;
+
+    return [
+        headers.map(escape).join(','),
+        ...rows.map((row) => row.map(escape).join(',')),
+    ].join('\n');
 };
 
 // =====================
@@ -734,6 +846,58 @@ export const rejectRegistration = async (
     return updated;
 };
 
+export interface BulkRegistrationResult {
+    registrationId: number;
+    success: boolean;
+    error?: string;
+}
+
+export const bulkApproveRegistrations = async (
+    registrationIds: number[],
+    requester: RequesterContext,
+    note?: string
+): Promise<BulkRegistrationResult[]> => {
+    const results: BulkRegistrationResult[] = [];
+
+    for (const id of registrationIds) {
+        try {
+            await approveRegistration(id, requester, note);
+            results.push({ registrationId: id, success: true });
+        } catch (error: any) {
+            results.push({
+                registrationId: id,
+                success: false,
+                error: error.message || 'Lỗi không xác định',
+            });
+        }
+    }
+
+    return results;
+};
+
+export const bulkRejectRegistrations = async (
+    registrationIds: number[],
+    requester: RequesterContext,
+    note?: string
+): Promise<BulkRegistrationResult[]> => {
+    const results: BulkRegistrationResult[] = [];
+
+    for (const id of registrationIds) {
+        try {
+            await rejectRegistration(id, requester, note);
+            results.push({ registrationId: id, success: true });
+        } catch (error: any) {
+            results.push({
+                registrationId: id,
+                success: false,
+                error: error.message || 'Lỗi không xác định',
+            });
+        }
+    }
+
+    return results;
+};
+
 export const getRegistrationById = async (registrationId: number) => {
     const registration = await prisma.registration.findUnique({
         where: { id: registrationId },
@@ -800,6 +964,82 @@ export const getRegistrationQRCodeWithAccess = async (
 // Waitlist Functions
 // =====================
 
+/**
+ * Promote the next person from the waitlist to registered status
+ */
+const promoteFromWaitlist = async (eventId: number, capacity: number) => {
+    const activeCount = await prisma.registration.count({
+        where: { event_id: eventId, status: 'registered' },
+    });
+
+    if (activeCount >= capacity) return; // No slots available
+
+    const nextInWaitlist = await prisma.eventWaitlist.findFirst({
+        where: { event_id: eventId, status: 'waiting' },
+        orderBy: { position: 'asc' },
+        include: {
+            user: { select: { id: true, email: true, full_name: true } },
+            event: { select: { title: true, location: true, start_time: true, end_time: true, training_points: true, event_cost: true } },
+        },
+    });
+
+    if (!nextInWaitlist) return;
+
+    // Mark as promoted
+    await prisma.eventWaitlist.update({
+        where: { id: nextInWaitlist.id },
+        data: { status: 'promoted' },
+    });
+
+    // Remove old cancelled/attended registration if exists
+    await prisma.registration.deleteMany({
+        where: {
+            user_id: nextInWaitlist.user_id,
+            event_id: eventId,
+            status: { in: ['cancelled', 'attended'] },
+        },
+    });
+
+    // Create new approved registration
+    await prisma.registration.create({
+        data: {
+            user_id: nextInWaitlist.user_id,
+            event_id: eventId,
+            status: 'registered',
+            approval_status: 'approved',
+            qr_code: `REG-${eventId}-${nextInWaitlist.user_id}-${Date.now()}`,
+            agreed_at: new Date(),
+        },
+    });
+
+    // Reorder waitlist
+    await prisma.eventWaitlist.updateMany({
+        where: {
+            event_id: eventId,
+            status: 'waiting',
+            position: { gt: nextInWaitlist.position },
+        },
+        data: { position: { decrement: 1 } },
+    });
+
+    // Notify promoted user
+    try {
+        await notificationsService.notifyRegistrationConfirm(
+            nextInWaitlist.user_id,
+            eventId,
+            nextInWaitlist.event.title,
+            nextInWaitlist.event.location,
+            nextInWaitlist.event.start_time,
+            nextInWaitlist.event.end_time,
+            nextInWaitlist.event.training_points,
+            undefined,
+            nextInWaitlist.event.event_cost ? Number(nextInWaitlist.event.event_cost) : undefined
+        );
+    } catch (e) {
+        console.error('Failed to notify promoted user:', e);
+    }
+};
+
 export const joinWaitlist = async (userId: number, eventId: number) => {
     const event = await prisma.event.findUnique({
         where: { id: eventId },
@@ -812,11 +1052,17 @@ export const joinWaitlist = async (userId: number, eventId: number) => {
             capacity: true,
             registration_deadline: true,
             deleted_at: true,
+            waitlist_enabled: true,
+            waitlist_capacity: true,
         },
     });
 
     if (!event || event.deleted_at) {
         throw new NotFoundError('Sự kiện không tồn tại');
+    }
+
+    if (!event.waitlist_enabled) {
+        throw new ValidationError('Sự kiện này không bật danh sách chờ');
     }
 
     if (event.status !== 'upcoming' && event.status !== 'approved') {
@@ -840,6 +1086,19 @@ export const joinWaitlist = async (userId: number, eventId: number) => {
 
     if (activeRegistrations < event.capacity) {
         throw new ConflictError('Sự kiện vẫn còn chỗ trống, không thể vào danh sách chờ');
+    }
+
+    // Check waitlist capacity
+    if (event.waitlist_capacity > 0) {
+        const currentWaitlist = await prisma.eventWaitlist.count({
+            where: {
+                event_id: eventId,
+                status: 'waiting',
+            },
+        });
+        if (currentWaitlist >= event.waitlist_capacity) {
+            throw new ConflictError(`Danh sách chờ đã đầy (tối đa ${event.waitlist_capacity} người)`);
+        }
     }
 
     // Check if already registered

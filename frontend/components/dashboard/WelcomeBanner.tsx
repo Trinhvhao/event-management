@@ -23,7 +23,7 @@ export default function WelcomeBanner({ userName, role, quickLinks }: WelcomeBan
     const roleLabels: Record<UserRole, string> = {
         admin: 'Quản trị viên hệ thống',
         organizer: 'Ban tổ chức sự kiện',
-        student: 'Sinh viên',
+        participant: 'Sinh viên',
     };
 
     const roleGradients: Record<UserRole, { bg: string; badge: string; badgeText: string }> = {
@@ -37,7 +37,7 @@ export default function WelcomeBanner({ userName, role, quickLinks }: WelcomeBan
             badge: 'bg-[var(--color-brand-orange)]/20',
             badgeText: 'text-[var(--color-brand-orange)]',
         },
-        student: {
+        participant: {
             bg: 'bg-gradient-to-br from-[var(--color-brand-green)] via-[#00875a] to-[#006644]',
             badge: 'bg-[var(--color-brand-gold)]/20',
             badgeText: 'text-[var(--color-brand-gold)]',

@@ -379,21 +379,22 @@ export default function PendingRegistrationsPage() {
         const ids = Array.from(selectedRegs);
 
         try {
-            const results = await Promise.allSettled(
-                ids.map((id) => registrationService.approveRegistration(id))
+            const results = await registrationService.bulkApproveRegistrations(ids);
+
+            const successCount = results.filter((r) => r.success).length;
+            const failedResults = results.filter((r) => !r.success);
+
+            setRegistrations((prev) =>
+                prev.filter((r) => {
+                    if (!selectedRegs.has(r.id)) return true;
+                    const result = failedResults.find((f) => f.registrationId === r.id);
+                    return !!result;
+                })
             );
-
-            const successCount = results.filter((r) => r.status === 'fulfilled').length;
-            const failedCount = results.filter((r) => r.status === 'rejected').length;
-
-            setRegistrations((prev) => prev.filter((r) => {
-                if (!selectedRegs.has(r.id)) return true;
-                return results[ids.indexOf(r.id)]?.status === 'rejected';
-            }));
             setSelectedRegs(new Set());
 
-            if (failedCount > 0) {
-                toast.error(`Đã duyệt ${successCount}/${ids.length} đăng ký. ${failedCount} thất bại.`);
+            if (failedResults.length > 0) {
+                toast.error(`Đã duyệt ${successCount}/${ids.length} đăng ký. ${failedResults.length} thất bại.`);
             } else {
                 toast.success(`Đã duyệt ${successCount} đăng ký thành công`);
             }
@@ -411,21 +412,22 @@ export default function PendingRegistrationsPage() {
         const ids = Array.from(selectedRegs);
 
         try {
-            const results = await Promise.allSettled(
-                ids.map((id) => registrationService.rejectRegistration(id))
+            const results = await registrationService.bulkRejectRegistrations(ids);
+
+            const successCount = results.filter((r) => r.success).length;
+            const failedResults = results.filter((r) => !r.success);
+
+            setRegistrations((prev) =>
+                prev.filter((r) => {
+                    if (!selectedRegs.has(r.id)) return true;
+                    const result = failedResults.find((f) => f.registrationId === r.id);
+                    return !!result;
+                })
             );
-
-            const successCount = results.filter((r) => r.status === 'fulfilled').length;
-            const failedCount = results.filter((r) => r.status === 'rejected').length;
-
-            setRegistrations((prev) => prev.filter((r) => {
-                if (!selectedRegs.has(r.id)) return true;
-                return results[ids.indexOf(r.id)]?.status === 'rejected';
-            }));
             setSelectedRegs(new Set());
 
-            if (failedCount > 0) {
-                toast.error(`Đã từ chối ${successCount}/${ids.length} đăng ký. ${failedCount} thất bại.`);
+            if (failedResults.length > 0) {
+                toast.error(`Đã từ chối ${successCount}/${ids.length} đăng ký. ${failedResults.length} thất bại.`);
             } else {
                 toast.success(`Đã từ chối ${successCount} đăng ký thành công`);
             }

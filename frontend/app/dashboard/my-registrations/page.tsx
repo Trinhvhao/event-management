@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { motion } from 'framer-motion';
 import { Calendar, MapPin, Clock, X, Award, QrCode, Ticket, ChevronRight, RefreshCw, Sparkles, CheckCircle, AlertCircle, AlertTriangle, CreditCard } from 'lucide-react';
 import { registrationService } from '@/services/registrationService';
+import { paymentService } from '@/services/paymentService';
 import { Registration } from '@/types';
 import { formatDate } from '@/utils/formatDate';
 import { toast } from 'sonner';

@@ -23,7 +23,8 @@ import {
     LayoutDashboard,
     ClipboardList,
     CreditCard,
-    Ticket
+    Ticket,
+    Trophy,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import NotificationBell from '../dashboard/NotificationBell';
@@ -69,6 +70,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     ]
                 },
                 { href: '/dashboard/admin/training-points', icon: Award, label: 'Điểm rèn luyện' },
+                { href: '/dashboard/gamification', icon: Trophy, label: 'Bảng xếp hạng' },
                 {
                     label: 'Cài đặt',
                     items: [
@@ -101,6 +103,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             { href: '/dashboard/tickets', icon: Ticket, label: 'Vé của tôi' },
             { href: '/dashboard/payment/history', icon: CreditCard, label: 'Lịch sử thanh toán' },
             { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
+            { href: '/dashboard/gamification', icon: Trophy, label: 'Bảng xếp hạng' },
         ];
     };
 

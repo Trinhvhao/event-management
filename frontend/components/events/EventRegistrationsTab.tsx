@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Users, Download, Search, CheckCircle, XCircle, Hourglass, Clock3, Eye } from 'lucide-react';
+import { Users, Download, Search, CheckCircle, XCircle, Hourglass, Clock3, Eye, Loader2 } from 'lucide-react';
 import { registrationService, RegistrationWithRelations, WaitlistEntry } from '@/services/registrationService';
+import axios from '@/lib/axios';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -17,6 +18,7 @@ export default function EventRegistrationsTab({ eventId }: EventRegistrationsTab
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRegistration, setSelectedRegistration] = useState<RegistrationWithRelations | null>(null);
     const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
+    const [exporting, setExporting] = useState(false);
 
     const loadRegistrations = useCallback(async () => {
         try {
@@ -50,25 +52,24 @@ export default function EventRegistrationsTab({ eventId }: EventRegistrationsTab
         }
     };
 
-    const exportCsv = () => {
-        if (registrations.length === 0) return;
-        const headers = ['STT', 'Họ tên', 'MSSV', 'Email', 'Trạng thái', 'Thời gian đăng ký'];
-        const rows = registrations.map((r, i) => [
-            i + 1,
-            r.user?.full_name || '',
-            r.user?.student_id || '',
-            r.user?.email || '',
-            r.status === 'registered' ? 'Đã đăng ký' : r.status === 'attended' ? 'Đã tham dự' : 'Đã hủy',
-            format(new Date(r.registered_at), 'dd/MM/yyyy HH:mm'),
-        ]);
-        const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `registrations_event_${eventId}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+    const exportCsv = async () => {
+        setExporting(true);
+        try {
+            const response = await axios.get(`/registrations/event/${eventId}/export`, {
+                responseType: 'blob',
+            });
+            const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `danh-sach-dang-ky-${eventId}-${Date.now()}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Export failed:', error);
+        } finally {
+            setExporting(false);
+        }
     };
 
     const filtered = registrations.filter(r => {
@@ -120,11 +121,11 @@ export default function EventRegistrationsTab({ eventId }: EventRegistrationsTab
                 </div>
                 <button
                     onClick={exportCsv}
-                    disabled={registrations.length === 0}
+                    disabled={exporting}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-brandBlue border border-brandBlue/30 hover:bg-brandBlue/5 transition-colors disabled:opacity-50"
                 >
-                    <Download className="w-3.5 h-3.5" />
-                    Export CSV
+                    {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    {exporting ? 'Đang xuất...' : 'Export CSV'}
                 </button>
             </div>
 

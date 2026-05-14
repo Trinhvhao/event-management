@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { Suspense, useCallback, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -32,6 +32,7 @@ interface EventQueryParams {
     sortOrder?: string;
     is_free?: boolean;
     date_range?: string;
+    exclude_registered?: boolean;
 }
 
 type ViewMode = 'grid' | 'list' | 'kanban';
@@ -136,6 +137,20 @@ function getTimeUntilEvent(start: string) {
 }
 
 export default function EventsPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout>
+                <div className="min-h-[60vh] flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full border-[5px] border-[#00358F]/20 border-t-[#00358F] animate-spin" />
+                </div>
+            </DashboardLayout>
+        }>
+            <EventsPageContent />
+        </Suspense>
+    );
+}
+
+function EventsPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, isAuthenticated, isHydrated } = useAuthStore();
@@ -174,6 +189,11 @@ export default function EventsPage() {
                 date_range: dateRange || undefined,
             };
 
+            // Only exclude registered events for participants (not for organizers/admins)
+            if (user?.role === 'participant') {
+                params.exclude_registered = true;
+            }
+
             if (searchQuery) params.search = searchQuery;
             if (selectedCategory) params.category_id = selectedCategory;
             if (selectedDepartment) params.department_id = selectedDepartment;
@@ -203,7 +223,7 @@ export default function EventsPage() {
         } finally {
             setLoading(false);
         }
-    }, [selectedStatus, selectedPrice, searchQuery, selectedCategory, selectedDepartment, sortBy, page, dateRange, categories.length, departments.length]);
+    }, [selectedStatus, selectedPrice, searchQuery, selectedCategory, selectedDepartment, sortBy, page, dateRange, categories.length, departments.length, user?.role]);
 
     useEffect(() => {
         if (!isHydrated) return;
@@ -581,14 +601,15 @@ export default function EventsPage() {
                 {/* ══════════════════════════════════════════════════
                     GRID VIEW
                 ══════════════════════════════════════════════════ */}
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="sync">
                     {viewMode === 'grid' && (
                         <motion.div
                             key="grid"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            transition={{ duration: 0.2 }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="contents"
                         >
                             {loading && events.length === 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -621,25 +642,22 @@ export default function EventsPage() {
                     </div>
                 ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                                    {events.map((event, idx) => (
-                                        <motion.div
-                                key={event.id}
-                                            initial={{ opacity: 0, y: 12 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: idx * 0.04 }}
-                                onClick={() => router.push(`/dashboard/events/${event.id}`)}
-                                            className="bg-white rounded-2xl overflow-hidden border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 hover:border-[color-mix(in_srgb,var(--color-brand-navy)_30%,transparent)] transition-all duration-300 cursor-pointer group flex flex-col"
-                            >
+                                    {events.map((event) => (
+                                        <div
+                                            key={event.id}
+                                            onClick={() => router.push(`/dashboard/events/${event.id}`)}
+                                            className="bg-white rounded-2xl overflow-hidden border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:border-[color-mix(in_srgb,var(--color-brand-navy)_30%,transparent)] transition-all duration-200 cursor-pointer group flex flex-col"
+                                        >
                                             {/* Image */}
                                             <div className="relative h-48 bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] overflow-hidden shrink-0">
                                     {event.image_url ? (
                                         <>
-                                                        <Image src={event.image_url} alt={event.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out opacity-80 group-hover:opacity-100" />
+                                                        <Image src={event.image_url} alt={event.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover opacity-80 group-hover:opacity-90 transition-opacity duration-200" />
                                                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
                                         </>
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center">
-                                                        <Calendar className="w-20 h-20 text-white/15 group-hover:scale-110 transition-transform duration-500" />
+                                                        <Calendar className="w-20 h-20 text-white/15" />
                                         </div>
                                     )}
 
@@ -744,7 +762,7 @@ export default function EventsPage() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </motion.div>
+                                        </div>
                                     ))}
                                         </div>
                             )}
@@ -755,14 +773,15 @@ export default function EventsPage() {
                 {/* ══════════════════════════════════════════════════
                     LIST VIEW
                 ══════════════════════════════════════════════════ */}
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="sync">
                     {viewMode === 'list' && (
                         <motion.div
                             key="list"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            transition={{ duration: 0.2 }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="contents"
                         >
                             {loading && events.length === 0 ? (
                                 <div className="bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden">
@@ -825,12 +844,9 @@ export default function EventsPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-[var(--border-light)]">
-                                                {events.map((event, idx) => (
-                                                    <motion.tr
+                                                {events.map((event) => (
+                                                    <tr
                                                         key={event.id}
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: 1 }}
-                                                        transition={{ delay: idx * 0.03 }}
                                                         onClick={() => router.push(`/dashboard/events/${event.id}`)}
                                                         className="hover:bg-[var(--bg-muted)]/50 cursor-pointer transition-colors group"
                                                     >
@@ -930,7 +946,7 @@ export default function EventsPage() {
                                                         <td className="px-4 py-3.5">
                                                             {getStatusBadge(event.status)}
                                                         </td>
-                                                    </motion.tr>
+                                                    </tr>
                                                 ))}
                                             </tbody>
                                         </table>
@@ -944,15 +960,15 @@ export default function EventsPage() {
                 {/* ══════════════════════════════════════════════════
                     KANBAN VIEW
                 ══════════════════════════════════════════════════ */}
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="sync">
                     {viewMode === 'kanban' && (
                         <motion.div
                             key="kanban"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-x-auto"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="overflow-x-auto contents"
                         >
                             {loading && events.length === 0 ? (
                                 <div className="grid grid-cols-4 gap-4 min-w-[800px]">
@@ -1005,14 +1021,11 @@ export default function EventsPage() {
 
                                                 {/* Column cards */}
                                                 <div className="space-y-3">
-                                                    {colEvents.map((event, idx) => (
-                                                        <motion.div
+                                                    {colEvents.map((event) => (
+                                                        <div
                                                             key={event.id}
-                                                            initial={{ opacity: 0, y: 8 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            transition={{ delay: idx * 0.05 }}
                                                             onClick={() => router.push(`/dashboard/events/${event.id}`)}
-                                                            className="bg-white rounded-xl border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--color-brand-navy)_30%,transparent)] transition-all duration-200 cursor-pointer group overflow-hidden"
+                                                            className="bg-white rounded-xl border border-[var(--border-default)] shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:border-[color-mix(in_srgb,var(--color-brand-navy)_30%,transparent)] transition-all duration-150 cursor-pointer group overflow-hidden"
                                                         >
                                                             {/* Image */}
                                                             <div className="relative h-28 bg-gradient-to-br from-[var(--color-brand-navy)] to-[#1a5fc8] overflow-hidden">
@@ -1088,7 +1101,7 @@ export default function EventsPage() {
                                                                     ) : null;
                                                                 })()}
                                                             </div>
-                                                        </motion.div>
+                                                        </div>
                                                     ))}
 
                                                     {colEvents.length === 0 && (

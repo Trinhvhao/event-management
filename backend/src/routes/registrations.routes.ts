@@ -20,10 +20,13 @@ router.get('/waitlist/:eventId', authenticate, authorize('participant'), registr
 router.get('/pending', authenticate, authorize('organizer', 'admin'), registrationsController.getPendingRegistrations);
 router.post('/:id/approve', authenticate, authorize('organizer', 'admin'), registrationsController.approveRegistration);
 router.post('/:id/reject', authenticate, authorize('organizer', 'admin'), registrationsController.rejectRegistration);
+router.post('/bulk/approve', authenticate, authorize('organizer', 'admin'), registrationsController.bulkApproveRegistrations);
+router.post('/bulk/reject', authenticate, authorize('organizer', 'admin'), registrationsController.bulkRejectRegistrations);
 
 // Event registrations (Organizer/Admin)
 router.get('/event/:eventId', authenticate, authorize('organizer', 'admin'), registrationsController.getEventRegistrations);
 router.get('/event/:eventId/waitlist', authenticate, authorize('organizer', 'admin'), registrationsController.getEventWaitlist);
+router.get('/event/:eventId/export', authenticate, authorize('organizer', 'admin'), registrationsController.exportEventRegistrationsCsv);
 
 // Common routes
 router.get('/:id/qrcode', authenticate, registrationsController.getRegistrationQRCode);
