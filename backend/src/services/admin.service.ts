@@ -17,9 +17,6 @@ interface GetUsersParams {
 }
 
 export const adminService = {
-    /**
-     * Import users from CSV file
-     */
     async importUsers(
         req: Request,
         adminId: number,
@@ -36,51 +33,45 @@ export const adminService = {
             throw new Error('No CSV file provided');
         }
 
-        const rows: Record<string, string>[] = [];
+        const buffer = req.file!.buffer;
+        const rawText = buffer.toString('utf8').trim();
+        const lines = rawText.split('\n').filter((line) => line.trim().length > 0);
 
-        // Parse CSV using csv-parser
+        if (lines.length < 2) {
+            throw new Error('CSV file must have a header row and at least one data row');
+        }
+
+        const headers = lines[0].split(',').map((h) => h.trim());
+        const requiredColumns = ['email', 'full_name'];
+        const missingColumns = requiredColumns.filter((col) => !headers.includes(col));
+        if (missingColumns.length > 0) {
+            throw new Error('Missing required columns: ' + missingColumns.join(', '));
+        }
+
+        const rawRows: string[][] = [];
         await new Promise<void>((resolve, reject) => {
-            const buffer = req.file!.buffer;
-
-            const stream = csvParser({
-                headers: true,
-                skipLines: 0,
-            });
-
+            const stream = csvParser({ skipLines: 1, headers: false });
             stream.on('data', (row: Record<string, string>) => {
-                rows.push(row);
+                rawRows.push(Object.values(row));
             });
-
             stream.on('end', () => resolve());
             stream.on('error', (err: Error) => reject(err));
-
-            // Convert buffer to readable stream
-            const readable = new Readable();
-            readable.push(buffer);
-            readable.push(null);
-            readable.pipe(stream);
+            Readable.from(buffer).pipe(stream);
         });
 
-        if (rows.length === 0) {
-            throw new Error('CSV file is empty or has no valid data rows');
-        }
+        const rows: Record<string, string>[] = rawRows.map((values) => {
+            const row: Record<string, string> = {};
+            headers.forEach((col, i) => {
+                row[col] = values[i] ?? '';
+            });
+            return row;
+        });
 
-        // Validate required columns
-        const requiredColumns = ['email', 'full_name'];
-        const headers = Object.keys(rows[0] || {});
-        const missingColumns = requiredColumns.filter((col) => !headers.includes(col));
-
-        if (missingColumns.length > 0) {
-            throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
-        }
-
-        // Validate and create users
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const rowNumber = i + 2; // +2 because row 1 is headers and rows are 0-indexed
+            const rowNumber = i + 2;
 
             try {
-                // Validate email (required)
                 const email = row['email']?.trim();
                 if (!email) {
                     results.failed++;
@@ -88,71 +79,58 @@ export const adminService = {
                     continue;
                 }
 
-                // Validate email format
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
                     results.failed++;
-                    results.errors.push({ row: rowNumber, email, error: 'Invalid email format' });
+                    results.errors.push({ row: rowNumber, email: email, error: 'Invalid email format' });
                     continue;
                 }
 
-                // Validate full_name (required)
                 const fullName = row['full_name']?.trim();
                 if (!fullName) {
                     results.failed++;
-                    results.errors.push({ row: rowNumber, email, error: 'Full name is required' });
+                    results.errors.push({ row: rowNumber, email: email, error: 'Full name is required' });
                     continue;
                 }
 
-                // Get optional fields
-                const studentId = row['student_id']?.trim() || null;
+                const rawStudentId = row['student_id']?.trim() || '';
+                const studentId = (rawStudentId === '' || rawStudentId === '-') ? null : rawStudentId;
                 const role = (row['role']?.trim()?.toLowerCase() || 'participant') as UserRole;
                 const departmentId = row['department_id']?.trim()
                     ? parseInt(row['department_id'], 10)
                     : null;
 
-                // Validate role
                 if (!['admin', 'organizer', 'participant'].includes(role)) {
                     results.failed++;
-                    results.errors.push({ row: rowNumber, email, error: `Invalid role: ${role}. Must be admin, organizer, or student` });
+                    results.errors.push({ row: rowNumber, email: email, error: 'Invalid role: ' + role + '. Must be admin, organizer, or student' });
                     continue;
                 }
 
-                // Validate department_id if provided
                 if (departmentId !== null && isNaN(departmentId)) {
                     results.failed++;
-                    results.errors.push({ row: rowNumber, email, error: 'Invalid department_id: must be a number' });
+                    results.errors.push({ row: rowNumber, email: email, error: 'Invalid department_id: must be a number' });
                     continue;
                 }
 
-                // Check if user already exists
-                const existingUser = await prisma.user.findUnique({
-                    where: { email },
-                });
-
+                const existingUser = await prisma.user.findUnique({ where: { email } });
                 if (existingUser) {
                     results.failed++;
-                    results.errors.push({ row: rowNumber, email, error: 'User with this email already exists' });
+                    results.errors.push({ row: rowNumber, email: email, error: 'User with this email already exists' });
                     continue;
                 }
 
-                // Validate department exists if provided
                 if (departmentId !== null) {
-                    const department = await prisma.department.findUnique({
-                        where: { id: departmentId },
-                    });
+                    const department = await prisma.department.findUnique({ where: { id: departmentId } });
                     if (!department) {
                         results.failed++;
-                        results.errors.push({ row: rowNumber, email, error: `Department with id ${departmentId} not found` });
+                        results.errors.push({ row: rowNumber, email: email, error: 'Department with id ' + departmentId + ' not found' });
                         continue;
                     }
                 }
 
-                // Generate temporary password (in production, you might want to send reset links instead)
                 const bcrypt = await import('bcrypt');
                 const passwordHash = await bcrypt.hash(email.split('@')[0] + '123456', 10);
 
-                // Create user
                 await prisma.user.create({
                     data: {
                         email,
@@ -167,12 +145,11 @@ export const adminService = {
 
                 results.success++;
 
-                // Create audit log
                 await createAuditLog({
                     actionType: 'user_created',
                     adminId,
                     entityType: 'user',
-                    entityId: 0, // Will be updated with actual user id
+                    entityId: 0,
                     oldValue: null,
                     newValue: { email, full_name: fullName, role },
                     ipAddress,
@@ -191,9 +168,6 @@ export const adminService = {
         return results;
     },
 
-    /**
-     * Get users with filters, sorting, and pagination
-     */
     async getUsers(params: GetUsersParams) {
         const page = params.page || 1;
         const limit = params.limit || 20;
@@ -216,7 +190,6 @@ export const adminService = {
                 orderBy = { created_at: sortOrder };
         }
 
-        // Build where clause
         const where: Prisma.UserWhereInput = {};
 
         if (params.search) {
@@ -238,7 +211,6 @@ export const adminService = {
             where.is_active = params.is_active;
         }
 
-        // Execute query
         const [users, total] = await Promise.all([
             prisma.user.findMany({
                 where,
@@ -269,9 +241,6 @@ export const adminService = {
         };
     },
 
-    /**
-     * Lock a user account
-     */
     async lockUser(userId: number, adminId: number, ipAddress?: string, userAgent?: string) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
@@ -290,7 +259,6 @@ export const adminService = {
             },
         });
 
-        // Create audit log
         await createAuditLog({
             actionType: 'user_locked',
             adminId,
@@ -306,9 +274,6 @@ export const adminService = {
         return updatedUser;
     },
 
-    /**
-     * Unlock a user account
-     */
     async unlockUser(userId: number, adminId: number, ipAddress?: string, userAgent?: string) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
@@ -327,7 +292,6 @@ export const adminService = {
             },
         });
 
-        // Create audit log
         await createAuditLog({
             actionType: 'user_unlocked',
             adminId,
@@ -343,9 +307,6 @@ export const adminService = {
         return updatedUser;
     },
 
-    /**
-     * Change user role
-     */
     async changeUserRole(
         userId: number,
         newRole: UserRole,
@@ -358,12 +319,10 @@ export const adminService = {
             throw new Error('User not found');
         }
 
-        // Business rule: cannot change own role
         if (userId === adminId) {
             throw new Error('Cannot change your own role');
         }
 
-        // Business rule: cannot remove last admin
         if (user.role === 'admin' && newRole !== 'admin') {
             const adminCount = await prisma.user.count({
                 where: { role: 'admin', is_active: true },
@@ -382,7 +341,6 @@ export const adminService = {
             },
         });
 
-        // Create audit log
         await createAuditLog({
             actionType: 'role_changed',
             adminId,
@@ -398,9 +356,6 @@ export const adminService = {
         return updatedUser;
     },
 
-    /**
-     * Bulk lock users
-     */
     async bulkLock(userIds: number[], adminId: number, ipAddress?: string, userAgent?: string) {
         const results = {
             successCount: 0,
@@ -410,7 +365,6 @@ export const adminService = {
 
         for (const userId of userIds) {
             try {
-                // Skip current admin
                 if (userId === adminId) {
                     results.failureCount++;
                     results.failures.push({
@@ -434,9 +388,6 @@ export const adminService = {
         return results;
     },
 
-    /**
-     * Bulk unlock users
-     */
     async bulkUnlock(userIds: number[], adminId: number, ipAddress?: string, userAgent?: string) {
         const results = {
             successCount: 0,
@@ -460,9 +411,6 @@ export const adminService = {
         return results;
     },
 
-    /**
-     * Get role permission matrix
-     */
     async getRoleMatrix() {
         return {
             admin: {
@@ -500,9 +448,6 @@ export const adminService = {
         };
     },
 
-    /**
-     * Get role distribution statistics
-     */
     async getRoleStatistics() {
         const [totalUsers, roleTotals, activeRoleTotals] = await Promise.all([
             prisma.user.count(),
@@ -519,7 +464,6 @@ export const adminService = {
 
         const totalsMap = new Map(roleTotals.map((row) => [row.role, row._count._all]));
         const activeMap = new Map(activeRoleTotals.map((row) => [row.role, row._count._all]));
-        // All known roles — dynamically included so new roles appear automatically
         const roles: UserRole[] = ['admin', 'organizer', 'participant'];
 
         const byRole = roles.map((role) => {
