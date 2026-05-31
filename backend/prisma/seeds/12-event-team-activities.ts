@@ -1,8 +1,6 @@
 import {
     Event,
-    EventTeamActivity,
     EventTeamMember,
-    EventTeamRole,
     PrismaClient,
     TeamActionType,
     User,
@@ -27,7 +25,6 @@ export async function seedEventTeamActivities(
     console.log('📋 Seeding event team activities...');
 
     const { anchorEvents, extraEvents, allUsers } = context;
-    const admin = allUsers.find((u) => u.role === 'admin') ?? allUsers[0];
     const organizers = allUsers.filter((u) => u.role === 'organizer');
 
     const allEvents = [
@@ -43,7 +40,7 @@ export async function seedEventTeamActivities(
         actor_id: number;
         action_type: TeamActionType;
         target_user_id?: number | null;
-        metadata: Record<string, unknown>;
+        metadata: any;
         ip_address: string;
         created_at: Date;
     }> = [];

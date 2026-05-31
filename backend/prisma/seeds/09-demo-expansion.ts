@@ -543,7 +543,7 @@ export async function seedDemoExpansion(
       if (shouldCreateAttendance) {
         attendanceRecords.push({
           registrationId: registration.id,
-          checkedBy: event.organizer_id,
+          checkedBy: event.organizer_id || 1,
           checkedInAt: new Date(event.start_time.getTime() + (10 + (participantIndex % 30)) * 60000),
         });
       }

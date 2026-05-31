@@ -10,12 +10,6 @@ interface PermissionSeedContext {
     extraEvents: Event[];
 }
 
-type PermissionDef = {
-    permission: string;
-    role: EventTeamRole;
-    allowed: boolean;
-};
-
 export async function seedEventTeamPermissions(
     prisma: PrismaClient,
     context: PermissionSeedContext

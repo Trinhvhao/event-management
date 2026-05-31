@@ -1,6 +1,13 @@
-import { Event, PrismaClient, Registration, RegistrationStatus, TicketStatus, User } from '@prisma/client';
+import { Event, PrismaClient, Registration, TicketStatus, User } from '@prisma/client';
 import QRCode from 'qrcode';
-import { ticketService } from '../../src/services/ticket.service';
+
+function generateTicketCode(): string {
+    const prefix = 'VE';
+    const eventId = 'EVT';
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${prefix}-${eventId}-${timestamp.slice(-4)}${random}`;
+}
 
 interface TicketSeedContext {
     events: Event[];
@@ -34,7 +41,7 @@ export async function seedTickets(
 ) {
     console.log('🎫 Seeding tickets...');
 
-    const { registrations, users } = context;
+    const { registrations } = context;
 
     // Only create tickets for active (registered) registrations
     const eligibleRegistrations = registrations.filter((r) => r.status === 'registered');
@@ -53,7 +60,7 @@ export async function seedTickets(
             continue;
         }
 
-        const ticketCode = ticketService.generateTicketCode();
+        const ticketCode = generateTicketCode();
         const qrData = JSON.stringify({
             registrationId: registration.id,
             eventId: registration.event_id,
