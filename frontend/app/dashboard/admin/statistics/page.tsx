@@ -260,7 +260,23 @@ export default function AdminStatisticsPage() {
 
         // Section 8: Payment KPIs
         lines.push('--- Chỉ số Thanh toán ---');
-        const paymentData = chartData?.paymentMetrics || {};
+        const paymentData = (chartData?.paymentMetrics || {
+            totalRevenue: 0,
+            totalPaidCount: 0,
+            totalPendingAmount: 0,
+            totalPendingCount: 0,
+            totalFailedAmount: 0,
+            totalFailedCount: 0,
+            averageOrderValue: 0,
+        }) as {
+            totalRevenue: number;
+            totalPaidCount: number;
+            totalPendingAmount: number;
+            totalPendingCount: number;
+            totalFailedAmount: number;
+            totalFailedCount: number;
+            averageOrderValue: number;
+        };
         lines.push('Chỉ số,Giá trị');
         lines.push(`Tổng doanh thu,${(paymentData.totalRevenue || 0).toLocaleString('vi-VN')} VNĐ`);
         lines.push(`Giao dịch thành công,${paymentData.totalPaidCount || 0}`);
@@ -1148,7 +1164,7 @@ export default function AdminStatisticsPage() {
                                         <Tooltip
                                             content={<ChartTooltip />}
                                             contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }}
-                                            formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                            formatter={(value) => [formatCurrency(Number(value) || 0) + ' VNĐ', 'Doanh thu']}
                                         />
                                         <Bar
                                             dataKey="Doanh thu (VNĐ)"
@@ -1206,7 +1222,7 @@ export default function AdminStatisticsPage() {
                                                 <Tooltip
                                                     content={<ChartTooltip />}
                                                     contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
-                                                    formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                                    formatter={(value) => [formatCurrency(Number(value) || 0) + ' VNĐ', 'Doanh thu']}
                                                 />
                                             </PieChart>
                                         </ResponsiveContainer>
@@ -1346,7 +1362,7 @@ export default function AdminStatisticsPage() {
                                         <Tooltip
                                             content={<ChartTooltip />}
                                             contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
-                                            formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                            formatter={(value) => [formatCurrency(Number(value) || 0) + ' VNĐ', 'Doanh thu']}
                                         />
                                         <Bar
                                             dataKey="Doanh thu (VNĐ)"
@@ -1404,7 +1420,7 @@ export default function AdminStatisticsPage() {
                                         <Tooltip
                                             content={<ChartTooltip />}
                                             contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
-                                            formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                            formatter={(value) => [formatCurrency(Number(value) || 0) + ' VNĐ', 'Doanh thu']}
                                             cursor={{ fill: '#f1f5f9' }}
                                         />
                                         <Bar

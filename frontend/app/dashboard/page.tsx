@@ -509,11 +509,11 @@ export default function DashboardPage() {
           upcomingEvents: eventsByStatusMap.upcoming || eventsByStatusMap.approved || 0,
           ongoingEvents: eventsByStatusMap.ongoing || 0,
           completedEvents: eventsByStatusMap.completed || 0,
-          totalUsers: dashboardStats.total_users || 0,
+          totalUsers: (dashboardStats as any).total_users || findRoleCount('participant') + findRoleCount('organizer') + findRoleCount('admin') || 0,
           totalParticipants: findRoleCount('participant'),
           totalOrganizers: findRoleCount('organizer'),
           totalRegistrations: dashboardStats.total_registrations || 0,
-          totalAttendances: dashboardStats.total_attendances || 0,
+          totalAttendances: (dashboardStats as any).total_attendances || 0,
           totalDepartments: 0,
           pendingEvents: pendingTotal,
           recentEvents: events.slice(0, 5),
@@ -530,18 +530,18 @@ export default function DashboardPage() {
         const myEvents: Event[] = Array.isArray(myEventsRes) ? myEventsRes : (myEventsRes as any).data || [];
         // statisticsService.getOrganizerStats() đã unwrap .data rồi
         const organizerStats = statsRes ?? {};
-        const orgEventsByStatus: Record<string, number> = organizerStats.eventsByStatus || {};
+        const orgEventsByStatus: Record<string, number> = (organizerStats as any).events_by_status || {};
 
         setStats({
-          totalEvents: organizerStats.totalEvents || myEvents.length,
+          totalEvents: (organizerStats as any).total_events || myEvents.length,
           upcomingEvents: orgEventsByStatus.upcoming || myEvents.filter((e) => e.status === 'upcoming').length,
           ongoingEvents: orgEventsByStatus.ongoing || myEvents.filter((e) => e.status === 'ongoing').length,
           completedEvents: orgEventsByStatus.completed || myEvents.filter((e) => e.status === 'completed').length,
           totalUsers: 0,
           totalParticipants: 0,
           totalOrganizers: 0,
-          totalRegistrations: organizerStats.totalRegistrations || 0,
-          totalAttendances: organizerStats.totalAttendances || 0,
+          totalRegistrations: (organizerStats as any).total_registrations || 0,
+          totalAttendances: (organizerStats as any).total_attendances || 0,
           totalDepartments: 0,
           pendingEvents: 0,
           recentEvents: myEvents.slice(0, 5),

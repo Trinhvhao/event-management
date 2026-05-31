@@ -276,7 +276,10 @@ const EMAIL_SHELL = (content: string, preheader?: string): string => `
 // ─── Email sending ────────────────────────────────────────────────────────────
 
 export const sendEmail = async (options: SendEmailOptions): Promise<void> => {
+    console.log('[Email] sendEmail called:', { to: options.to, subject: options.subject });
+
     if (isEmailDeliveryDisabled()) {
+        console.log('[Email] ⚠️ Delivery is DISABLED');
         return;
     }
 
@@ -284,17 +287,20 @@ export const sendEmail = async (options: SendEmailOptions): Promise<void> => {
 
     for (let attempt = 0; attempt <= MAX_EMAIL_RETRIES; attempt++) {
         try {
-            await transporter.sendMail({
+            console.log(`[Email] Attempt ${attempt + 1} - Sending to ${options.to}...`);
+            const result = await transporter.sendMail({
                 from: process.env.EMAIL_FROM || `${APP_NAME} <noreply@university.edu.vn>`,
                 to: options.to,
                 subject: options.subject,
                 html: EMAIL_SHELL(options.html),
                 text: textFallback,
             });
+            console.log(`[Email] ✅ Success! MessageId: ${result.messageId}`);
             return;
-        } catch (error) {
+        } catch (error: any) {
+            console.error(`[Email] ❌ Attempt ${attempt + 1} failed:`, error.message);
             if (attempt === MAX_EMAIL_RETRIES) {
-                console.error('[Email] Failed after retries:', error);
+                console.error('[Email] Failed after retries');
                 throw new Error('Failed to send email');
             }
             await wait((attempt + 1) * 500);
@@ -1044,14 +1050,6 @@ export const generateTicketPDF = async (ticket: any): Promise<string> => {
                 .font('Helvetica-Bold')
                 .fontSize(16)
                 .text(event.title, bodyPad, bodyTop + 4, { width: W - 28, lineGap: 2 });
-
-            // Description if exists
-            if (event.description) {
-                doc.fillColor('#6B7280')
-                    .font('Helvetica')
-                    .fontSize(9)
-                    .text(event.description, bodyPad, bodyTop + 26, { width: W - 28 });
-            }
 
             // ── QR CODE ───────────────────────────────────────────────
             const qrSize = 100;

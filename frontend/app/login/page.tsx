@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 // Demo accounts
 const DEMO_ACCOUNTS = {
     participant: {
-        email: 'student1@dnu.edu.vn',
+        email: 'dplong2524@gmail.com',
         password: 'student123',
     },
     organizer: {

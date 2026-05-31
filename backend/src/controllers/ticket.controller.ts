@@ -131,10 +131,14 @@ export const ticketController = {
       const currentUser = getAuthenticatedUser(req);
       const { id } = req.params;
 
+      console.log(`[Ticket] Resend email - Ticket ID: ${id}, User: ${currentUser.email}`);
+
       const ticket = await ticketService.getTicketById(Number(id));
+      console.log(`[Ticket] Ticket found: ${ticket.ticket_code}, User email: ${ticket.registration.user.email}`);
 
       // Verify ownership
       if (ticket.registration.user_id !== currentUser.id) {
+        console.log(`[Ticket] ❌ Ownership check failed: ticket.user_id=${ticket.registration.user_id}, currentUser.id=${currentUser.id}`);
         res.status(403).json({
           success: false,
           error: { message: 'You do not have permission to resend this ticket' },
@@ -142,15 +146,21 @@ export const ticketController = {
         return;
       }
 
+      console.log(`[Ticket] ✅ Ownership verified, generating PDF...`);
       // Generate PDF and send email
       const pdfPath = await emailService.generateTicketPDF(ticket);
+      console.log(`[Ticket] PDF generated: ${pdfPath}`);
+
+      console.log(`[Ticket] Sending email to ${ticket.registration.user.email}...`);
       await emailService.sendTicketEmail(ticket, pdfPath);
 
       // Mark as sent
       await ticketService.markTicketSent(ticket.id);
+      console.log(`[Ticket] ✅ Email sent successfully!`);
 
       res.json(successResponse(null, 'Ticket email sent successfully'));
     } catch (error) {
+      console.error(`[Ticket] ❌ Resend failed:`, error);
       next(error);
     }
   },
