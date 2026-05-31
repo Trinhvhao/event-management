@@ -21,7 +21,7 @@ export const statisticsService = {
 
     /**
      * Lấy thống kê tổng quan cho dashboard (dành cho admin)
-     * 
+     *
      * Bao gồm:
      * - Tổng sự kiện, users, đăng ký, điểm danh
      * - Phân loại sự kiện theo trạng thái (upcoming, ongoing, completed)
@@ -55,26 +55,45 @@ export const statisticsService = {
             ? Math.round((totalAttendances / totalRegistrations) * 100)
             : 0;
 
-        const normalizedEventStatusCounts = new Map<string, number>();
+        // Build events_by_status as Record<string, number>
+        const eventsByStatusRecord: Record<string, number> = {};
         for (const row of eventsByStatus) {
             const normalizedStatus = row.status === 'approved' ? 'upcoming' : row.status;
-            normalizedEventStatusCounts.set(
-                normalizedStatus,
-                (normalizedEventStatusCounts.get(normalizedStatus) || 0) + row._count._all
-            );
+            eventsByStatusRecord[normalizedStatus] =
+                (eventsByStatusRecord[normalizedStatus] || 0) + row._count._all;
         }
+
+        // Sự kiện gần đây (5 sự kiện mới nhất chưa bị xóa)
+        const recentEvents = await prisma.event.findMany({
+            where: { deleted_at: null },
+            select: {
+                id: true,
+                title: true,
+                status: true,
+                start_time: true,
+            },
+            orderBy: { created_at: 'desc' },
+            take: 5,
+        });
 
         return {
             totalEvents,
             totalUsers,
             totalRegistrations,
             totalAttendances,
-            eventsByStatus: Array.from(normalizedEventStatusCounts.entries()).map(([status, count]) => ({
+            eventsByStatus: Array.from(Object.entries(eventsByStatusRecord)).map(([status, count]) => ({
                 status,
                 count,
             })),
+            events_by_status: eventsByStatusRecord,
             usersByRole: usersByRole.map(u => ({ role: u.role, count: u._count._all })),
             checkInRate,
+            recentEvents: recentEvents.map(e => ({
+                id: e.id,
+                title: e.title,
+                status: e.status,
+                start_time: e.start_time,
+            })),
         };
     },
 

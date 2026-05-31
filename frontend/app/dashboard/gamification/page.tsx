@@ -54,19 +54,36 @@ const getTier = (rank: number) => {
 };
 
 // ─── Skeleton Loader ─────────────────────────────────────────────────────────
-function SkeletonRow({ count = 5, height = 64 }: { count?: number; height?: number }) {
+function SkeletonRow({ count = 5 }: { count?: number }) {
+    // Fixed widths to avoid hydration mismatch (SSR vs client Math.random() differs)
+    const skeletonWidths = [
+        { title: '75%', subtitle: '45%' },
+        { title: '85%', subtitle: '55%' },
+        { title: '70%', subtitle: '35%' },
+        { title: '80%', subtitle: '50%' },
+        { title: '90%', subtitle: '40%' },
+        { title: '65%', subtitle: '48%' },
+        { title: '78%', subtitle: '52%' },
+        { title: '82%', subtitle: '38%' },
+        { title: '72%', subtitle: '42%' },
+        { title: '88%', subtitle: '55%' },
+    ];
+
     return (
         <>
-            {Array.from({ length: count }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-[var(--border-light)] last:border-0">
-                    <div className="w-8 h-8 rounded-xl animate-pulse bg-[var(--bg-muted)]" />
-                    <div className="flex-1 space-y-1.5">
-                        <div className="h-3.5 rounded animate-pulse bg-[var(--bg-muted)]" style={{ width: `${60 + Math.random() * 30}%` }} />
-                        <div className="h-2.5 rounded animate-pulse bg-[var(--bg-muted)]" style={{ width: `${30 + Math.random() * 20}%` }} />
+            {Array.from({ length: count }).map((_, i) => {
+                const widths = skeletonWidths[i % skeletonWidths.length];
+                return (
+                    <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-[var(--border-light)] last:border-0">
+                        <div className="w-8 h-8 rounded-xl animate-pulse bg-[var(--bg-muted)]" />
+                        <div className="flex-1 space-y-1.5">
+                            <div className="h-3.5 rounded animate-pulse bg-[var(--bg-muted)]" style={{ width: widths.title }} />
+                            <div className="h-2.5 rounded animate-pulse bg-[var(--bg-muted)]" style={{ width: widths.subtitle }} />
+                        </div>
+                        <div className="w-12 h-5 rounded animate-pulse bg-[var(--bg-muted)]" />
                     </div>
-                    <div className="w-12 h-5 rounded animate-pulse bg-[var(--bg-muted)]" />
-                </div>
-            ))}
+                );
+            })}
         </>
     );
 }

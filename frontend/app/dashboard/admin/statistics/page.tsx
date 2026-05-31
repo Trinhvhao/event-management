@@ -9,10 +9,11 @@ import { DateRangePicker } from '@/components/admin/shared/DateRangePicker';
 import { eventService } from '@/services/eventService';
 import { Category, Department } from '@/types';
 import { toast } from 'sonner';
-import { BarChart3, Calendar, Users, TrendingUp, RefreshCw, Download, Activity, Award, ChevronDown, Layers3, Building2 } from 'lucide-react';
+import { BarChart3, Calendar, Users, TrendingUp, RefreshCw, Download, Activity, Award, ChevronDown, Layers3, Building2, Wallet, ReceiptText, Clock, DollarSign } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+    ComposedChart,
 } from 'recharts';
 
 // Brand color palette for charts
@@ -114,6 +115,13 @@ export default function AdminStatisticsPage() {
         metrics, trends, chartData, loading, error, filters,
         fetchStatistics, updateDateRange, updateFilters, clearFilters,
     } = useStatisticsStore();
+
+    // DEBUG: Log store data
+    console.log('[AdminStats] Store metrics:', metrics);
+    console.log('[AdminStats] Store chartData:', chartData);
+    console.log('[AdminStats] Store trends:', trends);
+    console.log('[AdminStats] Store loading:', loading);
+    console.log('[AdminStats] Store error:', error);
 
     const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
     const [isExporting, setIsExporting] = useState(false);
@@ -248,6 +256,97 @@ export default function AdminStatisticsPage() {
         } else {
             lines.push('Không có dữ liệu,');
         }
+        lines.push('');
+
+        // Section 8: Payment KPIs
+        lines.push('--- Chỉ số Thanh toán ---');
+        const paymentData = chartData?.paymentMetrics || {};
+        lines.push('Chỉ số,Giá trị');
+        lines.push(`Tổng doanh thu,${(paymentData.totalRevenue || 0).toLocaleString('vi-VN')} VNĐ`);
+        lines.push(`Giao dịch thành công,${paymentData.totalPaidCount || 0}`);
+        lines.push(`Số tiền chờ thanh toán,${(paymentData.totalPendingAmount || 0).toLocaleString('vi-VN')} VNĐ`);
+        lines.push(`Giao dịch đang chờ,${paymentData.totalPendingCount || 0}`);
+        lines.push(`Số tiền thất bại,${(paymentData.totalFailedAmount || 0).toLocaleString('vi-VN')} VNĐ`);
+        lines.push(`Giao dịch thất bại,${paymentData.totalFailedCount || 0}`);
+        lines.push(`Giá trị TB/đơn,${(paymentData.averageOrderValue || 0).toLocaleString('vi-VN')} VNĐ`);
+        lines.push('');
+
+        // Section 9: Payment Trend
+        lines.push('--- Doanh thu theo ngày ---');
+        lines.push('Ngày,Doanh thu (VNĐ),Số giao dịch');
+        const paymentTrend = chartData?.paymentTrend || [];
+        if (paymentTrend.length > 0) {
+            paymentTrend.forEach((row) => {
+                lines.push(`${escapeCSVField(row.date)},${row.amount},${row.count}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,,');
+        }
+        lines.push('');
+
+        // Section 10: Monthly Payment Trend
+        lines.push('--- Doanh thu theo tháng (Năm hiện tại) ---');
+        lines.push('Tháng,Doanh thu (VNĐ),Số giao dịch');
+        const monthlyTrend = chartData?.monthlyPaymentTrend || [];
+        if (monthlyTrend.length > 0) {
+            monthlyTrend.forEach((row) => {
+                lines.push(`${escapeCSVField(row.month)},${row.amount},${row.count}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,,');
+        }
+        lines.push('');
+
+        // Section 11: Payment by Method
+        lines.push('--- Doanh thu theo phương thức ---');
+        lines.push('Phương thức,Số giao dịch,Doanh thu (VNĐ)');
+        const paymentByMethod = chartData?.paymentByMethod || [];
+        if (paymentByMethod.length > 0) {
+            paymentByMethod.forEach((row) => {
+                lines.push(`${escapeCSVField(row.method)},${row.count},${row.amount}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,,');
+        }
+        lines.push('');
+
+        // Section 12: Payment by Status
+        lines.push('--- Giao dịch theo trạng thái ---');
+        lines.push('Trạng thái,Số giao dịch,Số tiền (VNĐ)');
+        const paymentByStatus = chartData?.paymentByStatus || [];
+        if (paymentByStatus.length > 0) {
+            paymentByStatus.forEach((row) => {
+                lines.push(`${escapeCSVField(row.status)},${row.count},${row.amount}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,,');
+        }
+        lines.push('');
+
+        // Section 13: Top Events by Revenue
+        lines.push('--- Top sự kiện theo doanh thu ---');
+        lines.push('Sự kiện,Số giao dịch,Doanh thu (VNĐ)');
+        const topEvents = chartData?.paymentByEvent || [];
+        if (topEvents.length > 0) {
+            topEvents.forEach((row) => {
+                lines.push(`${escapeCSVField(row.eventName)},${row.count},${row.amount}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,,');
+        }
+        lines.push('');
+
+        // Section 14: Yearly Summary
+        lines.push('--- Doanh thu theo năm ---');
+        lines.push('Năm,Doanh thu (VNĐ),Số giao dịch');
+        const yearlySummary = chartData?.yearlyPaymentSummary || [];
+        if (yearlySummary.length > 0) {
+            yearlySummary.forEach((row) => {
+                lines.push(`${escapeCSVField(row.year)},${row.amount},${row.count}`);
+            });
+        } else {
+            lines.push('Không có dữ liệu,,');
+        }
 
         return lines.join('\n');
     };
@@ -328,6 +427,105 @@ export default function AdminStatisticsPage() {
         upcoming: 'Sắp diễn ra', ongoing: 'Đang diễn ra',
         completed: 'Đã kết thúc', cancelled: 'Đã hủy',
         pending: 'Chờ duyệt', approved: 'Đã duyệt',
+    };
+
+    // Payment status labels
+    const PAYMENT_STATUS_LABELS: Record<string, string> = {
+        pending: 'Chờ thanh toán',
+        paid: 'Đã thanh toán',
+        failed: 'Thất bại',
+        cancelled: 'Đã hủy',
+        expired: 'Hết hạn',
+        refunded: 'Đã hoàn tiền',
+    };
+
+    // Payment method labels
+    const PAYMENT_METHOD_LABELS: Record<string, string> = {
+        payos: 'PayOS',
+        vnpay: 'VNPay',
+        bank_transfer: 'Chuyển khoản',
+        cash: 'Tiền mặt',
+    };
+
+    // Payment data from chartData
+    const paymentMetrics = chartData?.paymentMetrics || null;
+
+    // Payment trend data for area chart (daily)
+    const paymentTrendData = useMemo(() => {
+        return (chartData?.paymentTrend || []).map((r: { date: string; amount: number; count: number }) => ({
+            date: r.date,
+            'Doanh thu (VNĐ)': r.amount,
+            'Số giao dịch': r.count,
+        }));
+    }, [chartData]);
+
+    // Monthly payment trend for current year
+    const monthlyPaymentTrendData = useMemo(() => {
+        return (chartData?.monthlyPaymentTrend || []).map((r: { month: string; amount: number; count: number }) => ({
+            month: r.month,
+            'Doanh thu (VNĐ)': r.amount,
+            'Số giao dịch': r.count,
+        }));
+    }, [chartData]);
+
+    // Yearly payment summary
+    const yearlyPaymentData = useMemo(() => {
+        return (chartData?.yearlyPaymentSummary || []).map((r: { year: string; amount: number; count: number }) => ({
+            year: r.year,
+            'Doanh thu (VNĐ)': r.amount,
+            'Số giao dịch': r.count,
+        }));
+    }, [chartData]);
+
+    // Payment by method pie chart
+    const paymentByMethodData = useMemo(() => {
+        const rows = chartData?.paymentByMethod || [];
+        return rows.map((row: { method: string; count: number; amount: number }, i: number) => ({
+            name: PAYMENT_METHOD_LABELS[row.method] || row.method,
+            value: row.amount,
+            count: row.count,
+            color: CHART_COLORS[i % CHART_COLORS.length],
+        }));
+    }, [chartData]);
+
+    const totalPaymentByMethod = paymentByMethodData.reduce((s, r) => s + r.value, 0);
+
+    // Payment by status data
+    const paymentByStatusData = useMemo(() => {
+        const rows = chartData?.paymentByStatus || [];
+        return rows.map((row: { status: string; count: number; amount: number }, i: number) => ({
+            name: PAYMENT_STATUS_LABELS[row.status] || row.status,
+            value: row.count,
+            amount: row.amount,
+            color: CHART_COLORS[i % CHART_COLORS.length],
+        }));
+    }, [chartData]);
+
+    const totalPaymentByStatus = paymentByStatusData.reduce((s, r) => s + r.value, 0);
+
+    // Payment by event data
+    const paymentByEventData = useMemo(() => {
+        const rows = chartData?.paymentByEvent || [];
+        return rows.map((row: { eventId: number; eventName: string; count: number; amount: number }, i: number) => ({
+            eventName: row.eventName,
+            count: row.count,
+            amount: row.amount,
+            fill: CHART_COLORS[i % CHART_COLORS.length],
+        }));
+    }, [chartData]);
+
+    // Format currency
+    const formatCurrency = (value: number): string => {
+        if (value >= 1_000_000_000) {
+            return `${(value / 1_000_000_000).toFixed(1)}B`;
+        }
+        if (value >= 1_000_000) {
+            return `${(value / 1_000_000).toFixed(1)}M`;
+        }
+        if (value >= 1_000) {
+            return `${(value / 1_000).toFixed(1)}K`;
+        }
+        return value.toLocaleString('vi-VN');
     };
 
     return (
@@ -742,6 +940,538 @@ export default function AdminStatisticsPage() {
                                 <p className="text-sm font-semibold text-[var(--text-secondary)]">Không có dữ liệu đăng ký</p>
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Payment Statistics Section */}
+                <div className="relative overflow-hidden rounded-2xl border border-[var(--border-default)] bg-gradient-to-r from-[var(--color-brand-green)]/8 via-transparent to-transparent p-6 shadow-[var(--shadow-card)]">
+                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[var(--color-brand-green)] via-[var(--color-brand-gold)] to-transparent" />
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-brand-green)] to-[#008f47] flex items-center justify-center shadow-[var(--shadow-brand)]">
+                            <Wallet className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-brand-green)]">Thống kê</p>
+                            <h2 className="text-xl font-extrabold text-[var(--text-primary)] tracking-tight">Quản lý Thanh toán</h2>
+                            <p className="text-sm text-[var(--text-muted)]">Theo dõi doanh thu và giao dịch</p>
+                        </div>
+                    </div>
+
+                    {/* Payment KPI Cards */}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+                        {/* Total Revenue */}
+                        <div className="bg-white rounded-xl border border-[var(--border-default)] p-4 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-1">Tổng doanh thu</p>
+                                    {loading ? (
+                                        <Skeleton width={100} height={28} />
+                                    ) : (
+                                        <p className="text-xl font-extrabold text-[var(--color-brand-green)]">
+                                            {formatCurrency(paymentMetrics?.totalRevenue || 0)}<span className="text-xs font-normal text-[var(--text-muted)] ml-1">VNĐ</span>
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                                        {paymentMetrics?.totalPaidCount || 0} giao dịch thành công
+                                    </p>
+                                </div>
+                                <div className="w-10 h-10 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-green)_12%,transparent)] flex items-center justify-center">
+                                    <DollarSign className="w-5 h-5 text-[var(--color-brand-green)]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Pending Amount */}
+                        <div className="bg-white rounded-xl border border-[var(--border-default)] p-4 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-1">Chờ thanh toán</p>
+                                    {loading ? (
+                                        <Skeleton width={100} height={28} />
+                                    ) : (
+                                        <p className="text-xl font-extrabold text-[var(--color-brand-orange)]">
+                                            {formatCurrency(paymentMetrics?.totalPendingAmount || 0)}<span className="text-xs font-normal text-[var(--text-muted)] ml-1">VNĐ</span>
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                                        {paymentMetrics?.totalPendingCount || 0} giao dịch đang chờ
+                                    </p>
+                                </div>
+                                <div className="w-10 h-10 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-orange)_12%,transparent)] flex items-center justify-center">
+                                    <Clock className="w-5 h-5 text-[var(--color-brand-orange)]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Failed Amount */}
+                        <div className="bg-white rounded-xl border border-[var(--border-default)] p-4 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-1">Giao dịch thất bại</p>
+                                    {loading ? (
+                                        <Skeleton width={100} height={28} />
+                                    ) : (
+                                        <p className="text-xl font-extrabold text-[var(--color-brand-red)]">
+                                            {formatCurrency(paymentMetrics?.totalFailedAmount || 0)}<span className="text-xs font-normal text-[var(--text-muted)] ml-1">VNĐ</span>
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                                        {paymentMetrics?.totalFailedCount || 0} giao dịch thất bại
+                                    </p>
+                                </div>
+                                <div className="w-10 h-10 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-red)_12%,transparent)] flex items-center justify-center">
+                                    <ReceiptText className="w-5 h-5 text-[var(--color-brand-red)]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Average Order Value */}
+                        <div className="bg-white rounded-xl border border-[var(--border-default)] p-4 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] mb-1">Giá trị TB</p>
+                                    {loading ? (
+                                        <Skeleton width={100} height={28} />
+                                    ) : (
+                                        <p className="text-xl font-extrabold text-[var(--color-brand-navy)]">
+                                            {formatCurrency(paymentMetrics?.averageOrderValue || 0)}<span className="text-xs font-normal text-[var(--text-muted)] ml-1">VNĐ</span>
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">/Giao dịch</p>
+                                </div>
+                                <div className="w-10 h-10 rounded-lg bg-[color-mix(in_srgb,var(--color-brand-navy)_12%,transparent)] flex items-center justify-center">
+                                    <BarChart3 className="w-5 h-5 text-[var(--color-brand-navy)]" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Charts Row 1: Daily Revenue + Monthly Revenue */}
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 mb-6">
+                        {/* Daily Payment Trend */}
+                        <ChartCard
+                            title="Doanh thu theo ngày"
+                            subtitle="Biến động doanh thu hàng ngày"
+                            icon={<DollarSign className="w-4 h-4" />}
+                        >
+                            {loading || paymentTrendData.length === 0 ? (
+                                <div className="flex items-center justify-center h-64">
+                                    {loading ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-green)] animate-spin" />
+                                            <span className="text-sm text-[var(--text-muted)] font-medium">Đang tải dữ liệu...</span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center py-12">Chưa có dữ liệu doanh thu</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={280}>
+                                    <ComposedChart data={paymentTrendData} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#00A651" stopOpacity={0.3}/>
+                                                <stop offset="95%" stopColor="#00A651" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                        <XAxis
+                                            dataKey="date"
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tickFormatter={(value) => formatCurrency(value)}
+                                        />
+                                        <Tooltip
+                                            content={<ChartTooltip />}
+                                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }}
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="Doanh thu (VNĐ)"
+                                            stroke="#00A651"
+                                            strokeWidth={2.5}
+                                            fill="url(#colorRevenue)"
+                                            dot={false}
+                                            activeDot={{ r: 5, fill: '#00A651', strokeWidth: 0 }}
+                                            animationDuration={1500}
+                                        />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            )}
+                        </ChartCard>
+
+                        {/* Monthly Revenue Trend (Current Year) */}
+                        <ChartCard
+                            title="Doanh thu theo tháng"
+                            subtitle="Năm hiện tại"
+                            icon={<Calendar className="w-4 h-4" />}
+                        >
+                            {loading || monthlyPaymentTrendData.length === 0 ? (
+                                <div className="flex items-center justify-center h-64">
+                                    {loading ? (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-green)] animate-spin" />
+                                            <span className="text-sm text-[var(--text-muted)] font-medium">Đang tải dữ liệu...</span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center py-12">Chưa có dữ liệu</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={280}>
+                                    <BarChart data={monthlyPaymentTrendData} margin={{ top: 8, right: 16, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="barGradPayment" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#00A651" stopOpacity={0.8} />
+                                                <stop offset="100%" stopColor="#00A651" stopOpacity={1} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                        <XAxis
+                                            dataKey="month"
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tickFormatter={(value) => formatCurrency(value)}
+                                        />
+                                        <Tooltip
+                                            content={<ChartTooltip />}
+                                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 12 }}
+                                            formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                        />
+                                        <Bar
+                                            dataKey="Doanh thu (VNĐ)"
+                                            fill="url(#barGradPayment)"
+                                            radius={[6, 6, 0, 0]}
+                                            barSize={28}
+                                            animationDuration={1500}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </ChartCard>
+                    </div>
+
+                    {/* Payment Charts Row 2: By Method + By Status */}
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 mb-6">
+                        {/* Payment by Method */}
+                        <ChartCard
+                            title="Theo phương thức"
+                            subtitle="Phân bổ doanh thu theo phương thức thanh toán"
+                            icon={<Wallet className="w-4 h-4" />}
+                        >
+                            {loading || paymentByMethodData.length === 0 ? (
+                                <div className="flex items-center justify-center h-64">
+                                    {loading ? (
+                                        <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-green)] animate-spin" />
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center">Chưa có dữ liệu</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="relative">
+                                        <ResponsiveContainer width="100%" height={180}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={paymentByMethodData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={50}
+                                                    outerRadius={75}
+                                                    paddingAngle={3}
+                                                    dataKey="value"
+                                                    animationDuration={1200}
+                                                    animationBegin={0}
+                                                >
+                                                    {paymentByMethodData.map((entry, i) => (
+                                                        <Cell
+                                                            key={entry.name}
+                                                            fill={entry.color}
+                                                            stroke="none"
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip
+                                                    content={<ChartTooltip />}
+                                                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                                                    formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <div className="text-center">
+                                                <p className="text-xl font-extrabold text-[var(--text-primary)]">{formatCurrency(totalPaymentByMethod)}</p>
+                                                <p className="text-xs text-[var(--text-muted)]">Tổng</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2.5 mt-4">
+                                        {paymentByMethodData.map((entry, i) => (
+                                            <div key={i} className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
+                                                    <span className="text-[var(--text-secondary)] font-medium">{entry.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs text-[var(--text-muted)]">{entry.count} giao dịch</span>
+                                                    <span className="font-bold text-[var(--text-primary)]">{formatCurrency(entry.value)}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </ChartCard>
+
+                        {/* Payment by Status */}
+                        <ChartCard
+                            title="Theo trạng thái"
+                            subtitle="Phân bổ giao dịch theo trạng thái"
+                            icon={<ReceiptText className="w-4 h-4" />}
+                        >
+                            {loading || paymentByStatusData.length === 0 ? (
+                                <div className="flex items-center justify-center h-64">
+                                    {loading ? (
+                                        <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-green)] animate-spin" />
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center">Chưa có dữ liệu</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="relative">
+                                        <ResponsiveContainer width="100%" height={180}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={paymentByStatusData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={50}
+                                                    outerRadius={75}
+                                                    paddingAngle={3}
+                                                    dataKey="value"
+                                                    animationDuration={1200}
+                                                    animationBegin={0}
+                                                >
+                                                    {paymentByStatusData.map((entry, i) => (
+                                                        <Cell
+                                                            key={entry.name}
+                                                            fill={entry.color}
+                                                            stroke="none"
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip
+                                                    content={<ChartTooltip />}
+                                                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <div className="text-center">
+                                                <p className="text-xl font-extrabold text-[var(--text-primary)]">{totalPaymentByStatus}</p>
+                                                <p className="text-xs text-[var(--text-muted)]">Tổng GD</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2.5 mt-4">
+                                        {paymentByStatusData.map((entry, i) => (
+                                            <div key={i} className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
+                                                    <span className="text-[var(--text-secondary)] font-medium">{entry.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs text-[var(--text-muted)]">{formatCurrency(entry.amount)}</span>
+                                                    <span className="font-bold text-[var(--text-primary)]">{entry.value}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </ChartCard>
+                    </div>
+
+                    {/* Yearly Summary + Top Events */}
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                        {/* Yearly Payment Summary */}
+                        <ChartCard
+                            title="Theo năm"
+                            subtitle="Doanh thu qua các năm"
+                            icon={<TrendingUp className="w-4 h-4" />}
+                        >
+                            {loading || yearlyPaymentData.length === 0 ? (
+                                <div className="flex items-center justify-center h-64">
+                                    {loading ? (
+                                        <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-green)] animate-spin" />
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center">Chưa có dữ liệu</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={240}>
+                                    <BarChart data={yearlyPaymentData} margin={{ left: 10, right: 10 }}>
+                                        <defs>
+                                            <linearGradient id="yearBarGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#00A651" stopOpacity={0.8} />
+                                                <stop offset="100%" stopColor="#00A651" stopOpacity={1} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                        <XAxis
+                                            dataKey="year"
+                                            tick={{ fontSize: 12, fill: '#64748b' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tickFormatter={(value) => formatCurrency(value)}
+                                        />
+                                        <Tooltip
+                                            content={<ChartTooltip />}
+                                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                                            formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                        />
+                                        <Bar
+                                            dataKey="Doanh thu (VNĐ)"
+                                            fill="url(#yearBarGrad)"
+                                            radius={[6, 6, 0, 0]}
+                                            barSize={40}
+                                            animationDuration={1500}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </ChartCard>
+
+                        {/* Top Events by Revenue */}
+                        <ChartCard
+                            title="Top sự kiện"
+                            subtitle="Doanh thu cao nhất theo sự kiện"
+                            icon={<Calendar className="w-4 h-4" />}
+                        >
+                            {loading || paymentByEventData.length === 0 ? (
+                                <div className="flex items-center justify-center h-64">
+                                    {loading ? (
+                                        <div className="w-8 h-8 rounded-full border-[3px] border-[var(--color-brand-light)] border-t-[var(--color-brand-green)] animate-spin" />
+                                    ) : (
+                                        <p className="text-sm text-[var(--text-muted)] text-center">Chưa có dữ liệu</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={240}>
+                                    <BarChart layout="vertical" data={paymentByEventData} margin={{ left: 20, right: 20 }}>
+                                        <defs>
+                                            {paymentByEventData.map((entry, i) => (
+                                                <linearGradient key={i} id={`eventBarGrad${i}`} x1="0" y1="0" x2="1" y2="0">
+                                                    <stop offset="0%" stopColor={entry.fill} stopOpacity={0.8} />
+                                                    <stop offset="100%" stopColor={entry.fill} stopOpacity={1} />
+                                                </linearGradient>
+                                            ))}
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                                        <XAxis
+                                            type="number"
+                                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tickFormatter={(value) => formatCurrency(value)}
+                                        />
+                                        <YAxis
+                                            type="category"
+                                            dataKey="eventName"
+                                            tick={{ fontSize: 11, fill: '#374151' }}
+                                            width={100}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <Tooltip
+                                            content={<ChartTooltip />}
+                                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                                            formatter={(value: number) => [formatCurrency(value) + ' VNĐ', 'Doanh thu']}
+                                            cursor={{ fill: '#f1f5f9' }}
+                                        />
+                                        <Bar
+                                            dataKey="amount"
+                                            radius={[0, 6, 6, 0]}
+                                            barSize={16}
+                                            animationDuration={1500}
+                                        >
+                                            {paymentByEventData.map((entry, i) => (
+                                                <Cell
+                                                    key={entry.eventName}
+                                                    fill={`url(#eventBarGrad${i})`}
+                                                />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </ChartCard>
+                    </div>
+
+                    {/* Payment Detail Table */}
+                    <div className="mt-6 bg-white rounded-2xl border border-[var(--border-default)] shadow-[var(--shadow-card)] overflow-hidden">
+                        <div className="px-5 pt-5 pb-0 border-b border-[var(--border-light)]">
+                            <CardHeader title="Chi tiết theo ngày" subtitle="Doanh thu và giao dịch gần đây" icon={<ReceiptText className="w-5 h-5" />} />
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-[var(--bg-muted)]">
+                                    <tr>
+                                        <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Ngày</th>
+                                        <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Doanh thu</th>
+                                        <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Số giao dịch</th>
+                                        <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">% Tổng</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--border-light)]">
+                                    {(chartData?.paymentTrend || []).slice(-10).reverse().map((row: { date: string; amount: number; count: number }) => {
+                                        const total = (chartData?.paymentTrend || []).reduce((s: number, r: { amount: number }) => s + r.amount, 0);
+                                        const pct = total > 0 ? ((row.amount / total) * 100).toFixed(1) : '0.0';
+                                        return (
+                                            <tr key={row.date} className="hover:bg-[color-mix(in_srgb,var(--color-brand-green)_3%,transparent)] transition-colors">
+                                                <td className="px-5 py-3 text-sm font-medium text-[var(--text-secondary)]">{row.date}</td>
+                                                <td className="px-5 py-3 text-right text-sm font-bold text-[var(--color-brand-green)]">{row.amount.toLocaleString('vi-VN')} VNĐ</td>
+                                                <td className="px-5 py-3 text-right text-sm font-bold text-[var(--text-primary)]">{row.count.toLocaleString('vi-VN')}</td>
+                                                <td className="px-5 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex-1 h-1.5 bg-[var(--bg-muted)] rounded-full overflow-hidden max-w-[120px]">
+                                                            <div className="h-full rounded-full bg-[var(--color-brand-green)]" style={{ width: `${pct}%` }} />
+                                                        </div>
+                                                        <span className="text-xs text-[var(--text-muted)] font-medium w-12 text-right">{pct}%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                            {!loading && (!chartData?.paymentTrend || chartData.paymentTrend.length === 0) && (
+                                <div className="flex flex-col items-center justify-center py-14 gap-3">
+                                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-muted)] flex items-center justify-center">
+                                        <Wallet className="w-7 h-7 text-[var(--text-muted)]" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-[var(--text-secondary)]">Không có dữ liệu thanh toán</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

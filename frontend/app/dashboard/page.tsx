@@ -490,14 +490,10 @@ export default function DashboardPage() {
         ]);
 
         const events: Event[] = eventsRes.items || (eventsRes as any).data?.items || (eventsRes as any).data || [];
-        const dashboardStats = (statsRes as any)?.data ?? statsRes ?? {};
-        const eventsByStatusArr: Array<{ status: string; count: number }> = dashboardStats.eventsByStatus || [];
-        const usersByRole = dashboardStats.usersByRole || [];
+        const dashboardStats = statsRes ?? {};
 
-        const eventsByStatusMap: Record<string, number> = {};
-        for (const row of eventsByStatusArr) {
-            eventsByStatusMap[row.status] = row.count;
-        }
+        const eventsByStatusMap = dashboardStats.events_by_status || {};
+        const usersByRole = dashboardStats.users_by_role || [];
 
         const findRoleCount = (role: string) => {
           return Array.isArray(usersByRole)
@@ -509,15 +505,15 @@ export default function DashboardPage() {
         const notifications = (notifsRes as any)?.notifications ?? (notifsRes as any)?.data ?? [];
 
         setStats({
-          totalEvents: dashboardStats.totalEvents || events.length,
+          totalEvents: dashboardStats.total_events || events.length,
           upcomingEvents: eventsByStatusMap.upcoming || eventsByStatusMap.approved || 0,
           ongoingEvents: eventsByStatusMap.ongoing || 0,
           completedEvents: eventsByStatusMap.completed || 0,
-          totalUsers: dashboardStats.totalUsers || 0,
+          totalUsers: dashboardStats.total_users || 0,
           totalParticipants: findRoleCount('participant'),
           totalOrganizers: findRoleCount('organizer'),
-          totalRegistrations: dashboardStats.totalRegistrations || 0,
-          totalAttendances: dashboardStats.totalAttendances || 0,
+          totalRegistrations: dashboardStats.total_registrations || 0,
+          totalAttendances: dashboardStats.total_attendances || 0,
           totalDepartments: 0,
           pendingEvents: pendingTotal,
           recentEvents: events.slice(0, 5),
@@ -532,7 +528,8 @@ export default function DashboardPage() {
         ]);
 
         const myEvents: Event[] = Array.isArray(myEventsRes) ? myEventsRes : (myEventsRes as any).data || [];
-        const organizerStats = (statsRes as any)?.data ?? statsRes ?? {};
+        // statisticsService.getOrganizerStats() đã unwrap .data rồi
+        const organizerStats = statsRes ?? {};
         const orgEventsByStatus: Record<string, number> = organizerStats.eventsByStatus || {};
 
         setStats({

@@ -15,6 +15,16 @@ type MetricsPayload = {
   activeOrganizers: number;
 };
 
+type PaymentMetrics = {
+  totalRevenue: number;
+  totalPaidCount: number;
+  totalPendingAmount: number;
+  totalPendingCount: number;
+  totalFailedAmount: number;
+  totalFailedCount: number;
+  averageOrderValue: number;
+};
+
 type TrendPayload = {
   value: number;
   percentage: number;
@@ -187,6 +197,332 @@ const buildRegistrationTrend = async (
   return trend;
 };
 
+const buildPaymentTrend = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ date: string; amount: number; count: number }>> => {
+  const now = new Date();
+  const defaultFrom = new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000);
+  const from = toDate(filters.dateFrom) || defaultFrom;
+  const to = toDate(filters.dateTo) || now;
+
+  const payments = await prisma.payment.findMany({
+    where: {
+      status: 'paid',
+      paid_at: {
+        gte: from,
+        lte: to,
+      },
+    },
+    select: {
+      amount: true,
+      paid_at: true,
+    },
+  });
+
+  const bucket = new Map<string, { amount: number; count: number }>();
+  for (const row of payments) {
+    const key = row.paid_at!.toISOString().slice(0, 10);
+    const existing = bucket.get(key) || { amount: 0, count: 0 };
+    bucket.set(key, {
+      amount: existing.amount + Number(row.amount),
+      count: existing.count + 1,
+    });
+  }
+
+  const trend: Array<{ date: string; amount: number; count: number }> = [];
+  const cursor = new Date(from);
+  cursor.setHours(0, 0, 0, 0);
+
+  const end = new Date(to);
+  end.setHours(0, 0, 0, 0);
+
+  while (cursor <= end) {
+    const key = cursor.toISOString().slice(0, 10);
+    const data = bucket.get(key) || { amount: 0, count: 0 };
+    trend.push({ date: key, amount: data.amount, count: data.count });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return trend;
+};
+
+const buildPaymentByMethod = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ method: string; count: number; amount: number }>> => {
+  const now = new Date();
+  const defaultFrom = toDate(filters.dateFrom) || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const defaultTo = toDate(filters.dateTo) || now;
+
+  const eventWhere = buildEventWhere(filters);
+
+  const payments = await prisma.payment.groupBy({
+    by: ['method'],
+    where: {
+      status: 'paid',
+      paid_at: {
+        gte: defaultFrom,
+        lte: defaultTo,
+      },
+      ...(filters.departmentId || filters.categoryId
+        ? {
+            event: eventWhere,
+          }
+        : {}),
+    },
+    _count: { _all: true },
+    _sum: { amount: true },
+  });
+
+  return payments.map((item) => ({
+    method: item.method,
+    count: item._count._all,
+    amount: Number(item._sum.amount) || 0,
+  }));
+};
+
+const buildPaymentByStatus = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ status: string; count: number; amount: number }>> => {
+  const now = new Date();
+  const defaultFrom = toDate(filters.dateFrom) || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const defaultTo = toDate(filters.dateTo) || now;
+
+  const eventWhere = buildEventWhere(filters);
+
+  const payments = await prisma.payment.groupBy({
+    by: ['status'],
+    where: {
+      created_at: {
+        gte: defaultFrom,
+        lte: defaultTo,
+      },
+      ...(filters.departmentId || filters.categoryId
+        ? {
+            event: eventWhere,
+          }
+        : {}),
+    },
+    _count: { _all: true },
+    _sum: { amount: true },
+  });
+
+  return payments.map((item) => ({
+    status: item.status,
+    count: item._count._all,
+    amount: Number(item._sum.amount) || 0,
+  }));
+};
+
+const buildPaymentByEvent = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ eventId: number; eventName: string; count: number; amount: number }>> => {
+  const now = new Date();
+  const defaultFrom = toDate(filters.dateFrom) || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const defaultTo = toDate(filters.dateTo) || now;
+
+  const eventWhere = buildEventWhere(filters);
+
+  const payments = await prisma.payment.groupBy({
+    by: ['event_id'],
+    where: {
+      status: 'paid',
+      paid_at: {
+        gte: defaultFrom,
+        lte: defaultTo,
+      },
+      event: eventWhere,
+    },
+    _count: { _all: true },
+    _sum: { amount: true },
+    orderBy: {
+      _sum: {
+        amount: 'desc',
+      },
+    },
+    take: 10,
+  });
+
+  const eventIds = payments.map((p) => p.event_id);
+  const events = await prisma.event.findMany({
+    where: { id: { in: eventIds } },
+    select: { id: true, title: true },
+  });
+
+  return payments.map((item) => {
+    const event = events.find((e) => e.id === item.event_id);
+    return {
+      eventId: item.event_id,
+      eventName: event?.title || `Event #${item.event_id}`,
+      count: item._count._all,
+      amount: Number(item._sum.amount) || 0,
+    };
+  });
+};
+
+const buildMonthlyPaymentTrend = async (
+  _filters: AdminStatisticsFilters,
+  year: number
+): Promise<Array<{ month: string; amount: number; count: number }>> => {
+  const startDate = new Date(year, 0, 1);
+  const endDate = new Date(year, 11, 31, 23, 59, 59);
+
+  const payments = await prisma.payment.findMany({
+    where: {
+      status: 'paid',
+      paid_at: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    select: {
+      amount: true,
+      paid_at: true,
+    },
+  });
+
+  const bucket = new Map<number, { amount: number; count: number }>();
+  for (let m = 0; m < 12; m++) {
+    bucket.set(m, { amount: 0, count: 0 });
+  }
+
+  for (const row of payments) {
+    const month = row.paid_at!.getMonth();
+    const existing = bucket.get(month)!;
+    bucket.set(month, {
+      amount: existing.amount + Number(row.amount),
+      count: existing.count + 1,
+    });
+  }
+
+  return Array.from(bucket.entries()).map(([month, data]) => ({
+    month: `T${month + 1}`,
+    amount: data.amount,
+    count: data.count,
+  }));
+};
+
+const buildYearlyPaymentSummary = async (
+  _filters: AdminStatisticsFilters,
+  topYears: number[]
+): Promise<Array<{ year: string; amount: number; count: number }>> => {
+  const results: Array<{ year: string; amount: number; count: number }> = [];
+
+  for (const year of topYears) {
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31, 23, 59, 59);
+
+    const [aggregateResult] = await Promise.all([
+      prisma.payment.aggregate({
+        where: {
+          status: 'paid',
+          paid_at: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    results.push({
+      year: String(year),
+      amount: Number(aggregateResult._sum.amount) || 0,
+      count: aggregateResult._count._all || 0,
+    });
+  }
+
+  return results;
+};
+
+const getPaymentMetrics = async (
+  filters: AdminStatisticsFilters
+): Promise<PaymentMetrics> => {
+  const now = new Date();
+  const defaultFrom = toDate(filters.dateFrom) || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const defaultTo = toDate(filters.dateTo) || now;
+
+  const [paid, pending, failed] = await Promise.all([
+    prisma.payment.aggregate({
+      where: {
+        status: 'paid',
+        paid_at: { gte: defaultFrom, lte: defaultTo },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    prisma.payment.aggregate({
+      where: {
+        status: 'pending',
+        created_at: { gte: defaultFrom, lte: defaultTo },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    prisma.payment.aggregate({
+      where: {
+        status: 'failed',
+        created_at: { gte: defaultFrom, lte: defaultTo },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const totalRevenue = Number(paid._sum.amount) || 0;
+  const totalPaidCount = paid._count._all;
+  const averageOrderValue = totalPaidCount > 0 ? totalRevenue / totalPaidCount : 0;
+
+  return {
+    totalRevenue,
+    totalPaidCount,
+    totalPendingAmount: Number(pending._sum.amount) || 0,
+    totalPendingCount: pending._count._all,
+    totalFailedAmount: Number(failed._sum.amount) || 0,
+    totalFailedCount: failed._count._all,
+    averageOrderValue,
+  };
+};
+
+const getPaymentTrend = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ date: string; amount: number; count: number }>> => {
+  return buildPaymentTrend(filters);
+};
+
+const getMonthlyPaymentTrend = async (
+  filters: AdminStatisticsFilters,
+  year: number
+): Promise<Array<{ month: string; amount: number; count: number }>> => {
+  return buildMonthlyPaymentTrend(filters, year);
+};
+
+const getYearlyPaymentSummary = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ year: string; amount: number; count: number }>> => {
+  const currentYear = new Date().getFullYear();
+  const topYears = [currentYear - 2, currentYear - 1, currentYear];
+  return buildYearlyPaymentSummary(filters, topYears);
+};
+
+const getPaymentByMethod = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ method: string; count: number; amount: number }>> => {
+  return buildPaymentByMethod(filters);
+};
+
+const getPaymentByStatus = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ status: string; count: number; amount: number }>> => {
+  return buildPaymentByStatus(filters);
+};
+
+const getPaymentByEvent = async (
+  filters: AdminStatisticsFilters
+): Promise<Array<{ eventId: number; eventName: string; count: number; amount: number }>> => {
+  return buildPaymentByEvent(filters);
+};
+
 export const adminStatisticsService = {
   async getDashboard(filters: AdminStatisticsFilters) {
     const currentFrom = toDate(filters.dateFrom);
@@ -223,11 +559,20 @@ export const adminStatisticsService = {
   async getCharts(filters: AdminStatisticsFilters) {
     const eventWhere = buildEventWhere(filters);
 
+    const currentYear = new Date().getFullYear();
+
     const [
       userRegistrationTrend,
       eventsByCategoryRaw,
       statusRaw,
       departments,
+      paymentMetrics,
+      paymentTrend,
+      paymentByMethod,
+      paymentByStatus,
+      paymentByEvent,
+      monthlyPaymentTrend,
+      yearlyPaymentSummary,
     ] = await Promise.all([
       buildRegistrationTrend(filters),
       prisma.event.groupBy({
@@ -247,6 +592,13 @@ export const adminStatisticsService = {
           name: true,
         },
       }),
+      getPaymentMetrics(filters),
+      getPaymentTrend(filters),
+      getPaymentByMethod(filters),
+      getPaymentByStatus(filters),
+      getPaymentByEvent(filters),
+      getMonthlyPaymentTrend(filters, currentYear),
+      getYearlyPaymentSummary(filters),
     ]);
 
     const categories = await prisma.category.findMany({
@@ -310,6 +662,13 @@ export const adminStatisticsService = {
       eventsByCategory,
       registrationsByDepartment,
       eventStatusDistribution,
+      paymentMetrics,
+      paymentTrend,
+      paymentByMethod,
+      paymentByStatus,
+      paymentByEvent,
+      monthlyPaymentTrend,
+      yearlyPaymentSummary,
     };
   },
 };

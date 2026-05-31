@@ -19,6 +19,7 @@ import { seedEventTeamActivities } from './seeds/12-event-team-activities';
 import { seedEventTeamPermissions } from './seeds/13-event-team-permissions';
 import { seedTickets } from './seeds/14-tickets';
 import { seedUserBadges } from './seeds/15-user-badges';
+import { seedPayments, seedPaymentScenarios } from './seeds/16-payments';
 
 // Load environment variables
 dotenv.config();
@@ -68,6 +69,7 @@ async function resetDatabase(preserveUsers: boolean) {
             prisma.ticket.deleteMany(),
             prisma.userBadge.deleteMany(),
             prisma.badge.deleteMany(),
+            prisma.payment.deleteMany(),
             prisma.event.deleteMany(),
             prisma.category.deleteMany(),
             prisma.department.deleteMany(),
@@ -86,6 +88,7 @@ async function resetDatabase(preserveUsers: boolean) {
             prisma.ticket.deleteMany(),
             prisma.userBadge.deleteMany(),
             prisma.badge.deleteMany(),
+            prisma.payment.deleteMany(),
             prisma.event.deleteMany(),
             prisma.user.deleteMany(),
             prisma.category.deleteMany(),
@@ -120,6 +123,8 @@ async function printSummary() {
         ongoingEvents,
         completedEvents,
         cancelledEvents,
+        paymentCount,
+        paidPaymentCount,
     ] = await Promise.all([
         prisma.department.count(),
         prisma.category.count(),
@@ -143,6 +148,8 @@ async function printSummary() {
         prisma.event.count({ where: { status: 'ongoing' } }),
         prisma.event.count({ where: { status: 'completed' } }),
         prisma.event.count({ where: { status: 'cancelled' } }),
+        prisma.payment.count(),
+        prisma.payment.count({ where: { status: 'paid' } }),
     ]);
 
     console.log('\n🎉 Database seeding completed successfully!\n');
@@ -168,6 +175,7 @@ async function printSummary() {
     console.log(`   - Event Team Permissions: ${permissionCount} permission overrides`);
     console.log(`   - Ticket module: ${ticketCount} tickets`);
     console.log(`   - Gamification module: ${badgeCount} badge definitions, ${userBadgeCount} user badges`);
+    console.log(`   - Payments module: ${paymentCount} payments (${paidPaymentCount} paid)`);
 }
 
 async function main() {
@@ -285,6 +293,28 @@ async function main() {
         });
     } catch (e) {
         console.warn('⚠️  User badges seeding skipped:', (e as Error).message);
+    }
+
+    // 16. Seed Payments
+    try {
+        const allRegistrations = await prisma.registration.findMany();
+        const allEvents = await prisma.event.findMany();
+        const allUsers = await prisma.user.findMany();
+
+        await seedPayments(prisma, {
+            events: allEvents,
+            registrations: allRegistrations,
+            users: allUsers,
+        });
+
+        // Add payment scenarios for better visualization
+        await seedPaymentScenarios(prisma, {
+            events: allEvents,
+            registrations: [],
+            users: allUsers,
+        });
+    } catch (e) {
+        console.warn('⚠️  Payments seeding skipped:', (e as Error).message);
     }
 
     await printSummary();

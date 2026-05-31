@@ -21,11 +21,28 @@ interface Trends {
     activeOrganizers: Trend;
 }
 
+interface PaymentMetrics {
+    totalRevenue: number;
+    totalPaidCount: number;
+    totalPendingAmount: number;
+    totalPendingCount: number;
+    totalFailedAmount: number;
+    totalFailedCount: number;
+    averageOrderValue: number;
+}
+
 interface ChartData {
     userRegistrationTrend: Array<{ date: string; count: number }>;
     eventsByCategory: Array<{ categoryId: string; categoryName: string; count: number }>;
     registrationsByDepartment: Array<{ departmentId: string; departmentName: string; count: number }>;
     eventStatusDistribution: Array<{ status: string; count: number; percentage: number }>;
+    paymentMetrics: PaymentMetrics;
+    paymentTrend: Array<{ date: string; amount: number; count: number }>;
+    paymentByMethod: Array<{ method: string; count: number; amount: number }>;
+    paymentByStatus: Array<{ status: string; count: number; amount: number }>;
+    paymentByEvent: Array<{ eventId: number; eventName: string; count: number; amount: number }>;
+    monthlyPaymentTrend: Array<{ month: string; amount: number; count: number }>;
+    yearlyPaymentSummary: Array<{ year: string; amount: number; count: number }>;
 }
 
 interface DateRange {
@@ -95,19 +112,36 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
                 ...(filters.category_id && { category_id: Number(filters.category_id) || undefined }),
             };
 
+            console.log('[StatisticsStore] Fetching with params:', params);
+
             const [metricsData, chartsData] = await Promise.all([
                 adminStatisticsService.getDashboard(params),
                 adminStatisticsService.getCharts(params),
             ]);
 
+            console.log('[StatisticsStore] metricsData:', JSON.stringify(metricsData, null, 2));
+            console.log('[StatisticsStore] chartsData:', JSON.stringify(chartsData, null, 2));
+            console.log('[StatisticsStore] chartsData keys:', Object.keys(chartsData || {}));
+
+            // Service already extracts response.data.data, so:
+            // metricsData = { metrics: {...}, trends: {...} }
+            // chartsData = { userRegistrationTrend: [...], eventStatusDistribution: [...], ... }
+
+            const metrics = metricsData.metrics ?? null;
+            const trends = metricsData.trends ?? null;
+
+            console.log('[StatisticsStore] Setting metrics:', metrics);
+            console.log('[StatisticsStore] Setting trends:', trends);
+            console.log('[StatisticsStore] Setting chartData:', chartsData);
+
             set({
-                // BE wraps response in { success, data: { metrics, trends } }
-                metrics: (metricsData as any).metrics ?? metricsData,
-                trends: (metricsData as any).trends ?? null,
-                chartData: (chartsData as any).data ?? (chartsData as any) ?? null,
+                metrics: metrics,
+                trends: trends,
+                chartData: chartsData,
                 loading: false,
             });
         } catch (error) {
+            console.error('[StatisticsStore] Error:', error);
             set({ error: toErrorMessage(error), loading: false });
         }
     },

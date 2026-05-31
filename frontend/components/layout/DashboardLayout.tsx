@@ -92,7 +92,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 { href: '/dashboard/tickets', icon: Ticket, label: 'Vé của tôi' },
                 { href: '/dashboard/checkin', icon: QrCode, label: 'Check-in & Điểm danh' },
                 { href: '/dashboard/statistics', icon: BarChart3, label: 'Thống kê' },
-                { href: '/dashboard/training-points', icon: Award, label: 'Điểm rèn luyện' },
                 { href: '/dashboard/settings', icon: Settings, label: 'Cài đặt' },
             ];
         }
