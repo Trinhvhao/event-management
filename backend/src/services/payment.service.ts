@@ -311,7 +311,11 @@ export const confirmPayment = async (
         }),
         prisma.registration.update({
             where: { id: payment.registration_id },
-            data: { qr_code: qrCodeDataUrl },
+            data: { 
+                qr_code: qrCodeDataUrl,
+                approval_status: 'approved',
+                status: 'registered', // Keep as registered (confirmed payment = approved)
+            },
         }),
     ]);
 
