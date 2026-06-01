@@ -206,22 +206,42 @@ export const handleSePayWebhook = async (payload: {
     if (payload.transferType !== 'in') return { success: true, message: 'Ignored: not incoming' };
     if (!payload.content || !payload.transferAmount) return { success: false, message: 'Missing fields' };
 
-    // Normalize: remove all dashes from content (some banks strip dashes when sending)
-    const normalizedContent = payload.content.replace(/-/g, '');
+    // Normalize: remove all dashes and spaces from content
+    const normalizedContent = payload.content.replace(/[- ]/g, '');
 
     // 1. Try exact normalized_code lookup (new payments)
     let payment = await prisma.payment.findUnique({
         where: { normalized_code: normalizedContent },
     });
 
-    // 2. Fallback: try payos_order_id without dashes (old payments created before this fix)
+    // 2. Fallback: try matching by EVT code extraction
+    // Content like "EVT162159531393 I2AHCQ54/13" -> extract "EVT162159531393"
     if (!payment) {
-        payment = await prisma.payment.findFirst({
+        const evtMatch = payload.content.match(/EVT(\d+)/i);
+        if (evtMatch) {
+            const evtCode = evtMatch[0].toUpperCase();
+            payment = await prisma.payment.findFirst({
+                where: {
+                    payos_order_id: { contains: evtCode.replace('EVT', '') },
+                    status: 'pending',
+                },
+            });
+        }
+    }
+
+    // 3. Fallback: try matching by amount only (for auto-confirm by exact amount)
+    if (!payment && payload.transferAmount) {
+        const pendingPayments = await prisma.payment.findMany({
             where: {
-                payos_order_id: { endsWith: normalizedContent.replace(/^EVT/, '') },
+                amount: String(payload.transferAmount),
                 status: 'pending',
             },
+            orderBy: { created_at: 'desc' },
+            take: 1,
         });
+        if (pendingPayments.length > 0) {
+            payment = pendingPayments[0];
+        }
     }
 
     if (!payment) return { success: true, message: 'Payment not found' };
